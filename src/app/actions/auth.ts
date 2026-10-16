@@ -1,0 +1,81 @@
+"use server";
+
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { parseIdentifier } from "@/lib/identifier";
+import { getT } from "@/lib/i18n/server";
+import { LOCALES, LOCALE_COOKIE, type Locale } from "@/lib/i18n/dictionaries";
+
+export type FormState = { error?: string; message?: string } | null;
+
+async function writeLocaleCookie(locale: Locale) {
+  (await cookies()).set(LOCALE_COOKIE, locale, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+}
+
+export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { t } = await getT();
+  const parsed = parseIdentifier(String(formData.get("identifier") ?? ""));
+  const password = String(formData.get("password") ?? "");
+  if (!parsed || !password) return { error: t("login.invalid") };
+
+  let email = parsed.email;
+  // الهاتف قد يُكتب بصيغ مختلفة (+222…، 00222…، بدون مفتاح الدولة): نطابق آخر 8 أرقام.
+  if (parsed.phoneTail && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data } = await createAdminClient()
+      .from("profiles")
+      .select("email")
+      .like("phone", `%${parsed.phoneTail}`)
+      .limit(2);
+    if (data && data.length === 1 && data[0].email) email = data[0].email;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { error: t("login.invalid") };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase.from("profiles").select("locale").eq("id", user.id).maybeSingle();
+    if (profile?.locale && LOCALES.includes(profile.locale as Locale)) {
+      await writeLocaleCookie(profile.locale as Locale);
+    }
+  }
+  redirect("/");
+}
+
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}
+
+export async function requestReset(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { t } = await getT();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (email.includes("@")) {
+    const h = await headers();
+    const origin = h.get("origin") ?? `https://${h.get("host")}`;
+    const supabase = await createClient();
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    });
+  }
+  // رسالة موحّدة حتى لا نكشف وجود الحساب
+  return { message: t("forgot.sent") };
+}
+
+export async function setLocale(locale: Locale) {
+  if (!LOCALES.includes(locale)) return;
+  await writeLocaleCookie(locale);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) await supabase.from("profiles").update({ locale }).eq("id", user.id);
+  revalidatePath("/", "layout");
+}

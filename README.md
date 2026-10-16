@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Neuron
 
-## Getting Started
+تطبيق ويب PWA لطلاب الذكاء الاصطناعي (S3/S4) — Next.js + Supabase. المواصفات الكاملة في `neuron-spec.md` (مشروع Claude).
 
-First, run the development server:
+**الحالة:** المرحلة 1 (النواة): الحسابات والأدوار، المواد والحصص والتقدم، التمارين والاستيراد الجماعي، الجدول والعدّاد، لوحة المشرف والموافقة، العربية/الفرنسية، الوضع الداكن.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## الإعداد (مرة واحدة)
+
+1. **قاعدة البيانات:** في Supabase → SQL Editor نفّذ محتوى `supabase/migrations/0001_phase1_core.sql` (ينشئ الجداول وسياسات RLS ومخزن الملفات ومواد S3 ودفعة افتراضية).
+2. **المفاتيح:** انسخ `.env.example` إلى `.env.local` وعبّئه (Supabase → Project Settings → API). ضع القيم نفسها في Vercel → Settings → Environment Variables. **لا تُرسل `SUPABASE_SERVICE_ROLE_KEY` لأي شخص ولا في أي دردشة.**
+3. **أول مدير:**
+   ```bash
+   npm install
+   node --env-file=.env.local scripts/create-admin.mjs "الاسم الكامل" you@example.com "كلمة-سر-قوية"
+   ```
+4. **الدخول:** `npm run dev` ثم `http://localhost:3000/login`. من لوحة المشرف ← الحسابات أنشئ المشرفين والطلاب.
+5. **استعادة كلمة السر بالبريد:** في Supabase → Authentication → URL Configuration أضف عنوان موقعك في Vercel إلى Redirect URLs (مثل `https://neuron.vercel.app/auth/callback`).
+6. **إبقاء Supabase نشطاً:** أضف السرّين `SUPABASE_URL` و`SUPABASE_ANON_KEY` في GitHub → Settings → Secrets → Actions؛ سير العمل `keep-alive.yml` يعمل كل 3 أيام.
+
+## ملاحظات تصميمية
+
+- **الدخول بالهاتف:** الهاتف معرّف فقط بلا SMS؛ يُحوَّل داخلياً إلى بريد `<digits>@phone.neuron.local`. عند الدخول تُطابَق آخر 8 أرقام، فيصح `+222…` أو بدون مفتاح الدولة.
+- **النشر:** ما يرفعه المشرف يصبح «بانتظار الموافقة» (trigger في قاعدة البيانات) إلا لمن مُنح «نشر مباشر». الطلاب لا يرون إلا المنشور (RLS).
+- **رفع الملفات:** من المتصفح مباشرة إلى Supabase Storage (حد 50MB)، والتحميل بروابط موقّعة لمدة ساعة.
+- **المنطقة الزمنية:** يحسب عدّاد الحصص المنجزة حسب `APP_TIMEZONE` (الافتراضي UTC).
+- **Next.js 16:** `middleware` صار `src/proxy.ts`، و`cacheComponents` معطّل لأن كل الصفحات خلف تسجيل الدخول.
+
+## البنية
+
+```
+src/proxy.ts                 تحديث الجلسة + إعادة التوجيه لصفحة الدخول
+src/app/(app)/…              الصفحات المحمية (الرئيسية، المواد، تدرّب، الجدول، الملف، admin)
+src/app/actions/…            Server Actions
+src/lib/i18n/…               القواميس عربي/فرنسي
+supabase/migrations/…        المخطط وسياسات RLS
+scripts/create-admin.mjs     إنشاء أول مدير
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## القادم
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+المرحلة 2: Arena والترتيب والأخطاء والمراجعة. المرحلة 3: المساعد الذكي (RAG). المرحلة 4: التسجيلات وDuel والإشعارات.

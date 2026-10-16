@@ -1,26 +1,140 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* الوضع الفاتح: بسيط ونظيف */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f6f7f9;
+  --border: #e5e7eb;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  --accent-soft: #eff4ff;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warn: #d97706;
+  --radius: 0.75rem;
+}
+
+/* الوضع الداكن: داكن تقني */
+.dark {
+  --bg: #0a0e16;
+  --surface: #0f1522;
+  --surface-2: #131b2b;
+  --border: #1f2a3d;
+  --fg: #e6edf7;
+  --muted: #8a98b0;
+  --accent: #4f8cff;
+  --accent-fg: #06101f;
+  --accent-soft: #11203f;
+  --danger: #f87171;
+  --success: #4ade80;
+  --warn: #fbbf24;
+  --radius: 0.5rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --font-sans: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* لمسة monospace في الوضع الداكن */
+.dark .tech,
+.dark .page-title {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+@layer components {
+  .card {
+    @apply rounded-[var(--radius)] border border-border bg-surface p-4;
+  }
+  .btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius)] border border-border bg-surface px-4 text-sm font-medium transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent bg-accent text-accent-fg hover:bg-accent hover:opacity-90;
+  }
+  .btn-danger {
+    @apply text-danger;
+  }
+  .btn-sm {
+    @apply min-h-8 px-3 text-xs;
+  }
+  .input {
+    @apply min-h-10 w-full rounded-[var(--radius)] border border-border bg-surface px-3 text-sm outline-none transition-colors placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
+  }
+  textarea.input {
+    @apply py-2;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium text-muted;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs text-muted;
+  }
+  .badge-accent {
+    @apply border-transparent bg-accent-soft text-accent;
+  }
+  .page-title {
+    @apply mb-4 text-xl font-semibold;
+  }
+}
+
+/* KaTeX داخل النص RTL */
+.katex {
+  direction: ltr;
+}
+.rich p {
+  margin-block: 0.5rem;
+}
+.rich pre {
+  direction: ltr;
+  overflow-x: auto;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+.rich code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+.rich ul {
+  list-style: disc;
+  padding-inline-start: 1.25rem;
+}
+.rich ol {
+  list-style: decimal;
+  padding-inline-start: 1.25rem;
 }
