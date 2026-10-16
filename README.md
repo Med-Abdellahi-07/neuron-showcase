@@ -18,7 +18,7 @@
    ```
 4. **الدخول:** `npm run dev` ثم `http://localhost:3000/login`. من لوحة المشرف ← الحسابات أنشئ المشرفين والطلاب.
 5. **استعادة كلمة السر بالبريد:** في Supabase → Authentication → URL Configuration أضف عنوان موقعك في Vercel إلى Redirect URLs (مثل `https://neuron.vercel.app/auth/callback`).
-6. **إبقاء Supabase نشطاً:** أضف السرّين `SUPABASE_URL` و`SUPABASE_ANON_KEY` في GitHub → Settings → Secrets → Actions؛ سير العمل `keep-alive.yml` يعمل كل 3 أيام.
+6. **إبقاء Supabase نشطاً:** نفّذ `supabase/migrations/0004_ping.sql` (دالة `ping()` يستدعيها anon فقط)، ثم أضف السرّين `SUPABASE_URL` و`SUPABASE_ANON_KEY` في GitHub → Settings → Secrets → Actions؛ سير العمل `keep-alive.yml` يستدعي `/rest/v1/rpc/ping` كل 3 أيام ويفشل إن لم يكن الرد 200.
 
 ## Arena والترتيب (المرحلة 2)
 
