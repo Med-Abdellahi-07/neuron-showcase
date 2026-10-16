@@ -13,51 +13,48 @@ export default async function HomePage() {
   const { t, locale } = await getT();
   const supabase = await createClient();
   const today = todayISO();
-  const subjects = await getCurrentSubjects();
+  const cohortId = profile.cohort_id;
+
+  // كل هذه الاستعلامات مستقلة عن بعضها، فتُنفَّذ معاً في موجة واحدة
+  const [subjects, sessionsRes, annsRes, lessonsRes, progressRes] = await Promise.all([
+    getCurrentSubjects(),
+    cohortId
+      ? supabase
+          .from("schedule_sessions")
+          .select("*")
+          .eq("cohort_id", cohortId)
+          .gte("session_date", today)
+          .neq("status", "cancelled")
+          .order("session_date")
+          .order("slot")
+          .limit(40)
+      : null,
+    cohortId
+      ? supabase
+          .from("announcements")
+          .select("*")
+          .eq("cohort_id", cohortId)
+          .order("pinned", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(5)
+      : null,
+    supabase.from("lessons").select("id, subject_id").neq("kind", "resume").eq("status", "published"),
+    supabase.from("lesson_progress").select("lesson_id").eq("user_id", profile.id),
+  ]);
+
   const byId = new Map(subjects.map((s) => [s.id, s]));
-
-  let next: ScheduleSession | null = null;
-  let announcements: Announcement[] = [];
-
-  if (profile.cohort_id) {
-    const [{ data: sessions }, { data: anns }] = await Promise.all([
-      supabase
-        .from("schedule_sessions")
-        .select("*")
-        .eq("cohort_id", profile.cohort_id)
-        .gte("session_date", today)
-        .neq("status", "cancelled")
-        .order("session_date")
-        .order("slot")
-        .limit(40),
-      supabase
-        .from("announcements")
-        .select("*")
-        .eq("cohort_id", profile.cohort_id)
-        .order("pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
-    next =
-      ((sessions ?? []) as ScheduleSession[]).find(
-        (s) => !hasEnded(s, today) && visibleForGroup(s, byId.get(s.subject_id)?.code, profile)
-      ) ?? null;
-    announcements = (anns ?? []) as Announcement[];
-  }
+  const next =
+    ((sessionsRes?.data ?? []) as ScheduleSession[]).find(
+      (s) => !hasEnded(s, today) && visibleForGroup(s, byId.get(s.subject_id)?.code, profile)
+    ) ?? null;
+  const announcements = (annsRes?.data ?? []) as Announcement[];
 
   // التقدم: الحصص المنشورة (CM/TD/TP) في مواد السداسي الحالي مقابل ما درسه الطالب
-  const subjectIds = subjects.map((s) => s.id);
-  let total = 0;
-  let studied = 0;
-  if (subjectIds.length) {
-    const [{ data: lessons }, { data: progress }] = await Promise.all([
-      supabase.from("lessons").select("id").in("subject_id", subjectIds).neq("kind", "resume").eq("status", "published"),
-      supabase.from("lesson_progress").select("lesson_id").eq("user_id", profile.id),
-    ]);
-    const ids = new Set((lessons ?? []).map((l) => l.id as string));
-    total = ids.size;
-    studied = (progress ?? []).filter((p) => ids.has(p.lesson_id as string)).length;
-  }
+  const lessonIds = new Set(
+    (lessonsRes.data ?? []).filter((l) => byId.has(l.subject_id as string)).map((l) => l.id as string)
+  );
+  const total = lessonIds.size;
+  const studied = (progressRes.data ?? []).filter((p) => lessonIds.has(p.lesson_id as string)).length;
   const pct = total ? Math.round((studied / total) * 100) : 0;
   const nextSubject = next ? byId.get(next.subject_id) : undefined;
   const nextSlot = next ? SLOTS.find((s) => s.n === next!.slot) : undefined;

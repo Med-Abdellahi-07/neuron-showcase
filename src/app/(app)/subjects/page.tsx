@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { requireProfile } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
 
 export default async function SubjectsPage() {
-  const profile = await requireProfile();
+  const userId = await requireUserId();
   const { t } = await getT();
   const supabase = await createClient();
-  const subjects = await getCurrentSubjects();
 
-  const [{ data: lessons }, { data: progress }] = await Promise.all([
+  const [subjects, { data: lessons }, { data: progress }] = await Promise.all([
+    getCurrentSubjects(),
     supabase.from("lessons").select("id, subject_id").neq("kind", "resume").eq("status", "published"),
-    supabase.from("lesson_progress").select("lesson_id").eq("user_id", profile.id),
+    supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId),
   ]);
   const studiedSet = new Set((progress ?? []).map((p) => p.lesson_id as string));
   const stats = new Map<string, { total: number; studied: number }>();

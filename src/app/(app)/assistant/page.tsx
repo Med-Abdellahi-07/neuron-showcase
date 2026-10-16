@@ -1,9 +1,9 @@
 import { Bot } from "lucide-react";
-import { requireProfile } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 
 export default async function AssistantPage() {
-  await requireProfile();
+  await requireUserId();
   const { t } = await getT();
   return (
     <div>

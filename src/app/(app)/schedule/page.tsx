@@ -32,15 +32,16 @@ export default async function SchedulePage({
   }
 
   const supabase = await createClient();
-  const subjects = await getCurrentSubjects();
+  const [subjects, { data }] = await Promise.all([
+    getCurrentSubjects(),
+    supabase
+      .from("schedule_sessions")
+      .select("*")
+      .eq("cohort_id", profile.cohort_id)
+      .order("session_date")
+      .order("slot"),
+  ]);
   const byId = new Map(subjects.map((s) => [s.id, s]));
-
-  const { data } = await supabase
-    .from("schedule_sessions")
-    .select("*")
-    .eq("cohort_id", profile.cohort_id)
-    .order("session_date")
-    .order("slot");
   const all = ((data ?? []) as ScheduleSession[]).filter((s) =>
     visibleForGroup(s, byId.get(s.subject_id)?.code, profile)
   );

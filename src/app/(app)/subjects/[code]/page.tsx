@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Video } from "lucide-react";
-import { requireProfile } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSubjectByCode } from "@/lib/data";
 import { LESSON_KINDS } from "@/lib/constants";
 
 export default async function SubjectPage({ params }: { params: Promise<{ code: string }> }) {
-  await requireProfile();
+  await requireUserId();
   const { code } = await params;
   const { t } = await getT();
   const subject = await getSubjectByCode(decodeURIComponent(code));

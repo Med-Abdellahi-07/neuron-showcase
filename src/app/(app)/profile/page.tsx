@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/actions/auth";
 import { LangSwitch } from "@/components/lang-switch";
 import { ENGLISH_CODE } from "@/lib/constants";
+import { getSubjectByCode } from "@/lib/data";
 import { ThemeSelect } from "./theme-select";
 import { PreferencesForm } from "./preferences-form";
 import { PasswordForm } from "./password-form";
@@ -18,7 +19,7 @@ export default async function ProfilePage() {
   // مجموعات الإنجليزية المعروفة من الجدول، كاقتراحات
   let groupOptions: string[] = [];
   if (profile.cohort_id) {
-    const { data: subject } = await supabase.from("subjects").select("id").eq("code", ENGLISH_CODE).maybeSingle();
+    const subject = await getSubjectByCode(ENGLISH_CODE);
     if (subject) {
       const { data } = await supabase
         .from("schedule_sessions")

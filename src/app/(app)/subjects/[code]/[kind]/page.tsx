@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
-import { requireProfile } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSubjectByCode } from "@/lib/data";
@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/dates";
 import type { Lesson, LessonKind } from "@/lib/types";
 
 export default async function KindPage({ params }: { params: Promise<{ code: string; kind: string }> }) {
-  const profile = await requireProfile();
+  const userId = await requireUserId();
   const { code, kind } = await params;
   if (!LESSON_KINDS.includes(kind as LessonKind)) notFound();
   const { t, locale } = await getT();
@@ -26,7 +26,7 @@ export default async function KindPage({ params }: { params: Promise<{ code: str
       .eq("kind", kind)
       .eq("status", "published")
       .order("number"),
-    supabase.from("lesson_progress").select("lesson_id").eq("user_id", profile.id),
+    supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId),
   ]);
   const studied = new Set((progress ?? []).map((p) => p.lesson_id as string));
   const rows = (lessons ?? []) as Pick<Lesson, "id" | "number" | "title" | "lesson_date">[];

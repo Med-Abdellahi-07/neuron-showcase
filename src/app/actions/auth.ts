@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseIdentifier } from "@/lib/identifier";
 import { getT } from "@/lib/i18n/server";
+import { getUserId } from "@/lib/auth";
 import { LOCALES, LOCALE_COOKIE, type Locale } from "@/lib/i18n/dictionaries";
 
 export type FormState = { error?: string; message?: string } | null;
@@ -33,12 +34,11 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: t("login.invalid") };
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // المستخدم يأتي من نتيجة تسجيل الدخول نفسها — لا حاجة لطلب getUser إضافي
+  const user = signIn.user;
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("locale").eq("id", user.id).maybeSingle();
     if (profile?.locale && LOCALES.includes(profile.locale as Locale)) {
@@ -72,10 +72,10 @@ export async function requestReset(_prev: FormState, formData: FormData): Promis
 export async function setLocale(locale: Locale) {
   if (!LOCALES.includes(locale)) return;
   await writeLocaleCookie(locale);
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) await supabase.from("profiles").update({ locale }).eq("id", user.id);
+  const userId = await getUserId();
+  if (userId) {
+    const supabase = await createClient();
+    await supabase.from("profiles").update({ locale }).eq("id", userId);
+  }
   revalidatePath("/", "layout");
 }

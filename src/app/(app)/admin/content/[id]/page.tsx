@@ -8,7 +8,8 @@ import { ActionForm } from "@/components/action-form";
 import { ConfirmButton } from "@/components/confirm-button";
 import { FileUploader } from "@/components/file-uploader";
 import { StatusBadge } from "@/components/status-badge";
-import type { Lesson, LessonFile, Subject } from "@/lib/types";
+import { getSubjectById } from "@/lib/data";
+import type { Lesson, LessonFile } from "@/lib/types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -19,14 +20,14 @@ export default async function EditLessonPage({ params }: { params: Promise<{ id:
   const { t } = await getT();
   const supabase = await createClient();
 
-  const { data: row } = await supabase.from("lessons").select("*").eq("id", id).maybeSingle();
-  if (!row) notFound();
-  const lesson = row as Lesson;
-  const [{ data: subjectRow }, { data: fileRows }] = await Promise.all([
-    supabase.from("subjects").select("*").eq("id", lesson.subject_id).single(),
+  const [{ data: row }, { data: fileRows }] = await Promise.all([
+    supabase.from("lessons").select("*").eq("id", id).maybeSingle(),
     supabase.from("lesson_files").select("*").eq("lesson_id", id).order("created_at"),
   ]);
-  const subject = subjectRow as Subject;
+  if (!row) notFound();
+  const lesson = row as Lesson;
+  const subject = await getSubjectById(lesson.subject_id);
+  if (!subject) notFound();
   const files = (fileRows ?? []) as LessonFile[];
   const canPublish = profile.role === "admin" || profile.can_publish_direct;
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireProfile } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
@@ -20,7 +20,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default async function PracticePage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireProfile();
+  await requireUserId();
   const sp = await searchParams;
   const { t } = await getT();
   const supabase = await createClient();
@@ -34,29 +34,35 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
   const count = Math.min(Math.max(parseInt(one(sp.count), 10) || 10, 1), 50);
   const started = one(sp.start) === "1";
 
-  let lessonTitle = "";
-  if (lessonId) {
-    const { data } = await supabase.from("lessons").select("title, number, kind").eq("id", lessonId).maybeSingle();
-    if (data) lessonTitle = `${String(data.kind).toUpperCase()} ${data.number} — ${data.title}`;
-  }
+  const subject = subjectCode ? subjects.find((s) => s.code === subjectCode) : undefined;
+
+  const questionsQuery = started
+    ? (() => {
+        let q = supabase
+          .from("questions")
+          .select("id, type, difficulty, statement, options, correct_index, model_answer, explanation, subject_id, lessons(number)")
+          .eq("status", "published")
+          .limit(500);
+        if (lessonId) q = q.eq("lesson_id", lessonId);
+        else if (subject) q = q.eq("subject_id", subject.id);
+        if (difficulty) q = q.eq("difficulty", difficulty);
+        return q;
+      })()
+    : null;
+
+  // عنوان الحصة والأسئلة مستقلان: يُجلبان معاً
+  const [lessonRes, questionsRes] = await Promise.all([
+    lessonId ? supabase.from("lessons").select("title, number, kind").eq("id", lessonId).maybeSingle() : null,
+    questionsQuery,
+  ]);
+  const lessonTitle = lessonRes?.data
+    ? `${String(lessonRes.data.kind).toUpperCase()} ${lessonRes.data.number} — ${lessonRes.data.title}`
+    : "";
 
   let questions: QuizQuestion[] = [];
-  if (started) {
-    let query = supabase
-      .from("questions")
-      .select("id, type, difficulty, statement, options, correct_index, model_answer, explanation, subject_id, lessons(number)")
-      .eq("status", "published")
-      .limit(500);
-    if (lessonId) query = query.eq("lesson_id", lessonId);
-    else if (subjectCode) {
-      const subject = subjects.find((s) => s.code === subjectCode);
-      if (subject) query = query.eq("subject_id", subject.id);
-    }
-    if (difficulty) query = query.eq("difficulty", difficulty);
-    const { data } = await query;
-
+  if (questionsRes) {
     type Row = QuizQuestion & { lessons: { number: number } | { number: number }[] | null };
-    let rows = (data ?? []) as unknown as Row[];
+    let rows = (questionsRes.data ?? []) as unknown as Row[];
     if (!Number.isNaN(from) || !Number.isNaN(to)) {
       rows = rows.filter((r) => {
         const lesson = Array.isArray(r.lessons) ? r.lessons[0] : r.lessons;

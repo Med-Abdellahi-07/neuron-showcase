@@ -18,10 +18,12 @@ export default async function AdminContentPage({
   const { t } = await getT();
   const sp = await searchParams;
   const filterCode = (Array.isArray(sp.s) ? sp.s[0] : sp.s) ?? "";
-  const subjects = await getAllSubjects();
   const supabase = await createClient();
 
-  const { data } = await supabase.from("lessons").select("*").order("number");
+  const [subjects, { data }] = await Promise.all([
+    getAllSubjects(),
+    supabase.from("lessons").select("*").order("number"),
+  ]);
   const lessons = (data ?? []) as Lesson[];
   const shown = subjects.filter((s) => !filterCode || s.code === filterCode);
 

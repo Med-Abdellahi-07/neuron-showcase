@@ -1,30 +1,35 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Bot, Download, Dumbbell, ExternalLink, FileText, NotebookPen } from "lucide-react";
-import { requireProfile } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { StudiedButton } from "@/components/studied-button";
+import { getSubjectById } from "@/lib/data";
 import { formatDate } from "@/lib/dates";
-import type { Lesson, LessonFile, Subject } from "@/lib/types";
+import type { Lesson, LessonFile } from "@/lib/types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function LessonPage({ params }: { params: Promise<{ id: string }> }) {
-  const profile = await requireProfile();
+  const userId = await requireUserId();
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
   const { t, locale } = await getT();
   const supabase = await createClient();
 
-  const { data: lessonRow } = await supabase.from("lessons").select("*").eq("id", id).maybeSingle();
+  // الموجة 1: كل ما يكفيه معرّف الحصة من الرابط يُجلب معاً
+  const [{ data: lessonRow }, { data: fileRows }, { data: prog }] = await Promise.all([
+    supabase.from("lessons").select("*").eq("id", id).maybeSingle(),
+    supabase.from("lesson_files").select("*").eq("lesson_id", id).order("created_at"),
+    supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId).eq("lesson_id", id).maybeSingle(),
+  ]);
   if (!lessonRow) notFound();
   const lesson = lessonRow as Lesson;
+  const files = (fileRows ?? []) as LessonFile[];
 
-  const [{ data: subjectRow }, { data: fileRows }, { data: prog }, { data: resumeRow }] = await Promise.all([
-    supabase.from("subjects").select("*").eq("id", lesson.subject_id).single(),
-    supabase.from("lesson_files").select("*").eq("lesson_id", lesson.id).order("created_at"),
-    supabase.from("lesson_progress").select("lesson_id").eq("user_id", profile.id).eq("lesson_id", lesson.id).maybeSingle(),
+  // الموجة 2: ما يحتاج بيانات الحصة (الملخص، الروابط الموقّعة، المادة من الكتالوج المخزَّن)
+  const [{ data: resumeRow }, signed, subject] = await Promise.all([
     lesson.kind === "resume"
       ? Promise.resolve({ data: null })
       : supabase
@@ -35,20 +40,18 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
           .eq("number", lesson.number)
           .eq("status", "published")
           .maybeSingle(),
+    files.length
+      ? supabase.storage.from("lesson-files").createSignedUrls(files.map((f) => f.storage_path), 3600)
+      : Promise.resolve(null),
+    getSubjectById(lesson.subject_id),
   ]);
-  const subject = subjectRow as Subject;
-  const files = (fileRows ?? []) as LessonFile[];
+  if (!subject) notFound();
 
   // روابط موقّعة لمدة ساعة
   const urls = new Map<string, string>();
-  if (files.length) {
-    const { data: signed } = await supabase.storage
-      .from("lesson-files")
-      .createSignedUrls(files.map((f) => f.storage_path), 3600);
-    signed?.forEach((s, i) => {
-      if (s.signedUrl) urls.set(files[i].id, s.signedUrl);
-    });
-  }
+  signed?.data?.forEach((s, i) => {
+    if (s.signedUrl) urls.set(files[i].id, s.signedUrl);
+  });
   const pdfs = files.filter((f) => f.kind === "pdf");
   const others = files.filter((f) => f.kind !== "pdf");
 

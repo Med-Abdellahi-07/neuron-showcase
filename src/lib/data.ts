@@ -1,29 +1,33 @@
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { getCatalog } from "@/lib/catalog";
 import { ENGLISH_CODE, SLOTS } from "@/lib/constants";
 import { nowHM } from "@/lib/dates";
 import type { Profile, ScheduleSession, Subject } from "@/lib/types";
 
-/** مواد السداسي الحالي */
+/** مواد السداسي الحالي (من الكتالوج المخزَّن مؤقتاً، بلا استعلام لكل طلب) */
 export const getCurrentSubjects = cache(async (): Promise<Subject[]> => {
-  const supabase = await createClient();
-  const { data: sem } = await supabase.from("semesters").select("id").eq("is_current", true).maybeSingle();
-  if (!sem) return [];
-  const { data } = await supabase.from("subjects").select("*").eq("semester_id", sem.id).order("sort");
-  return (data ?? []) as Subject[];
+  const { semesters, subjects } = await getCatalog();
+  const current = semesters.find((s) => s.is_current);
+  return current ? subjects.filter((s) => s.semester_id === current.id) : [];
 });
 
-/** كل المواد (لنماذج المشرف) */
+/** كل المواد مرتبة حسب الفصل ثم الترتيب (لنماذج المشرف) */
 export const getAllSubjects = cache(async (): Promise<Subject[]> => {
-  const supabase = await createClient();
-  const { data } = await supabase.from("subjects").select("*").order("semester_id").order("sort");
-  return (data ?? []) as Subject[];
+  const { semesters, subjects } = await getCatalog();
+  const code = new Map(semesters.map((s) => [s.id, s.code]));
+  return [...subjects].sort(
+    (a, b) => (code.get(a.semester_id) ?? "").localeCompare(code.get(b.semester_id) ?? "") || a.sort - b.sort
+  );
 });
+
+export async function getSubjectById(id: string): Promise<Subject | null> {
+  const { subjects } = await getCatalog();
+  return subjects.find((s) => s.id === id) ?? null;
+}
 
 export async function getSubjectByCode(code: string): Promise<Subject | null> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("subjects").select("*").eq("code", code).maybeSingle();
-  return (data as Subject | null) ?? null;
+  const { subjects } = await getCatalog();
+  return subjects.find((s) => s.code === code) ?? null;
 }
 
 /** مجموعة الإنجليزية: لا نُخفي حصة إلا إذا اختار الطالب مجموعة مختلفة عن مجموعة الحصة */

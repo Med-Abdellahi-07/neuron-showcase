@@ -31,16 +31,18 @@ export default async function AdminSchedulePage({
 
   if (!cohortId) return <p className="card text-sm text-warn">{t("schedule.noCohort")}</p>;
 
-  const subjects = await getAllSubjects();
+  const [subjects, { data }] = await Promise.all([
+    getAllSubjects(),
+    supabase
+      .from("schedule_sessions")
+      .select("*")
+      .eq("cohort_id", cohortId)
+      .gte("session_date", monday)
+      .lte("session_date", addDays(monday, 6))
+      .order("session_date")
+      .order("slot"),
+  ]);
   const byId = new Map(subjects.map((s) => [s.id, s]));
-  const { data } = await supabase
-    .from("schedule_sessions")
-    .select("*")
-    .eq("cohort_id", cohortId)
-    .gte("session_date", monday)
-    .lte("session_date", addDays(monday, 6))
-    .order("session_date")
-    .order("slot");
   const sessions = (data ?? []) as ScheduleSession[];
   const q = (w: string) => `/admin/schedule?w=${w}&c=${cohortId}`;
   const arrow = "size-4 rtl:rotate-180";
