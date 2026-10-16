@@ -1,4 +1,5 @@
-# يرسل طلباً بسيطاً إلى Supabase كل 3 أيام كي لا يتوقف المشروع المجاني في العطل.
+# يستدعي الدالة public.ping() في Supabase كل 3 أيام (استعلام فعلي على قاعدة البيانات)
+# كي لا يتوقف المشروع المجاني في العطل. يتطلب تنفيذ supabase/migrations/0004_ping.sql أولاً.
 # أضف في GitHub → Settings → Secrets and variables → Actions:
 #   SUPABASE_URL  و  SUPABASE_ANON_KEY
 name: keep-supabase-alive
@@ -11,14 +12,23 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST
+      - name: Call public.ping()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY" || { echo "secrets missing"; exit 1; }
-          # الوصول المجهول إلى الجداول ممنوع عمداً (401/403 متوقع)؛ المهم أن الطلب وصل ولم يفشل الخادم (5xx).
-          code=$(curl -s -o /dev/null -w "%{http_code}" "$SUPABASE_URL/rest/v1/semesters?select=id&limit=1" \
-            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          url="${SUPABASE_URL%/}/rest/v1/rpc/ping"
+          # المفاتيح الجديدة (sb_publishable_...) ليست JWT: تُرسل في apikey فقط.
+          # المفاتيح القديمة (eyJ...) تُرسل أيضاً في Authorization.
+          if [[ "$SUPABASE_ANON_KEY" == eyJ* ]]; then
+            code=$(curl -s -o body.txt -w "%{http_code}" -X POST "$url" \
+              -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+              -H "Content-Type: application/json" -d '{}')
+          else
+            code=$(curl -s -o body.txt -w "%{http_code}" -X POST "$url" \
+              -H "apikey: $SUPABASE_ANON_KEY" -H "Content-Type: application/json" -d '{}')
+          fi
           echo "status $code"
-          test "$code" -gt 0 && test "$code" -lt 500
+          cat body.txt; echo
+          test "$code" = "200" || { echo "::error::ping did not return 200 (did you run 0004_ping.sql?)"; exit 1; }
