@@ -58,7 +58,7 @@ export function AiDiagnostics() {
                   </span>
                 </div>
                 {r.model && <p className="tech text-xs text-muted" dir="ltr">{r.model}</p>}
-                <p className="text-xs" dir="auto">{r.detail}</p>
+                <p className="whitespace-pre-wrap break-words text-xs" dir="auto">{r.detail}</p>
                 {r.hint && !r.ok && <p className="text-xs text-warn" dir="auto">{r.hint}</p>}
               </li>
             ))}

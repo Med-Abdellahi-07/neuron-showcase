@@ -29,6 +29,7 @@ export function buildSystemPrompt(opts: {
   course: ContextChunk[];
   web: { id: string; title: string; url: string; text: string }[];
   hasCourseMatch: boolean;
+  smallTalk?: boolean;
   scopeNote: string;
 }): string {
   const parts: string[] = [
@@ -39,13 +40,21 @@ export function buildSystemPrompt(opts: {
     MODE_RULES[opts.mode],
     `SOURCES: below, course excerpts are labelled [C1], [C2]... (with lesson and page) and web results [W1], [W2].... When a statement relies on an excerpt, cite it inline with its marker, e.g. "... [C2]". Never invent a marker or a page. Do not cite things that are not in the excerpts.`,
   ];
-  if (opts.hasCourseMatch) {
+  if (opts.smallTalk) {
+    parts.push(
+      "The student's message is a greeting or small talk. Reply briefly and warmly in their language, then invite a study question. Do NOT add any 'out of curriculum' warning and do not cite sources."
+    );
+  } else if (opts.hasCourseMatch) {
     parts.push(
       `Prefer the course excerpts. If part of the answer is NOT supported by them, say so explicitly and start that part with "⚠ خارج المنهج / Hors programme:".`
     );
+  } else if (opts.web.length) {
+    parts.push(
+      `No relevant course excerpt was found. Start with one line "⚠ خارج المنهج / Hors programme:" and answer ONLY from the web results below (cite [W#]). Interpret every term in the student's field (AI, computer science, mathematics, statistics). If the web results are about another domain or do not answer the question, say so and do not use them.`
+    );
   } else {
     parts.push(
-      `No relevant course excerpt was found for this question. Start your answer with "⚠ خارج المنهج / Hors programme:" (one line) and answer from general knowledge${opts.web.length ? " and the web results below (cite with [W#])" : ""}, being careful and honest about uncertainty.`
+      `No relevant course excerpt and no web result was found. Do NOT answer from general knowledge and do NOT invent a definition (especially not one from another field: a term must be understood in the AI / computer science / mathematics context). Say briefly that you could not find this in the course materials, ask the student to rephrase, name the lesson, or enable the "deepen" option for a web search. You may restate what you understood of the question.`
     );
   }
   if (opts.scopeNote) parts.push(opts.scopeNote);

@@ -41,6 +41,8 @@ function geminiHint(status: number, reason?: string): string | undefined {
       return `النموذج غير موجود أو أُوقف (${geminiModel()}). غيّر GEMINI_MODEL إلى نموذج Flash متاح.`;
     case 429:
       return "تجاوزت حدّ الطلبات المجانية مؤقتاً. سيحوّل النظام تلقائياً إلى Groq.";
+    case 502:
+      return "ردّ Gemini بلا نص. انظر finishReason: MAX_TOKENS = استهلك التفكير الحد؛ SAFETY/PROHIBITED = حظر سلامة؛ STOP مع thoughtsTokens كبير = راجع GEMINI_MODEL. يحوّل النظام تلقائياً إلى Groq.";
     default:
       return status >= 500 ? "عطل مؤقت عند Google. سيحوّل النظام تلقائياً إلى Groq." : undefined;
   }
@@ -77,7 +79,7 @@ async function timed(
       ok: false,
       status: e instanceof AiError ? info.status : null,
       ms: Date.now() - t0,
-      detail: `${info.status || "—"} ${info.message}`.slice(0, 400),
+      detail: `${info.status || "—"} ${info.message}`.slice(0, 1600),
       hint: hintFor(info),
       alert: info.provider === "gemini" && info.status === 401,
     };

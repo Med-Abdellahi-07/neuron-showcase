@@ -6,6 +6,14 @@ import { retrieve } from "@/lib/ai/rag";
 import { tavilySearch, type WebResult } from "@/lib/ai/tavily";
 import { scrubPII } from "@/lib/ai/privacy";
 
+const GREETING =
+  /^(?:(?:hi|hello|hey|salut|bonjour|bonsoir|coucou|merci|thanks?|ok|d'accord|ça va|ca va|مرحبا|مرحباً|السلام عليكم|سلام|أهلا|اهلا|أهلاً|صباح الخير|مساء الخير|شكرا|شكراً|يعطيك العافية|كيف حالك|كيف الحال|شلونك|هلا)(?:[\s,.!؟?،]|وسهلا|بك|ك|you|à tous|tout le monde)*)+$/i;
+/** تحية أو مجاملة قصيرة: لا بحث في الدروس ولا شارة «خارج المنهج» */
+function isSmallTalk(t: string): boolean {
+  const s = t.trim();
+  return s.length <= 40 && GREETING.test(s);
+}
+
 export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -92,12 +100,15 @@ export async function POST(req: Request) {
         // ───────── 1) مقاطع الدروس ─────────
         const lastUser = [...history].reverse().find((m) => m.role === "user");
         const query = scrubPII(text.length < 40 && lastUser ? `${lastUser.content} ${text}` : text);
-        const retrieved = await retrieve(supabase, query, { subjectId: conv.subject_id, lessonId: conv.lesson_id });
+        const smallTalk = isSmallTalk(text) && images.length === 0;
+        const retrieved = smallTalk
+          ? { chunks: [], sources: [], mode: "none" as const, relevant: false }
+          : await retrieve(supabase, query, { subjectId: conv.subject_id, lessonId: conv.lesson_id });
 
         // ───────── 2) بحث الإنترنت (للتعمق، أو عند غياب مقطع مرتبط) ─────────
         let web: WebResult[] = [];
         let webNote = "";
-        if ((body.deepen || !retrieved.relevant) && process.env.TAVILY_API_KEY?.trim()) {
+        if (!smallTalk && (body.deepen || !retrieved.relevant) && process.env.TAVILY_API_KEY?.trim()) {
           const [{ data: okUser }, { data: globalCount }] = await Promise.all([
             supabase.rpc("ai_take", { p_kind: "web", p_window_limit: 4, p_window_seconds: 600, p_day_limit: 10 }),
             supabase.rpc("ai_global_count", { p_kind: "web", p_days: 30 }),
@@ -117,7 +128,7 @@ export async function POST(req: Request) {
           ...retrieved.sources,
           ...web.map((w, i) => ({ id: `W${i + 1}`, kind: "web" as const, label: w.title, url: w.url })),
         ];
-        send({ type: "sources", sources, outOfCurriculum: !retrieved.relevant });
+        send({ type: "sources", sources, outOfCurriculum: !smallTalk && !retrieved.relevant && web.length > 0 });
 
         // ───────── 3) الطلب إلى النموذج: لا بيانات شخصية، فقط نص السؤال المنقّى ─────────
         const scope = conv.lesson_id
@@ -130,6 +141,7 @@ export async function POST(req: Request) {
           course: retrieved.chunks,
           web: web.map((w, i) => ({ id: `W${i + 1}`, title: w.title, url: w.url, text: w.content })),
           hasCourseMatch: retrieved.relevant,
+          smallTalk,
           scopeNote: [scope, webNote].filter(Boolean).join(" "),
         });
         const messages: ChatMsg[] = [

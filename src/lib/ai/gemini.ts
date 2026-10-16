@@ -36,7 +36,16 @@ function headers(apiKey: string): Record<string, string> {
   return { "x-goog-api-key": apiKey, "content-type": "application/json" };
 }
 
-function toBody(o: GenOpts) {
+/** تفكير خفيف: Gemini 3 يستعمل thinkingLevel، و2.5 يستعمل thinkingBudget */
+function thinking(on: boolean): { thinkingConfig: Record<string, unknown> } | undefined {
+  if (!on) return undefined;
+  const m = geminiModel();
+  if (/gemini-3/.test(m)) return { thinkingConfig: { thinkingLevel: "low" } };
+  if (/gemini-2\.5-flash/.test(m)) return { thinkingConfig: { thinkingBudget: 0 } };
+  return undefined;
+}
+
+function toBody(o: GenOpts, thinkingOn = true) {
   return {
     systemInstruction: { parts: [{ text: o.system }] },
     contents: o.messages.map((m) => ({
@@ -48,14 +57,30 @@ function toBody(o: GenOpts) {
     })),
     generationConfig: {
       temperature: o.temperature ?? 0.4,
-      maxOutputTokens: o.maxTokens ?? 2048,
+      // نماذج التفكير تحسب «التفكير» ضمن حد المخرجات؛ نمنحها هامشاً كي لا يبقى النص فارغاً
+      maxOutputTokens: (o.maxTokens ?? 2048) + (thinking(thinkingOn) ? 1024 : 0),
+      ...(thinking(thinkingOn) ?? {}),
       ...(o.json ? { responseMimeType: "application/json" } : {}),
     },
   };
 }
 
 type Part = { text?: string; thought?: boolean };
-const textOf = (j: { candidates?: { content?: { parts?: Part[] } }[] }) =>
+type GenJson = {
+  candidates?: { content?: { parts?: Part[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+  usageMetadata?: { thoughtsTokenCount?: number; candidatesTokenCount?: number };
+};
+
+/** وصف الرد الفارغ: سبب الإنهاء، الحظر، رموز التفكير، والرد الخام */
+function emptyError(j: GenJson): AiError {
+  const finish = j.candidates?.[0]?.finishReason;
+  const block = j.promptFeedback?.blockReason;
+  const raw = JSON.stringify(j).slice(0, 700);
+  const msg = `رد Gemini فارغ — finishReason=${finish ?? "—"}${block ? ` blockReason=${block}` : ""} thoughtsTokens=${j.usageMetadata?.thoughtsTokenCount ?? "—"} model=${geminiModel()} | raw: ${raw}`;
+  return new AiError("gemini", 502, msg, finish ?? block);
+}
+const textOf = (j: GenJson) =>
   (j.candidates?.[0]?.content?.parts ?? [])
     .filter((p) => p.text && !p.thought)
     .map((p) => p.text)
@@ -72,23 +97,37 @@ async function post(path: string, body: unknown, apiKey: string, signal?: AbortS
   return res;
 }
 
+/** إن رفض النموذج حقل thinkingConfig (400) نعيد المحاولة بدونه */
+async function postGen(path: string, o: GenOpts, apiKey: string, timeoutMs: number): Promise<Response> {
+  try {
+    return await post(path, toBody(o, true), apiKey, AbortSignal.timeout(timeoutMs));
+  } catch (e) {
+    if (e instanceof AiError && e.status === 400 && /thinking/i.test(e.message) && thinking(true)) {
+      return post(path, toBody(o, false), apiKey, AbortSignal.timeout(timeoutMs));
+    }
+    throw e;
+  }
+}
+
 export async function geminiGenerate(o: GenOpts): Promise<{ text: string; model: string }> {
   const model = geminiModel();
-  const res = await post(`models/${model}:generateContent`, toBody(o), key(o.apiKeyOverride), AbortSignal.timeout(50_000));
-  const text = textOf(await res.json());
-  if (!text) throw new AiError("gemini", 502, "رد Gemini فارغ");
+  const res = await postGen(`models/${model}:generateContent`, o, key(o.apiKeyOverride), 50_000);
+  const j = (await res.json()) as GenJson;
+  const text = textOf(j);
+  if (!text) throw emptyError(j);
   return { text, model };
 }
 
 /** بثّ النص تدريجياً (SSE). يرمي AiError قبل أول جزء إن فشل الطلب. */
 export async function* geminiStream(o: GenOpts): AsyncGenerator<string> {
   const model = geminiModel();
-  const res = await post(`models/${model}:streamGenerateContent?alt=sse`, toBody(o), key(o.apiKeyOverride), AbortSignal.timeout(55_000));
+  const res = await postGen(`models/${model}:streamGenerateContent?alt=sse`, o, key(o.apiKeyOverride), 55_000);
   if (!res.body) throw new AiError("gemini", 502, "لا يوجد جسم للرد");
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
   let any = false;
+  let last: GenJson = {};
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -101,7 +140,9 @@ export async function* geminiStream(o: GenOpts): AsyncGenerator<string> {
       const payload = line.slice(5).trim();
       if (!payload || payload === "[DONE]") continue;
       try {
-        const t = textOf(JSON.parse(payload));
+        const chunk = JSON.parse(payload) as GenJson;
+        last = chunk;
+        const t = textOf(chunk);
         if (t) {
           any = true;
           yield t;
@@ -111,7 +152,7 @@ export async function* geminiStream(o: GenOpts): AsyncGenerator<string> {
       }
     }
   }
-  if (!any) throw new AiError("gemini", 502, "رد Gemini فارغ");
+  if (!any) throw emptyError(last);
 }
 
 const l2 = (v: number[]) => {
