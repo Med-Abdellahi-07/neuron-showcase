@@ -17,6 +17,8 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY" || { echo "secrets missing"; exit 1; }
-          curl -fsS "$SUPABASE_URL/rest/v1/semesters?select=id&limit=1" \
-            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" > /dev/null
-          echo "ok"
+          # الوصول المجهول إلى الجداول ممنوع عمداً (401/403 متوقع)؛ المهم أن الطلب وصل ولم يفشل الخادم (5xx).
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$SUPABASE_URL/rest/v1/semesters?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "status $code"
+          test "$code" -gt 0 && test "$code" -lt 500

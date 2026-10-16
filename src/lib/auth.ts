@@ -15,11 +15,13 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getUser();
   if (!user) return null;
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, email, phone, role, can_publish_direct, cohort_id, locale, english_group, hide_from_ranking")
     .eq("id", user.id)
     .maybeSingle();
+  // يظهر السبب الحقيقي (مثل permission denied) في سجلات Vercel بدل رسالة عامة فقط
+  if (error) console.error("getProfile failed:", error.code, error.message);
   return (data as Profile | null) ?? null;
 });
 
