@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { indexFile } from "@/lib/ai/indexing";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth";
@@ -107,13 +109,27 @@ export async function registerFile(input: {
   // المسار يجب أن يقع تحت مجلد الحصة نفسها
   if (!input.path.startsWith(`${input.lessonId}/`) || input.path.includes("..")) return { ok: false };
   const supabase = await createClient();
-  const { error } = await supabase.from("lesson_files").insert({
-    lesson_id: input.lessonId,
-    kind: input.kind,
-    name: input.name.slice(0, 200),
-    storage_path: input.path,
-    size_bytes: input.size,
-  });
+  const { data: inserted, error } = await supabase
+    .from("lesson_files")
+    .insert({
+      lesson_id: input.lessonId,
+      kind: input.kind,
+      name: input.name.slice(0, 200),
+      storage_path: input.path,
+      size_bytes: input.size,
+    })
+    .select("id")
+    .single();
+  if (!error && inserted && input.kind === "pdf" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // الفهرسة (استخراج النص + التضمين) بعد إرسال الرد، فلا ينتظر المشرف
+    after(async () => {
+      try {
+        await indexFile(inserted.id as string);
+      } catch (e) {
+        console.error("indexFile failed:", e);
+      }
+    });
+  }
   if (error) {
     await supabase.storage.from("lesson-files").remove([input.path]);
     return { ok: false };
@@ -209,5 +225,18 @@ export async function deleteQuestion(fd: FormData) {
   if (!UUID_RE.test(id)) return;
   const supabase = await createClient();
   await supabase.from("questions").delete().eq("id", id);
+  revalidatePath("/", "layout");
+}
+
+/** إعادة فهرسة ملف PDF يدوياً (بعد إصلاح المفاتيح مثلاً). */
+export async function reindexFile(fd: FormData) {
+  await requireStaff();
+  const id = text(fd, "id");
+  if (!UUID_RE.test(id)) return;
+  try {
+    await indexFile(id);
+  } catch (e) {
+    console.error("indexFile failed:", e);
+  }
   revalidatePath("/", "layout");
 }

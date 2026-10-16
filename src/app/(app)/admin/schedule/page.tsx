@@ -9,6 +9,7 @@ import { addDays, formatDate, isValidISO, mondayOf, todayISO } from "@/lib/dates
 import { addSession, copyPreviousWeek, deleteSession, setSessionStatus } from "@/app/actions/schedule";
 import { ActionForm } from "@/components/action-form";
 import { ConfirmButton } from "@/components/confirm-button";
+import { ScheduleAi } from "@/components/schedule-ai";
 import { SessionCard } from "@/components/session-card";
 import type { ScheduleSession } from "@/lib/types";
 
@@ -75,7 +76,7 @@ export default async function AdminSchedulePage({
         <input type="hidden" name="week" value={monday} />
         <button className="btn btn-sm">{t("sa.copyPrev")}</button>
       </form>
-      <p className="text-xs text-muted">{t("sa.aiSoon")}</p>
+      <ScheduleAi cohortId={cohortId} week={monday} subjects={subjects.map((s) => ({ id: s.id, code: s.code }))} />
 
       <div className="space-y-5">
         {STUDY_DAYS.map((d) => {

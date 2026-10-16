@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { startChat } from "@/app/actions/assistant";
+import { SubmitButton } from "@/components/submit-button";
 import { notFound } from "next/navigation";
 import { Bot, Download, Dumbbell, ExternalLink, FileText, NotebookPen } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
@@ -134,9 +136,13 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
         <Link href={`/practice?lesson=${lesson.id}`} className="btn">
           <Dumbbell size={16} aria-hidden /> {t("lesson.practice")}
         </Link>
-        <span className="btn cursor-not-allowed opacity-50" aria-disabled="true" title={t("common.soon")}>
-          <Bot size={16} aria-hidden /> {t("lesson.ask")}
-        </span>
+<form action={startChat}>
+          <input type="hidden" name="lesson" value={lesson.id} />
+          <input type="hidden" name="mode" value="explain" />
+          <SubmitButton className="btn w-full">
+            <Bot size={16} aria-hidden /> {t("lesson.ask")}
+          </SubmitButton>
+        </form>
       </div>
     </div>
   );

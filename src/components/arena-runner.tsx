@@ -6,6 +6,7 @@ import { Check, Clock, X } from "lucide-react";
 import { Rich } from "@/components/rich";
 import { useT } from "@/lib/i18n/client";
 import { answerQuestion, finishAttempt, type AnswerResult } from "@/app/actions/arena";
+import { gradeWrittenAnswer } from "@/app/actions/ai-grade";
 
 export interface RunnerQuestion {
   id: string;
@@ -50,6 +51,7 @@ export function ArenaRunner({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [grade, setGrade] = useState<{ score: number; feedback: string; missing: string[] } | null>(null);
   const [left, setLeft] = useState<number | null>(remainingSeconds);
   const shownAt = useRef(0);
   const deadline = useRef<number | null>(null);
@@ -86,6 +88,7 @@ export function ArenaRunner({
     setResult(null);
     setShowModel(false);
     setText("");
+    setGrade(null);
     setError(null);
     shownAt.current = Date.now();
     if (last) return refreshToSummary();
@@ -114,6 +117,20 @@ export function ArenaRunner({
       setI((x) => x + 1);
       return;
     }
+    setResult(res.result);
+  }
+
+  async function aiGrade() {
+    setBusy(true);
+    setError(null);
+    const res = await gradeWrittenAnswer({ attemptId, questionId: q.id, answer: text, clientMs: Date.now() - shownAt.current });
+    setBusy(false);
+    if (!res.ok) {
+      if (res.error === "expired" || res.error === "finished") return refreshToSummary();
+      return setError(res.error === "busy" ? t("chat.busy") : t("grade.unavailable"));
+    }
+    setGrade({ score: res.score, feedback: res.feedback, missing: res.missing });
+    setShowModel(true);
     setResult(res.result);
   }
 
@@ -241,6 +258,19 @@ export function ArenaRunner({
         </div>
       )}
 
+      {grade && (
+        <div role="status" className="card space-y-2 text-sm">
+          <p className="tech font-semibold" dir="ltr">{t("grade.score")}: {grade.score}/100</p>
+          <p dir="auto">{grade.feedback}</p>
+          {grade.missing.length > 0 && (
+            <ul className="list-disc ps-5 text-muted" dir="auto">
+              {grade.missing.map((m, k) => <li key={k}>{m}</li>)}
+            </ul>
+          )}
+          <p className="text-[11px] text-muted">{t("grade.aiNote")}</p>
+        </div>
+      )}
+
       {error && (
         <p role="alert" className="text-sm text-danger">
           {error}
@@ -254,11 +284,16 @@ export function ArenaRunner({
           </button>
         )}
         {!isMcq && !showModel && (
-          <button type="button" className="btn btn-primary" onClick={() => setShowModel(true)}>
-            {t("practice.showAnswer")}
-          </button>
+          <>
+            <button type="button" className="btn" onClick={() => setShowModel(true)}>
+              {t("practice.showAnswer")}
+            </button>
+            <button type="button" className="btn btn-primary" disabled={busy || !text.trim()} aria-busy={busy} onClick={aiGrade}>
+              {busy ? t("grade.grading") : t("grade.cta")}
+            </button>
+          </>
         )}
-        {!isMcq && showModel && !result && (
+        {!isMcq && showModel && !result && !grade && (
           <div className="flex w-full flex-col gap-2 sm:w-auto">
             <p className="text-xs text-muted">{t("arena.selfJudge")}</p>
             <div className="flex gap-2">

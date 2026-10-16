@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
-import { deleteFile, deleteLesson, setLessonStatus, updateLesson } from "@/app/actions/content";
+import { deleteFile, deleteLesson, reindexFile, setLessonStatus, updateLesson } from "@/app/actions/content";
 import { ActionForm } from "@/components/action-form";
 import { ConfirmButton } from "@/components/confirm-button";
 import { FileUploader } from "@/components/file-uploader";
 import { StatusBadge } from "@/components/status-badge";
 import { getSubjectById } from "@/lib/data";
 import type { Lesson, LessonFile } from "@/lib/types";
+
+/** الفهرسة (PDF → نص → تضمين) قد تستغرق وقتاً للملفات الكبيرة */
+export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -28,7 +31,12 @@ export default async function EditLessonPage({ params }: { params: Promise<{ id:
   const lesson = row as Lesson;
   const subject = await getSubjectById(lesson.subject_id);
   if (!subject) notFound();
-  const files = (fileRows ?? []) as LessonFile[];
+  const files = (fileRows ?? []) as (LessonFile & { indexed_at: string | null; index_error: string | null })[];
+  const chunkCounts = new Map<string, number>();
+  if (files.some((f) => f.kind === "pdf")) {
+    const { data: cs } = await supabase.from("lesson_chunks").select("file_id").eq("lesson_id", id).limit(5000);
+    (cs ?? []).forEach((c) => chunkCounts.set(c.file_id as string, (chunkCounts.get(c.file_id as string) ?? 0) + 1));
+  }
   const canPublish = profile.role === "admin" || profile.can_publish_direct;
 
   return (
@@ -120,10 +128,25 @@ export default async function EditLessonPage({ params }: { params: Promise<{ id:
                   <span className="badge me-2">{t(`file.${f.kind}`)}</span>
                   <span className="tech" dir="ltr">{f.name}</span>
                 </span>
-                <form action={deleteFile}>
-                  <input type="hidden" name="id" value={f.id} />
-                  <ConfirmButton>{t("common.delete")}</ConfirmButton>
-                </form>
+                <div className="flex shrink-0 items-center gap-2">
+                  {f.kind === "pdf" && (
+                    <form action={reindexFile} className="flex items-center gap-2">
+                      <input type="hidden" name="id" value={f.id} />
+                      <span className={`text-xs ${f.index_error ? "text-warn" : "text-muted"}`} dir="auto" title={f.index_error ?? undefined}>
+                        {f.index_error
+                          ? t("ai.indexError")
+                          : f.indexed_at
+                            ? `${t("ai.indexed")} · ${chunkCounts.get(f.id) ?? 0}`
+                            : t("ai.notIndexed")}
+                      </span>
+                      <button className="btn btn-sm">{t("ai.reindex")}</button>
+                    </form>
+                  )}
+                  <form action={deleteFile}>
+                    <input type="hidden" name="id" value={f.id} />
+                    <ConfirmButton>{t("common.delete")}</ConfirmButton>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>

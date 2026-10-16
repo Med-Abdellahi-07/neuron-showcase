@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -78,6 +79,9 @@ export default async function AccountsPage() {
                 </summary>
 
                 <div className="mt-4 space-y-5">
+                  {p.role === "student" && (
+                    <Link href={`/assistant/analysis?user=${p.id}`} className="btn btn-sm">{t("admin.studentAnalysis")}</Link>
+                  )}
                   <form action={updateAccount} className="space-y-3">
                     <input type="hidden" name="id" value={p.id} />
                     <div className="grid grid-cols-2 gap-3">

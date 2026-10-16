@@ -12,6 +12,7 @@ const TABS: { href: string; key: DictKey; adminOnly?: boolean }[] = [
   { href: "/admin/schedule", key: "admin.scheduleMenu" },
   { href: "/admin/approvals", key: "admin.approvals", adminOnly: true },
   { href: "/admin/announcements", key: "admin.announcements", adminOnly: true },
+  { href: "/admin/ai", key: "admin.aiMenu", adminOnly: true },
   { href: "/admin/accounts", key: "admin.accountsMenu", adminOnly: true },
 ];
 
