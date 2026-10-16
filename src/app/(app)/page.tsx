@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, Megaphone } from "lucide-react";
+import { CalendarClock, Megaphone, Repeat } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -16,7 +16,7 @@ export default async function HomePage() {
   const cohortId = profile.cohort_id;
 
   // كل هذه الاستعلامات مستقلة عن بعضها، فتُنفَّذ معاً في موجة واحدة
-  const [subjects, sessionsRes, annsRes, lessonsRes, progressRes] = await Promise.all([
+  const [subjects, sessionsRes, annsRes, lessonsRes, progressRes, dueRes] = await Promise.all([
     getCurrentSubjects(),
     cohortId
       ? supabase
@@ -40,6 +40,12 @@ export default async function HomePage() {
       : null,
     supabase.from("lessons").select("id, subject_id").neq("kind", "resume").eq("status", "published"),
     supabase.from("lesson_progress").select("lesson_id").eq("user_id", profile.id),
+    supabase
+      .from("review_queue")
+      .select("question_id", { count: "exact", head: true })
+      .eq("user_id", profile.id)
+      .eq("mastered", false)
+      .lte("due_at", new Date().toISOString()),
   ]);
 
   const byId = new Map(subjects.map((s) => [s.id, s]));
@@ -55,6 +61,7 @@ export default async function HomePage() {
   );
   const total = lessonIds.size;
   const studied = (progressRes.data ?? []).filter((p) => lessonIds.has(p.lesson_id as string)).length;
+  const dueCount = dueRes.count ?? 0;
   const pct = total ? Math.round((studied / total) * 100) : 0;
   const nextSubject = next ? byId.get(next.subject_id) : undefined;
   const nextSlot = next ? SLOTS.find((s) => s.n === next!.slot) : undefined;
@@ -83,6 +90,13 @@ export default async function HomePage() {
           <p className="text-sm text-muted">{t("home.noSession")}</p>
         )}
       </section>
+
+      <Link href={dueCount > 0 ? "/practice" : "/practice/mistakes"} className="card flex items-center justify-between gap-3">
+        <span className="tech flex items-center gap-2 text-sm font-semibold text-muted">
+          <Repeat size={16} aria-hidden /> {t(dueCount > 0 ? "home.reviewsDue" : "home.reviewsNone")}
+        </span>
+        {dueCount > 0 && <span className="tech text-2xl font-semibold text-accent" dir="ltr">{dueCount}</span>}
+      </Link>
 
       <section className="card space-y-3" aria-labelledby="progress-h">
         <h2 id="progress-h" className="tech text-sm font-semibold text-muted">{t("home.progress")}</h2>

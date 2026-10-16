@@ -131,7 +131,7 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
             <FileText size={16} aria-hidden /> {t("lesson.resume")}
           </Link>
         )}
-        <Link href={`/practice?lesson=${lesson.id}&start=1`} className="btn">
+        <Link href={`/practice?lesson=${lesson.id}`} className="btn">
           <Dumbbell size={16} aria-hidden /> {t("lesson.practice")}
         </Link>
         <span className="btn cursor-not-allowed opacity-50" aria-disabled="true" title={t("common.soon")}>

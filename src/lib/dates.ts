@@ -1,5 +1,8 @@
 const tz = () => process.env.APP_TIMEZONE || "UTC";
 
+/** المنطقة الزمنية للتطبيق (تُستعمل أيضاً لحدّ الأسبوع في الترتيب) */
+export const appTimeZone = tz;
+
 /** تاريخ اليوم بصيغة YYYY-MM-DD في المنطقة الزمنية للتطبيق */
 export function todayISO(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -54,3 +57,6 @@ export function formatDate(iso: string, locale: "ar" | "fr"): string {
     month: "short",
   }).format(parse(iso));
 }
+
+/** الوقت الحالي بالميلي ثانية (دالة منفصلة لاستعمالها داخل صفحات الخادم) */
+export const nowMs = () => Date.now();

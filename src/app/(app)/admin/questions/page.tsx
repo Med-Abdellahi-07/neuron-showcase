@@ -21,7 +21,7 @@ export default async function AdminQuestionsPage() {
 
   const { data } = await supabase
     .from("questions")
-    .select("*, subjects(code), lessons(kind, number)")
+    .select("id, subject_id, lesson_id, type, difficulty, statement, status, subjects(code), lessons(kind, number)")
     .order("created_at", { ascending: false })
     .limit(50);
   const rows = (data ?? []) as unknown as Row[];

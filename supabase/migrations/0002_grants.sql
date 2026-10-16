@@ -1,7 +1,7 @@
 -- Neuron — صلاحيات الجداول للأدوار.
 -- مطلوبة عند تعطيل "Automatically expose new tables" في Supabase.
 -- حارس الوصول الفعلي يبقى سياسات RLS؛ هذه الصلاحيات فقط تسمح للدور بالوصول إلى الجدول أصلاً.
--- آمنة للتنفيذ أكثر من مرة.
+-- تنفَّذ مرة واحدة قبل 0003. لا تُعدها بعد 0003: منحها select الشامل يُلغي حجب أعمدة جدول questions.
 
 grant usage on schema public to anon, authenticated, service_role;
 
