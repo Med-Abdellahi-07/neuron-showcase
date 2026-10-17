@@ -9,7 +9,7 @@ import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { LESSON_KINDS } from "@/lib/constants";
 import { notifyNewLesson, notifyNewQuestions } from "@/lib/notify";
-import { parseQuestionInput, type ImportQuestion } from "@/lib/question-import";
+import { parseQuestionInput, type ImportError, type ImportQuestion } from "@/lib/question-import";
 import type { FormState } from "./auth";
 import type { LessonKind } from "@/lib/types";
 
@@ -159,7 +159,7 @@ export async function deleteFile(fd: FormData) {
 export interface ImportOutcome {
   inserted: number;
   unlinked: number;
-  errors: { row: number; message: string }[];
+  errors: ImportError[];
 }
 
 export async function importQuestions(raw: string): Promise<ImportOutcome> {
@@ -180,7 +180,7 @@ export async function importQuestions(raw: string): Promise<ImportOutcome> {
   parsed.valid.forEach((q: ImportQuestion, i) => {
     const subject_id = subjectByCode.get(q.subject);
     if (!subject_id) {
-      errors.push({ row: i + 1, message: `مادة غير معروفة: ${q.subject}` });
+      errors.push({ row: i + 1, keys: ["imp.err.unknownSubject"], detail: q.subject });
       return;
     }
     let lesson_id: string | null = null;
@@ -207,7 +207,7 @@ export async function importQuestions(raw: string): Promise<ImportOutcome> {
   for (let i = 0; i < rows.length; i += 100) {
     const chunk = rows.slice(i, i + 100);
     const { error, data } = await supabase.from("questions").insert(chunk).select("id, subject_id, status");
-    if (error) errors.push({ row: i + 1, message: error.message });
+    if (error) errors.push({ row: i + 1, keys: [], detail: error.message });
     else {
       inserted += data?.length ?? 0;
       for (const r of data ?? []) if (r.status === "published") published.set(r.subject_id as string, (published.get(r.subject_id as string) ?? 0) + 1);

@@ -3,16 +3,14 @@
 import { useTransition } from "react";
 import { setLocale } from "@/app/actions/auth";
 import { useT } from "@/lib/i18n/client";
-import type { Locale } from "@/lib/i18n/dictionaries";
-
-const LABELS: Record<Locale, string> = { ar: "العربية", fr: "Français" };
+import { LOCALES, LOCALE_LABELS, type Locale } from "@/lib/i18n/dictionaries";
 
 export function LangSwitch() {
   const { locale } = useT();
   const [pending, start] = useTransition();
   return (
     <div className="inline-flex rounded-[var(--radius)] border border-border p-0.5" role="group" aria-label="Language">
-      {(Object.keys(LABELS) as Locale[]).map((l) => (
+      {LOCALES.map((l: Locale) => (
         <button
           key={l}
           type="button"
@@ -23,7 +21,7 @@ export function LangSwitch() {
           }`}
           aria-pressed={l === locale}
         >
-          {LABELS[l]}
+          {LOCALE_LABELS[l]}
         </button>
       ))}
     </div>

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Neuron",
     short_name: "Neuron",
-    description: "منصة الطالب الجامعي — الذكاء الاصطناعي",
+    description: "Neuron — AI study platform for university students",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

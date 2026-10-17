@@ -5,6 +5,8 @@ import { addDays, todayISO } from "@/lib/dates";
 import { SLOTS } from "@/lib/constants";
 import { visibleForGroup } from "@/lib/data";
 import { pushConfigured, sendPush } from "@/lib/push";
+import { KIND_LABEL } from "@/lib/notify";
+import type { Locale } from "@/lib/i18n/dictionaries";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -18,8 +20,6 @@ function authorized(req: Request): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-const KIND_AR: Record<string, string> = { cm: "محاضرة", td: "أعمال موجّهة", tp: "أعمال تطبيقية" };
-const KIND_FR: Record<string, string> = { cm: "Cours", td: "TD", tp: "TP" };
 
 /**
  * المهمة اليومية (Vercel Cron على خطة Hobby: مرة يومياً؛ أو GitHub Actions احتياطاً).
@@ -63,11 +63,12 @@ export async function GET(req: Request) {
         if (!mine.length) continue;
         if (!(await once(p.id as string, "lesson_tomorrow", tomorrow))) continue;
         const first = SLOTS.find((x) => x.n === mine[0].slot);
-        const list = (lang: "ar" | "fr") =>
-          mine.map((s) => `${SLOTS.find((x) => x.n === s.slot)?.start ?? ""} ${(lang === "ar" ? KIND_AR : KIND_FR)[s.kind as string] ?? s.kind} ${code.get(s.subject_id as string) ?? ""}`).join(" · ");
+        const list = (lang: Locale) =>
+          mine.map((s) => `${SLOTS.find((x) => x.n === s.slot)?.start ?? ""} ${KIND_LABEL[lang][s.kind as string] ?? s.kind} ${code.get(s.subject_id as string) ?? ""}`).join(" · ");
         const r = await sendPush({ userIds: [p.id as string] }, "lesson_tomorrow", {
           ar: { title: `غداً ${mine.length} حصص — تبدأ ${first?.start ?? ""}`, body: list("ar") },
           fr: { title: `Demain : ${mine.length} séance(s) — dès ${first?.start ?? ""}`, body: list("fr") },
+          en: { title: `Tomorrow: ${mine.length} session(s) — from ${first?.start ?? ""}`, body: list("en") },
           url: "/schedule",
           tag: `tomorrow-${tomorrow}`,
         });
@@ -87,6 +88,7 @@ export async function GET(req: Request) {
       const r = await sendPush({ userIds: [d.user_id] }, "review", {
         ar: { title: "🔁 وقت المراجعة", body: `لديك ${d.due} سؤال مستحق للمراجعة اليوم.` },
         fr: { title: "🔁 Révision du jour", body: `${d.due} question(s) à réviser aujourd'hui.` },
+        en: { title: "🔁 Time to review", body: `${d.due} question(s) due for review today.` },
         url: "/practice",
         tag: "review",
       });
@@ -105,6 +107,7 @@ export async function GET(req: Request) {
       const r = await sendPush({ userIds: [d.opponent_id as string] }, "duel", {
         ar: { title: "⏳ تحدٍّ ينتهي قريباً", body: "أقل من 12 ساعة للإجابة وإلا يفوز خصمك." },
         fr: { title: "⏳ Duel bientôt expiré", body: "Moins de 12 h pour répondre, sinon ton adversaire gagne." },
+        en: { title: "⏳ Duel about to expire", body: "Less than 12 h left to answer, otherwise your opponent wins." },
         url: `/practice/duel/${d.id}`,
         tag: `duel-${d.id}`,
       });
@@ -119,6 +122,7 @@ export async function GET(req: Request) {
         const r = await sendPush({ userIds: [uid] }, "duel", {
           ar: { title: "⚔️ انتهت مهلة التحدي", body: won ? "لم يُجب خصمك في الوقت: فزت!" : "انتهت المهلة قبل أن تجيب: فاز المتحدّي." },
           fr: { title: "⚔️ Duel expiré", body: won ? "Ton adversaire n'a pas répondu à temps : victoire !" : "Délai dépassé : le challenger gagne." },
+          en: { title: "⚔️ Duel expired", body: won ? "Your opponent didn't answer in time: you win!" : "Time ran out before you answered: the challenger wins." },
           url: `/practice/duel/${d.id}`,
           tag: `duel-${d.id}`,
         });

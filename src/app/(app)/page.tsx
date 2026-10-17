@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarClock, Megaphone, Repeat, Swords } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { COMMA } from "@/lib/i18n/dictionaries";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
 import { SLOTS } from "@/lib/constants";
@@ -74,7 +75,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-6">
       <h1 className="page-title !mb-0">
-        {t("home.greeting")}، {profile.full_name.split(" ")[0]}
+        {t("home.greeting")}{COMMA[locale]} {profile.full_name.split(" ")[0]}
       </h1>
 
       {!profile.cohort_id && <p className="card text-sm text-warn">{t("home.noCohort")}</p>}

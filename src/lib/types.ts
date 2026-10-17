@@ -12,7 +12,7 @@ export interface Profile {
   role: Role;
   can_publish_direct: boolean;
   cohort_id: string | null;
-  locale: "ar" | "fr";
+  locale: "ar" | "fr" | "en";
   english_group: string | null;
   hide_from_ranking: boolean;
 }

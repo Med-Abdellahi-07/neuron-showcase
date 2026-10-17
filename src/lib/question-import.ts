@@ -1,5 +1,13 @@
 import Papa from "papaparse";
 import { z } from "zod";
+import type { DictKey } from "@/lib/i18n/dictionaries";
+
+/** خطأ استيراد: مفاتيح قاموس تُترجم في الواجهة + تفصيل تقني اختياري (يبقى كما هو) */
+export interface ImportError {
+  row: number;
+  keys: DictKey[];
+  detail?: string;
+}
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"] as const;
 
@@ -8,15 +16,15 @@ const emptyToUndef = (v: unknown) => (str(v) === "" ? undefined : str(v));
 
 const rowSchema = z
   .object({
-    subject: z.preprocess(str, z.string({ message: "المادة (subject) مطلوبة" }).min(1, "المادة (subject) مطلوبة")),
+    subject: z.preprocess(str, z.string({ message: "imp.err.subject" }).min(1, "imp.err.subject")),
     lesson_kind: z.preprocess((v) => emptyToUndef(v)?.toLowerCase(), z.enum(["cm", "td", "tp", "resume"]).optional()),
     lesson_number: z.preprocess(emptyToUndef, z.coerce.number().int().positive().optional()),
-    type: z.preprocess((v) => str(v)?.toLowerCase(), z.enum(["mcq", "written"], { message: "type يجب أن يكون mcq أو written" })),
+    type: z.preprocess((v) => str(v)?.toLowerCase(), z.enum(["mcq", "written"], { message: "imp.err.type" })),
     difficulty: z.preprocess(
       (v) => emptyToUndef(v)?.toLowerCase() ?? "medium",
-      z.enum(["easy", "medium", "hard"], { message: "difficulty: easy | medium | hard" })
+      z.enum(["easy", "medium", "hard"], { message: "imp.err.difficulty" })
     ),
-    statement: z.preprocess(str, z.string({ message: "نص السؤال (statement) مطلوب" }).min(3, "نص السؤال (statement) قصير جداً أو مفقود")),
+    statement: z.preprocess(str, z.string({ message: "imp.err.statement" }).min(3, "imp.err.statement")),
     options: z.array(z.preprocess(str, z.string().min(1))).max(6).optional(),
     correct: z.preprocess((v) => emptyToUndef(v)?.toUpperCase(), z.string().optional()),
     model_answer: z.preprocess(emptyToUndef, z.string().optional()),
@@ -25,18 +33,18 @@ const rowSchema = z
   .superRefine((r, ctx) => {
     if (r.type === "mcq") {
       if (!r.options || r.options.length < 2) {
-        ctx.addIssue({ code: "custom", message: "QCM يحتاج خيارين على الأقل (options)" });
+        ctx.addIssue({ code: "custom", message: "imp.err.options" });
         return;
       }
       const idx = r.correct ? LETTERS.indexOf(r.correct as (typeof LETTERS)[number]) : -1;
       if (idx < 0 || idx >= r.options.length) {
-        ctx.addIssue({ code: "custom", message: "correct يجب أن يكون حرفاً (A, B, …) يطابق أحد الخيارات" });
+        ctx.addIssue({ code: "custom", message: "imp.err.correct" });
       }
     } else if (!r.model_answer) {
-      ctx.addIssue({ code: "custom", message: "السؤال المكتوب يحتاج model_answer" });
+      ctx.addIssue({ code: "custom", message: "imp.err.modelAnswer" });
     }
     if (r.lesson_number && !r.lesson_kind) {
-      ctx.addIssue({ code: "custom", message: "lesson_number يحتاج lesson_kind" });
+      ctx.addIssue({ code: "custom", message: "imp.err.lessonKind" });
     }
   });
 
@@ -55,7 +63,7 @@ export interface ImportQuestion {
 
 export interface ParseResult {
   valid: ImportQuestion[];
-  errors: { row: number; message: string }[];
+  errors: ImportError[];
 }
 
 /** يحوّل صف CSV (option_a…option_f) إلى الشكل الموحّد. */
@@ -78,13 +86,13 @@ export function parseQuestionInput(text: string): ParseResult {
       const list = Array.isArray(json) ? json : Array.isArray(json?.questions) ? json.questions : [json];
       rawRows = list.filter((x: unknown) => x && typeof x === "object") as Record<string, unknown>[];
     } catch (e) {
-      result.errors.push({ row: 0, message: `JSON غير صالح: ${(e as Error).message}` });
+      result.errors.push({ row: 0, keys: ["imp.err.json"], detail: (e as Error).message });
       return result;
     }
   } else {
     const parsed = Papa.parse<Record<string, unknown>>(trimmed, { header: true, skipEmptyLines: true });
     if (parsed.errors.length && !parsed.data.length) {
-      result.errors.push({ row: 0, message: `CSV غير صالح: ${parsed.errors[0].message}` });
+      result.errors.push({ row: 0, keys: ["imp.err.csv"], detail: parsed.errors[0].message });
       return result;
     }
     rawRows = parsed.data.map(fromCsvRow);
@@ -93,7 +101,7 @@ export function parseQuestionInput(text: string): ParseResult {
   rawRows.forEach((raw, i) => {
     const parsed = rowSchema.safeParse(raw);
     if (!parsed.success) {
-      result.errors.push({ row: i + 1, message: parsed.error.issues.map((x) => x.message).join("؛ ") });
+      result.errors.push({ row: i + 1, keys: [...new Set(parsed.error.issues.map((x) => x.message as DictKey))] });
       return;
     }
     const r = parsed.data;

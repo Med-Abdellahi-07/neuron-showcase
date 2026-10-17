@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { COMMA } from "@/lib/i18n/dictionaries";
 import { createClient } from "@/lib/supabase/server";
 import { createAccount, createCohort, deleteAccount, resetPassword, updateAccount } from "@/app/actions/admin";
 import { ActionForm } from "@/components/action-form";
@@ -9,7 +10,7 @@ import type { Profile } from "@/lib/types";
 
 export default async function AccountsPage() {
   const me = await requireAdmin();
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const supabase = await createClient();
   const [{ data: cohorts }, { data: profiles }] = await Promise.all([
     supabase.from("cohorts").select("id, name").order("name"),
@@ -128,7 +129,7 @@ export default async function AccountsPage() {
       </section>
 
       <section className="card">
-        <h2 className="tech mb-4 text-sm font-semibold">{t("acc.cohorts")}: {cohortList.map((c) => c.name).join("، ")}</h2>
+        <h2 className="tech mb-4 text-sm font-semibold">{t("acc.cohorts")}: {cohortList.map((c) => c.name).join(`${COMMA[locale]} `)}</h2>
         <ActionForm action={createCohort} submitLabel={t("acc.newCohort")} submitClassName="btn" resetOnSuccess>
           <input name="name" className="input" dir="auto" required maxLength={80} aria-label={t("acc.newCohort")} />
         </ActionForm>

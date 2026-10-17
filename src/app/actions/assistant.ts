@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 import { getAllSubjects } from "@/lib/data";
+import { asSessionLang } from "@/lib/ai/lang";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MODES = ["explain", "review", "solve"];
@@ -70,7 +71,7 @@ export async function createChat(input: {
       question_id: questionId,
       mode: input.mode,
       guided: true,
-      lang: input.lang === "ar" ? "ar" : "fr",
+      lang: asSessionLang(input.lang),
       title: title.slice(0, 120),
     })
     .select("id")

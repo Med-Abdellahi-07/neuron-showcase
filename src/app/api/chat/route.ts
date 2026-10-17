@@ -23,6 +23,7 @@ import { MarkerFilter, entryFromRow, extractQuestion, parseMarkers, summaryNote,
 import { tavilySearch, type WebResult } from "@/lib/ai/tavily";
 import { scrubPII } from "@/lib/ai/privacy";
 import { dictionaries } from "@/lib/i18n/dictionaries";
+import { asSessionLang } from "@/lib/ai/lang";
 
 /** نصوص الأزرار المحلية (ar/fr) → أوامر محايدة، لتفادي انجرار النموذج إلى لغة الأزرار */
 const LABEL_TO_COMMAND = new Map<string, string>();
@@ -144,7 +145,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const lang: SessionLang = conv.lang === "ar" ? "ar" : "fr";
+  const lang: SessionLang = asSessionLang(conv.lang);
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {

@@ -70,6 +70,7 @@ export async function sendTestPush(): Promise<{ ok: boolean; reason?: "not_confi
   const r = await sendPush({ userIds: [userId] }, "announcement", {
     ar: { title: "Neuron ✓", body: "الإشعارات تعمل على هذا الجهاز." },
     fr: { title: "Neuron ✓", body: "Les notifications fonctionnent sur cet appareil." },
+    en: { title: "Neuron ✓", body: "Notifications are working on this device." },
     url: "/profile",
     tag: "test",
   });

@@ -4,8 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 import { importQuestions, type ImportOutcome } from "@/app/actions/content";
-import { QUESTION_CSV_EXAMPLE, QUESTION_PROMPT, parseQuestionInput } from "@/lib/question-import";
+import { QUESTION_CSV_EXAMPLE, QUESTION_PROMPT, parseQuestionInput, type ImportError } from "@/lib/question-import";
 import { useT } from "@/lib/i18n/client";
+import type { DictKey } from "@/lib/i18n/dictionaries";
 
 function CopyButton({ value }: { value: string }) {
   const { t } = useT();
@@ -29,6 +30,8 @@ function CopyButton({ value }: { value: string }) {
     </button>
   );
 }
+
+const fmtError = (e: ImportError, t: (k: DictKey) => string) => [...e.keys.map((k) => t(k)), e.detail].filter(Boolean).join(" — ");
 
 export function QuestionImporter() {
   const { t } = useT();
@@ -91,7 +94,7 @@ export function QuestionImporter() {
             {parsed.errors.length > 0 && (
               <ul className="max-h-40 space-y-1 overflow-auto rounded-[var(--radius)] bg-surface-2 p-3 text-xs">
                 {parsed.errors.slice(0, 30).map((e, i) => (
-                  <li key={i}><span className="tech text-danger">#{e.row}</span> {e.message}</li>
+                  <li key={i}><span className="tech text-danger">#{e.row}</span> {fmtError(e, t)}</li>
                 ))}
               </ul>
             )}
@@ -121,7 +124,7 @@ export function QuestionImporter() {
             <p className="text-success">{t("q.imported")} {outcome.inserted}</p>
             {outcome.unlinked > 0 && <p className="text-xs text-warn">{outcome.unlinked} — {t("q.unlinked")}</p>}
             {outcome.errors.slice(0, 10).map((e, i) => (
-              <p key={i} className="text-xs text-danger">#{e.row} {e.message}</p>
+              <p key={i} className="text-xs text-danger">#{e.row} {fmtError(e, t)}</p>
             ))}
           </div>
         )}

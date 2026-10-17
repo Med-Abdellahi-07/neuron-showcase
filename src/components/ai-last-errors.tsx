@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
+import { INTL_TAG, type DictKey } from "@/lib/i18n/dictionaries";
 
 interface Row {
   provider: string;
@@ -9,35 +11,36 @@ interface Row {
 }
 
 /** تلخيص سبب 429: يومي أم بالدقيقة؟ (من نص رسالة Google/Groq) */
-function quotaKind(r: Row): string | null {
+function quotaKind(r: Row): DictKey | null {
   if (r.status !== 429) return null;
   const m = `${r.reason ?? ""} ${r.message ?? ""}`.toLowerCase();
-  if (/per ?day|daily|requestsperday|tokens per day|tpd|rpd/.test(m)) return "حدّ يومي مستنفد — ينتظر حتى تجدّد الحصة (منتصف الليل بتوقيت المحيط الهادئ لـ Gemini).";
-  if (/per ?minute|perminute|rpm|tpm|tokens per minute/.test(m)) return "حدّ بالدقيقة — يزول خلال دقيقة تقريباً.";
-  return "تجاوز للحصة؛ اقرأ الرسالة لمعرفة هل هو يومي أم بالدقيقة.";
+  if (/per ?day|daily|requestsperday|tokens per day|tpd|rpd/.test(m)) return "lasterr.daily";
+  if (/per ?minute|perminute|rpm|tpm|tokens per minute/.test(m)) return "lasterr.minute";
+  return "lasterr.generic";
 }
 
 /** آخر سبب فشل لكل مزوّد (محفوظ في قاعدة البيانات فيشمل كل نسخ الخادم) */
 export async function AiLastErrors() {
+  const { t, locale } = await getT();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("ai_last_errors");
   const rows = (data ?? []) as Row[];
   return (
     <section className="card space-y-2 p-4">
-      <h3 className="text-sm font-semibold">آخر أسباب فشل المزوّدين (من استخدام الطلاب الفعلي)</h3>
+      <h3 className="text-sm font-semibold">{t("lasterr.title")}</h3>
       {error ? (
-        <p className="text-xs text-muted">تعذّرت القراءة ({error.message}). شغّل الهجرة 0009 في Supabase.</p>
+        <p className="text-xs text-muted">{t("lasterr.readFail")} ({error.message})</p>
       ) : rows.length === 0 ? (
-        <p className="text-xs text-muted">لا إخفاقات مسجّلة بعد.</p>
+        <p className="text-xs text-muted">{t("lasterr.none")}</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => (
             <li key={r.provider} className="rounded border border-border p-2 text-xs" dir="ltr">
               <p className="font-semibold">
                 {r.provider} — HTTP {r.status}
-                {r.reason ? ` — ${r.reason}` : ""} — {new Date(r.at).toLocaleString("fr-FR")}
+                {r.reason ? ` — ${r.reason}` : ""} — {new Date(r.at).toLocaleString(INTL_TAG[locale])}
               </p>
-              {quotaKind(r) && <p className="text-muted" dir="rtl">{quotaKind(r)}</p>}
+              {quotaKind(r) && <p className="text-muted" dir="auto">{t(quotaKind(r) as DictKey)}</p>}
               <p className="break-words text-muted">{r.message}</p>
             </li>
           ))}

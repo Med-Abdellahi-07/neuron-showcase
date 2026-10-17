@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ClipboardCheck, ImagePlus, Lightbulb, X } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
-import type { DictKey } from "@/lib/i18n/dictionaries";
+import { LOCALE_LABELS, type DictKey } from "@/lib/i18n/dictionaries";
+import { SESSION_LANGS, type SessionLang } from "@/lib/ai/lang";
 import { createChat, listExercises, type Exercise } from "@/app/actions/assistant";
 
 export interface PickLesson {
@@ -53,7 +54,7 @@ export function ChatPicker({
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exerciseId, setExerciseId] = useState<string>("");
   const [image, setImage] = useState<{ mime: string; data: string; preview: string } | null>(null);
-  const [lang, setLang] = useState<"fr" | "ar">("fr");
+  const [lang, setLang] = useState<SessionLang>("fr");
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
 
@@ -172,7 +173,7 @@ export function ChatPicker({
 
       <div role="radiogroup" aria-label={t("chat.pick.lang")} className="flex flex-wrap items-center gap-2">
         <span className="label !mb-0">{t("chat.pick.lang")}</span>
-        {(["fr", "ar"] as const).map((l) => (
+        {SESSION_LANGS.map((l) => (
           <button
             key={l}
             type="button"
@@ -181,7 +182,7 @@ export function ChatPicker({
             onClick={() => setLang(l)}
             className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium ${lang === l ? "border-transparent bg-accent text-accent-fg" : "border-border text-muted hover:text-fg"}`}
           >
-            {l === "fr" ? "Français" : "العربية"}
+            {LOCALE_LABELS[l]}
           </button>
         ))}
       </div>

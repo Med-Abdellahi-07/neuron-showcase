@@ -3,7 +3,7 @@ import { Activity, BookX, Bot, GaugeCircle, Users } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { daysSince } from "@/lib/dates";
-import type { DictKey } from "@/lib/i18n/dictionaries";
+import { INTL_TAG, type DictKey } from "@/lib/i18n/dictionaries";
 
 interface Student {
   id: string;
@@ -196,7 +196,7 @@ export async function AdminInsights() {
             <ul className="space-y-1.5">
               {days.map((day) => (
                 <li key={day} className="grid grid-cols-[4.5rem_1fr] items-center gap-2 text-[11px]">
-                  <span className="tech text-muted" dir="ltr">{new Date(day + "T00:00:00Z").toLocaleDateString(locale === "ar" ? "ar" : "fr-FR", { month: "short", day: "numeric", timeZone: "UTC" })}</span>
+                  <span className="tech text-muted" dir="ltr">{new Date(day + "T00:00:00Z").toLocaleDateString(INTL_TAG[locale], { month: "short", day: "numeric", timeZone: "UTC" })}</span>
                   <span className="space-y-0.5">
                     {PROVIDERS.map((p) => {
                       const r = dailyRows.find((d) => d.day === day && d.provider === p);

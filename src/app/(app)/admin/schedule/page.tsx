@@ -3,14 +3,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
-import { getAllSubjects } from "@/lib/data";
-import { SLOTS, STUDY_DAYS } from "@/lib/constants";
-import { addDays, formatDate, isValidISO, mondayOf, todayISO } from "@/lib/dates";
-import { addSession, copyPreviousWeek, deleteSession, setSessionStatus } from "@/app/actions/schedule";
-import { ActionForm } from "@/components/action-form";
-import { ConfirmButton } from "@/components/confirm-button";
+import { getAllSubjects, getCurrentSubjects } from "@/lib/data";
+import { addDays, appTimeZone, formatDate, isValidISO, mondayOf, nowHM, todayISO } from "@/lib/dates";
+import { colorMap, toGridSession } from "@/lib/schedule-grid";
+import { copyPreviousWeek } from "@/app/actions/schedule";
 import { ScheduleAi } from "@/components/schedule-ai";
-import { SessionCard } from "@/components/session-card";
+import { ScheduleGrid } from "@/components/schedule-grid";
 import type { ScheduleSession } from "@/lib/types";
 
 export default async function AdminSchedulePage({
@@ -32,8 +30,9 @@ export default async function AdminSchedulePage({
 
   if (!cohortId) return <p className="card text-sm text-warn">{t("schedule.noCohort")}</p>;
 
-  const [subjects, { data }] = await Promise.all([
+  const [subjects, current, { data }] = await Promise.all([
     getAllSubjects(),
+    getCurrentSubjects(),
     supabase
       .from("schedule_sessions")
       .select("*")
@@ -45,11 +44,13 @@ export default async function AdminSchedulePage({
   ]);
   const byId = new Map(subjects.map((s) => [s.id, s]));
   const sessions = (data ?? []) as ScheduleSession[];
+  const colors = colorMap(current, subjects);
+  const gridSessions = sessions.map((x) => toGridSession(x, byId.get(x.subject_id), colors.get(x.subject_id) ?? 0));
   const q = (w: string) => `/admin/schedule?w=${w}&c=${cohortId}`;
   const arrow = "size-4 rtl:rotate-180";
 
   return (
-    <div className="space-y-6">
+    <div className="wide-page space-y-6">
       {cohortList.length > 1 && (
         <form method="get" className="flex items-end gap-2">
           <input type="hidden" name="w" value={monday} />
@@ -78,101 +79,16 @@ export default async function AdminSchedulePage({
       </form>
       <ScheduleAi cohortId={cohortId} week={monday} subjects={subjects.map((s) => ({ id: s.id, code: s.code }))} />
 
-      <div className="space-y-5">
-        {STUDY_DAYS.map((d) => {
-          const date = addDays(monday, d - 1);
-          const list = sessions.filter((s) => s.session_date === date);
-          return (
-            <section key={d} aria-labelledby={`d-${d}`}>
-              <h3 id={`d-${d}`} className="tech mb-2 flex items-baseline gap-2 text-sm font-semibold text-muted">
-                {t(`day.${d}` as "day.1")} <span className="text-xs font-normal" dir="ltr">{formatDate(date, locale)}</span>
-              </h3>
-              {list.length === 0 ? (
-                <p className="text-xs text-muted">{t("schedule.empty")}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {list.map((s) => (
-                    <SessionCard
-                      key={s.id}
-                      session={s}
-                      subject={byId.get(s.subject_id)}
-                      actions={
-                        <div className="space-y-2 pt-1">
-                          <form action={setSessionStatus} className="flex flex-wrap items-center gap-2">
-                            <input type="hidden" name="id" value={s.id} />
-                            <input name="note" className="input !min-h-8 min-w-0 flex-1 text-xs" dir="auto" placeholder={t("sa.note")} defaultValue={s.note ?? ""} maxLength={200} />
-                            {s.status !== "cancelled" && <button name="status" value="cancelled" className="btn btn-sm btn-danger">{t("sa.cancel")}</button>}
-                            {s.status !== "changed" && <button name="status" value="changed" className="btn btn-sm">{t("schedule.changed")}</button>}
-                            {s.status !== "scheduled" && <button name="status" value="scheduled" className="btn btn-sm">{t("sa.restore")}</button>}
-                          </form>
-                          <form action={deleteSession}>
-                            <input type="hidden" name="id" value={s.id} />
-                            <ConfirmButton>{t("common.delete")}</ConfirmButton>
-                          </form>
-                        </div>
-                      }
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
-          );
-        })}
-      </div>
-
-      <details className="card" open={sessions.length === 0}>
-        <summary className="cursor-pointer text-sm font-semibold">{t("sa.add")}</summary>
-        <ActionForm action={addSession} submitLabel={t("common.add")} resetOnSuccess className="mt-4 space-y-4">
-          <input type="hidden" name="cohort_id" value={cohortId} />
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label" htmlFor="session_date">{t("common.date")}</label>
-              <input id="session_date" name="session_date" type="date" className="input" dir="ltr" defaultValue={monday} required />
-            </div>
-            <div>
-              <label className="label" htmlFor="slot">{t("sa.slot")}</label>
-              <select id="slot" name="slot" className="input" dir="ltr" required>
-                {SLOTS.map((s) => (
-                  <option key={s.n} value={s.n}>{s.start}–{s.end}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-span-2">
-              <label className="label" htmlFor="subject_id">{t("common.subject")}</label>
-              <select id="subject_id" name="subject_id" className="input" dir="auto" required defaultValue="">
-                <option value="" disabled></option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="kind">{t("common.type")}</label>
-              <select id="kind" name="kind" className="input" required>
-                <option value="cm">{t("kind.cm")}</option>
-                <option value="td">{t("kind.td")}</option>
-                <option value="tp">{t("kind.tp")}</option>
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="room">{t("sa.room")}</label>
-              <input id="room" name="room" className="input" dir="auto" maxLength={40} />
-            </div>
-            <div>
-              <label className="label" htmlFor="teacher">{t("sa.teacher")} ({t("common.optional")})</label>
-              <input id="teacher" name="teacher" className="input" dir="auto" maxLength={80} />
-            </div>
-            <div>
-              <label className="label" htmlFor="shared_with">{t("sa.shared")} ({t("common.optional")})</label>
-              <input id="shared_with" name="shared_with" className="input" dir="auto" maxLength={80} />
-            </div>
-            <div className="col-span-2">
-              <label className="label" htmlFor="group_label">{t("sa.group")} ({t("common.optional")})</label>
-              <input id="group_label" name="group_label" className="input" dir="ltr" maxLength={40} />
-            </div>
-          </div>
-        </ActionForm>
-      </details>
+      <ScheduleGrid
+        key={`${monday}|${cohortId}`}
+        mode="admin"
+        monday={monday}
+        today={todayISO()}
+        nowHM={nowHM()}
+        tz={appTimeZone()}
+        sessions={gridSessions}
+        admin={{ cohortId, subjects: subjects.map((x) => ({ id: x.id, code: x.code, name: x.name })) }}
+      />
     </div>
   );
 }

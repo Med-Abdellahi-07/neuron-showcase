@@ -1,4 +1,5 @@
 import type { WindowRow } from "./guided";
+import { LANG_NAME, type SessionLang } from "@/lib/ai/lang";
 import { windowLabel } from "./guided";
 
 export type Verdict = "correct" | "partial" | "wrong";
@@ -95,8 +96,8 @@ export const entryFromRow = (k: number, row: WindowRow, q: string): ReviewEntry 
 });
 
 /** ملاحظة نظام للملخص النهائي: حقائق محسومة من السجل، لا استنتاجات */
-export function summaryNote(a: { lang: "fr" | "ar"; log: ReviewEntry[]; pending: boolean }): string {
-  const lang = a.lang === "fr" ? "French" : "Arabic (keep technical terms in French as in the course)";
+export function summaryNote(a: { lang: SessionLang; log: ReviewEntry[]; pending: boolean }): string {
+  const lang = LANG_NAME[a.lang];
   const lines = a.log.map((e, i) => {
     const status = e.verdict === "correct" ? "CORRECT" : e.verdict === "partial" ? "PARTIAL" : e.verdict === "wrong" ? "WRONG" : "NOT ANSWERED";
     return `Q${e.k} | ${status} | source: ${e.label} → cite [C${i + 1}] | ${e.q}`;

@@ -44,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {initial}
           </Link>
         </header>
-        <main className="mx-auto w-full max-w-3xl p-4 md:p-8">{children}</main>
+        <main className="mx-auto w-full max-w-3xl p-4 has-[.wide-page]:max-w-6xl md:p-8">{children}</main>
       </div>
 
       <BottomNav />

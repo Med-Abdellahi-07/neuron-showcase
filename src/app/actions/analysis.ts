@@ -6,6 +6,7 @@ import { getUserId } from "@/lib/auth";
 import { getLocale } from "@/lib/i18n/server";
 import { generateText } from "@/lib/ai";
 import { flushAiStats } from "@/lib/ai/stats";
+import { LANG_NAME } from "@/lib/ai/lang";
 
 /** تحليل أداء الطالب: تُرسل للنموذج إحصاءات مجمّعة فقط، بلا اسم ولا بريد ولا هاتف. */
 export async function refreshAnalysis(): Promise<{ ok: boolean; error?: "busy" | "unavailable" | "empty" }> {
@@ -30,7 +31,7 @@ export async function refreshAnalysis(): Promise<{ ok: boolean; error?: "busy" |
     const { text } = await generateText({
       system: [
         "You are a study coach for a university student in an AI program. You receive aggregated practice statistics (JSON) with no personal data.",
-        `Write in ${locale === "ar" ? "Arabic (keep technical terms in French)" : "French"}. Markdown, max 220 words, with these short sections: strengths, weak spots (name subjects/topics from the data), and a concrete 3-step study plan for the next week.`,
+        `Write in ${LANG_NAME[locale]}. Markdown, max 220 words, with these short sections: strengths, weak spots (name subjects/topics from the data), and a concrete 3-step study plan for the next week.`,
         "Only use facts present in the JSON. If the sample is small, say that the conclusions are provisional. Be encouraging, never harsh.",
       ].join("\n"),
       messages: [{ role: "user", text: JSON.stringify(stats) }],

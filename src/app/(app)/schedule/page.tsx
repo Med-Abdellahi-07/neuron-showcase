@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
-import { SESSION_KINDS, STUDY_DAYS, sessionsFromHours } from "@/lib/constants";
-import { addDays, formatDate, isValidISO, mondayOf, todayISO } from "@/lib/dates";
-import { SessionCard } from "@/components/session-card";
+import { ENGLISH_CODE, SESSION_KINDS, sessionsFromHours } from "@/lib/constants";
+import { addDays, appTimeZone, formatDate, isValidISO, mondayOf, nowHM, todayISO } from "@/lib/dates";
+import { VIEW_COOKIE, colorMap, toGridSession } from "@/lib/schedule-grid";
+import { ScheduleGrid } from "@/components/schedule-grid";
 import type { ScheduleSession, SessionKind } from "@/lib/types";
 
 export default async function SchedulePage({
@@ -48,6 +50,11 @@ export default async function SchedulePage({
 
   const weekEnd = addDays(monday, 6);
   const week = all.filter((s) => s.session_date >= monday && s.session_date <= weekEnd);
+  const colors = colorMap(subjects);
+  const gridSessions = week.map((s) => toGridSession(s, byId.get(s.subject_id), colors.get(s.subject_id) ?? 0));
+  const initialView = (await cookies()).get(VIEW_COOKIE)?.value === "day" ? "day" : "grid";
+  // لم يختر مجموعة الإنجليزية: تظهر كل المجموعات، فننبّهه
+  const showGroupHint = !profile.english_group && week.some((s) => byId.get(s.subject_id)?.code === ENGLISH_CODE && s.group_label);
 
   // عدّاد الحصص المنجزة (الحصة = 1.5 ساعة)، ما عدا الملغاة
   const done = new Map<string, number>();
@@ -59,7 +66,7 @@ export default async function SchedulePage({
 
   const arrow = "size-4 rtl:rotate-180";
   return (
-    <div className="space-y-6">
+    <div className="wide-page space-y-6">
       <h1 className="page-title !mb-0">{t("schedule.title")}</h1>
 
       <div className="flex items-center justify-between gap-2">
@@ -79,29 +86,17 @@ export default async function SchedulePage({
         </Link>
       </div>
 
-      <div className="space-y-5">
-        {STUDY_DAYS.map((d) => {
-          const date = addDays(monday, d - 1);
-          const sessions = week.filter((s) => s.session_date === date);
-          return (
-            <section key={d} aria-labelledby={`day-${d}`}>
-              <h2 id={`day-${d}`} className={`tech mb-2 flex items-baseline gap-2 text-sm font-semibold ${date === today ? "text-accent" : "text-muted"}`}>
-                {t(`day.${d}` as "day.1")}
-                <span className="text-xs font-normal" dir="ltr">{formatDate(date, locale)}</span>
-              </h2>
-              {sessions.length === 0 ? (
-                <p className="text-xs text-muted">{t("schedule.empty")}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {sessions.map((s) => (
-                    <SessionCard key={s.id} session={s} subject={byId.get(s.subject_id)} />
-                  ))}
-                </ul>
-              )}
-            </section>
-          );
-        })}
-      </div>
+      <ScheduleGrid
+        key={monday}
+        mode="student"
+        monday={monday}
+        today={today}
+        nowHM={nowHM()}
+        tz={appTimeZone()}
+        sessions={gridSessions}
+        initialView={initialView}
+      />
+      {showGroupHint && <p className="text-xs text-warn">{t("schedule.pickGroup")}</p>}
 
       <section className="space-y-3" aria-labelledby="counter-h">
         <h2 id="counter-h" className="tech text-sm font-semibold text-muted">{t("schedule.counter")}</h2>

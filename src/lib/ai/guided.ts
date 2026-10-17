@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { LANG_NAME, type SessionLang } from "@/lib/ai/lang";
 import type { ContextChunk, SourceRef } from "./prompts";
 
 export type GuidedAction = "start" | "continue" | "more" | "example" | "finish" | "hint" | "solution";
@@ -84,12 +85,12 @@ export function toContext(rows: WindowRow[]): { chunks: ContextChunk[]; sources:
   };
 }
 
-export type SessionLang = "fr" | "ar";
-/** لغة الجلسة: الفرنسية (لغة الدروس) أو العربية مع إبقاء المصطلحات بالفرنسية */
-const LANG = (lang: SessionLang) => (lang === "fr" ? "French" : "Arabic (keep technical terms in French as in the course)");
+export type { SessionLang };
+/** لغة الجلسة: الفرنسية (لغة الدروس) أو العربية أو الإنجليزية مع إبقاء المصطلحات بالفرنسية */
+const LANG = (lang: SessionLang) => LANG_NAME[lang];
 
 export function explainNote(a: { action: GuidedAction | "free"; lang: SessionLang; part: number; parts: number; finished: boolean }): string {
-  const base = `GUIDED EXPLANATION SESSION. Write EVERYTHING (explanations, examples, questions) in ${LANG(a.lang)}, always, whatever language the student's buttons, commands or earlier messages are in. You are a patient teacher walking the student through the selected lessons part by part, in order. The excerpts below are the CURRENT PART only (approximately part ${a.part} of ${a.parts}); it is ONE section of the lesson.\nRULES: (1) Stay inside the lesson: use the lesson's OWN examples, numbers, notation and figures first (copy symbols, numbers and vectors exactly as written in the excerpts; never invent or alter notation, dimensions or values). (2) Only if the excerpts have no example, you may give a tiny one, and you must label anything that is not in the excerpts with the prefix "Hors programme :" (or "خارج المنهج:" in Arabic sessions) - never present outside material (other algorithms, formulas, losses...) as part of the course. (3) Use Markdown tables only with proper rows, one per line.`;
+  const base = `GUIDED EXPLANATION SESSION. Write EVERYTHING (explanations, examples, questions) in ${LANG(a.lang)}, always, whatever language the student's buttons, commands or earlier messages are in. You are a patient teacher walking the student through the selected lessons part by part, in order. The excerpts below are the CURRENT PART only (approximately part ${a.part} of ${a.parts}); it is ONE section of the lesson.\nRULES: (1) Stay inside the lesson: use the lesson's OWN examples, numbers, notation and figures first (copy symbols, numbers and vectors exactly as written in the excerpts; never invent or alter notation, dimensions or values). (2) Only if the excerpts have no example, you may give a tiny one, and you must label anything that is not in the excerpts with the prefix "Hors programme :" (or "خارج المنهج:" in Arabic sessions, "Out of syllabus:" in English sessions) - never present outside material (other algorithms, formulas, losses...) as part of the course. (3) Use Markdown tables only with proper rows, one per line.`;
   if (a.finished)
     return `${base} The whole selected material has been covered. Congratulate the student, give a 3-line recap of what was covered, and suggest the Review mode to test themselves. No new content.`;
   const stop = `Explain ONLY what is in the excerpts, following their order: one short sentence saying what this part is about, then the explanation step by step with the lesson's own example when there is one, citing [C#] with pages. Keep it focused (about 200-300 words). Then STOP: do not start the next part and do not ask a quiz question; the interface shows buttons ("understood, continue" / "explain more" / "give me an example").`;
@@ -104,7 +105,7 @@ export function explainNote(a: { action: GuidedAction | "free"; lang: SessionLan
 }
 
 export function reviewNote(a: { action: "start" | "answer"; lang: SessionLang; k: number; last: boolean; hasBank: boolean }): string {
-  const heading = a.lang === "fr" ? "### Question N/5" : "### السؤال N/5";
+  const heading = a.lang === "ar" ? "### السؤال N/5" : "### Question N/5";
   const base = `GUIDED REVIEW SESSION of ${REVIEW_QUESTIONS} questions, one at a time. Write everything in ${LANG(a.lang)}. Never reveal an answer before the student answers. Ask exactly ONE question per message.${
     a.hasBank
       ? ` A short list of existing exercises is given ONLY as inspiration for topics and difficulty: NEVER copy their wording, options, numbers or structure, and never ask a question whose answer would be the same as one of them; write ORIGINAL questions from the excerpts.`

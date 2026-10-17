@@ -12,6 +12,7 @@ export interface PushText {
 export interface PushMessage {
   ar: PushText;
   fr: PushText;
+  en: PushText;
   /** مسار داخل التطبيق يُفتح عند النقر */
   url?: string;
   /** إشعارات بنفس الوسم تستبدل بعضها */
@@ -74,7 +75,7 @@ export async function sendPush(target: PushTarget, kind: PushKind, msg: PushMess
       admin.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth").in("user_id", ids),
     ]);
     const off = new Set((prefs ?? []).filter((p) => (p as unknown as Record<string, unknown>)[kind] === false).map((p) => (p as unknown as { user_id: string }).user_id));
-    const locale = new Map((profs ?? []).map((p) => [p.id as string, p.locale === "fr" ? "fr" : "ar"] as const));
+    const locale = new Map((profs ?? []).map((p) => [p.id as string, p.locale === "fr" ? "fr" : p.locale === "en" ? "en" : "ar"] as const));
     const list = (subs ?? []).filter((s) => !off.has(s.user_id as string));
     const recipients = new Set(list.map((s) => s.user_id as string)).size;
 

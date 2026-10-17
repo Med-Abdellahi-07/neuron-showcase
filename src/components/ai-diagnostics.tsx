@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { AlertTriangle, Check, X } from "lucide-react";
 import { runAiDiagnostics } from "@/app/actions/ai-admin";
 import type { DiagReport } from "@/lib/ai/diagnostics";
+import { useT } from "@/lib/i18n/client";
 
 export function AiDiagnostics() {
+  const { t } = useT();
   const [report, setReport] = useState<DiagReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -16,7 +18,7 @@ export function AiDiagnostics() {
       try {
         setReport(await runAiDiagnostics());
       } catch {
-        setError("فشل تشغيل الاختبار (تأكد أنك مدير).");
+        setError(t("diag.failed"));
       }
     });
   }
@@ -26,7 +28,7 @@ export function AiDiagnostics() {
   return (
     <div className="space-y-4">
       <button type="button" className="btn btn-primary" onClick={run} disabled={pending} aria-busy={pending}>
-        {pending ? "…" : "تشغيل الاختبار"}
+        {pending ? "…" : t("diag.run")}
       </button>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
@@ -36,11 +38,9 @@ export function AiDiagnostics() {
             <div role="alert" className="card flex gap-3 border-danger bg-danger/10 text-sm">
               <AlertTriangle className="mt-0.5 shrink-0 text-danger" size={18} aria-hidden />
               <div className="space-y-1">
-                <p className="font-semibold text-danger">Gemini أعاد خطأ 401 (مصادقة مرفوضة)</p>
+                <p className="font-semibold text-danger">{t("diag.geminiAuth")}</p>
                 <p>{geminiAlert.hint}</p>
-                <p className="text-muted">
-                  التطبيق يعمل رغم ذلك: عند فشل Gemini يتحوّل تلقائياً إلى Groq (انظر آخر سطرين).
-                </p>
+                <p className="text-muted">{t("diag.stillWorks")}</p>
               </div>
             </div>
           )}
@@ -65,7 +65,7 @@ export function AiDiagnostics() {
           </ul>
 
           <div className="card !p-3">
-            <p className="label mb-2">المتغيرات في الخادم (القيم السرية لا تُعرض)</p>
+            <p className="label mb-2">{t("diag.env")}</p>
             <ul className="tech grid gap-1 text-xs" dir="ltr">
               {report.env.map((e) => (
                 <li key={e.name} className="flex justify-between gap-2">

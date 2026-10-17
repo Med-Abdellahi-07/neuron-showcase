@@ -76,6 +76,7 @@ export async function answerDuel(input: { duelId: string; questionId: string; se
           pushLater({ userIds: [d.opponent_id as string] }, "duel", {
             ar: { title: "⚔️ تحدٍّ جديد", body: `${name} يتحداك! لديك 48 ساعة للإجابة.` },
             fr: { title: "⚔️ Nouveau duel", body: `${name} te défie ! Tu as 48 h pour répondre.` },
+            en: { title: "⚔️ New duel", body: `${name} challenges you! You have 48 h to answer.` },
             url: `/practice/duel/${input.duelId}`,
             tag: `duel-${input.duelId}`,
           });
@@ -83,6 +84,7 @@ export async function answerDuel(input: { duelId: string; questionId: string; se
           pushLater({ userIds: [d.challenger_id as string] }, "duel", {
             ar: { title: "⚔️ انتهى التحدي", body: `${name} أنهى تحديك. اطّلع على النتيجة.` },
             fr: { title: "⚔️ Duel terminé", body: `${name} a terminé ton duel. Vois le résultat.` },
+            en: { title: "⚔️ Duel finished", body: `${name} finished your duel. See the result.` },
             url: `/practice/duel/${input.duelId}`,
             tag: `duel-${input.duelId}`,
           });

@@ -1,3 +1,5 @@
+import { INTL_TAG, type Locale } from "@/lib/i18n/dictionaries";
+
 const tz = () => process.env.APP_TIMEZONE || "UTC";
 
 /** المنطقة الزمنية للتطبيق (تُستعمل أيضاً لحدّ الأسبوع في الترتيب) */
@@ -50,8 +52,8 @@ export function isValidISO(value: string | undefined | null): value is string {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(parse(value).getTime());
 }
 
-export function formatDate(iso: string, locale: "ar" | "fr"): string {
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar-u-nu-latn" : "fr-FR", {
+export function formatDate(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(INTL_TAG[locale], {
     timeZone: "UTC",
     day: "numeric",
     month: "short",
