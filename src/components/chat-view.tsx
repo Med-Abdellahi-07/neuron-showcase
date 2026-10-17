@@ -5,7 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { ImagePlus, Send, Square, X } from "lucide-react";
+import { Check, Copy, ImagePlus, Send, Square, X } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 import "katex/dist/katex.min.css";
@@ -43,6 +43,51 @@ const withCitations = (text: string) =>
       .map((id) => `[${id}](#cite-${id})`)
       .join(" ")
   );
+
+/** المراجع المذكورة فعلاً في النص */
+function citedIds(text: string): Set<string> {
+  const ids = new Set<string>();
+  for (const m of text.matchAll(/\[((?:[CW]\d{1,2})(?:\s*[,;،]\s*[CW]\d{1,2})*)\]/g)) for (const id of m[1].split(/\s*[,;،]\s*/)) ids.add(id);
+  return ids;
+}
+
+const usedSources = (m: ChatMessage) => {
+  const cited = citedIds(m.content);
+  return (m.sources ?? []).filter((s) => cited.has(s.id));
+};
+
+/** نص نظيف للنسخ: بلا علامات المراجع، والمعادلات تبقى LaTeX كما كتبها النموذج */
+const cleanForCopy = (text: string) =>
+  text
+    .replace(/\s*\[(?:[CW]\d{1,2})(?:\s*[,;،]\s*[CW]\d{1,2})*\]/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+
+function CopyButton({ text }: { text: string }) {
+  const { t } = useT();
+  const [done, setDone] = useState(false);
+  async function copy() {
+    const value = cleanForCopy(text);
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = value;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    setDone(true);
+    setTimeout(() => setDone(false), 1500);
+  }
+  return (
+    <button type="button" onClick={copy} className="btn btn-sm !px-2" aria-label={t("chat.copy")} title={t("chat.copy")}>
+      {done ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
+      <span className="text-xs">{done ? t("chat.copied") : t("chat.copy")}</span>
+    </button>
+  );
+}
 
 /** رابط المرجع: الحصة مع الصفحة، والحصة تفتح الـPDF على تلك الصفحة */
 const courseHref = (s: ChatSource) => `/lessons/${s.lessonId}${s.page ? `?page=${s.page}` : ""}#pdf-h`;
@@ -248,11 +293,12 @@ export function ChatView({
                   !m.error && <span className="text-sm text-muted" aria-busy="true">…</span>
                 )}
                 {m.error && <p role="alert" className="text-sm text-danger">{errText(m.error)}</p>}
-                {m.sources && m.sources.length > 0 && m.content && (
+                {m.content && !m.error && <div className="flex justify-end"><CopyButton text={m.content} /></div>}
+                {usedSources(m).length > 0 && (
                   <div className="space-y-1 border-t border-border pt-2">
                     <p className="label !mb-0">{t("chat.sources")}</p>
                     <ul className="space-y-1 text-xs">
-                      {m.sources.map((s) => (
+                      {usedSources(m).map((s) => (
                         <li key={s.id} className="flex items-start gap-1.5" dir="auto">
                           <span className="tech rounded bg-accent-soft px-1 text-[11px] font-semibold text-accent">{s.id}</span>
                           <span className="badge shrink-0">{s.kind === "course" ? t("chat.fromCourse") : t("chat.fromWeb")}</span>

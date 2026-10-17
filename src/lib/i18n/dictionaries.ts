@@ -378,6 +378,8 @@ export const ar = {
   "sched.ai.skipped": "خلايا تُجوهلت",
   "sched.ai.save": "احفظ الحصص",
   "admin.studentAnalysis": "تحليل الطالب",
+  "chat.copy": "نسخ",
+  "chat.copied": "تم النسخ",
 } as const;
 
 export type DictKey = keyof typeof ar;
@@ -762,6 +764,8 @@ export const fr: Record<DictKey, string> = {
   "sched.ai.skipped": "Cellules ignorées",
   "sched.ai.save": "Enregistrer les séances",
   "admin.studentAnalysis": "Analyse de l'étudiant",
+  "chat.copy": "Copier",
+  "chat.copied": "Copié",
 };
 
 export const dictionaries = { ar, fr } as const;

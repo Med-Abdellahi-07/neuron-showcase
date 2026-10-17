@@ -1,6 +1,6 @@
 import { AiError, errorInfo, type ErrorInfo } from "./errors";
 import { geminiEmbed, geminiGenerate, geminiModel, geminiEmbeddingModel } from "./gemini";
-import { groqGenerate, groqModel } from "./groq";
+import { groqGenerate, groqModel, groqVisionModel } from "./groq";
 import { tavilySearch } from "./tavily";
 import { generateText } from "./index";
 
@@ -53,7 +53,9 @@ function hintFor(info: ErrorInfo): string | undefined {
   if (info.provider === "groq") {
     if (info.status === 0) return "GROQ_API_KEY غير مضبوط في Vercel.";
     if (info.status === 401) return "Groq رفض المفتاح (401): تحقق من GROQ_API_KEY.";
-    if (info.status === 404 || info.status === 400) return "تحقق من اسم النموذج GROQ_MODEL / GROQ_VISION_MODEL.";
+    if (info.status === 404)
+      return `النموذج غير موجود أو أُوقف (${groqModel()} / رؤية: ${groqVisionModel()}). أوقفت Groq بعض النماذج (مثل llama-3.3-70b-versatile في 16/08/2026). غيّر GROQ_MODEL إلى openai/gpt-oss-120b وGROQ_VISION_MODEL إلى qwen/qwen3.8-27b في Vercel ثم أعد النشر.`;
+    if (info.status === 400) return "طلب مرفوض: تحقق من اسم النموذج GROQ_MODEL / GROQ_VISION_MODEL وأنه يدعم الميزة المطلوبة.";
   }
   if (info.provider === "tavily") {
     if (info.status === 0) return "TAVILY_API_KEY غير مضبوط.";
@@ -98,6 +100,7 @@ export async function runDiagnostics(): Promise<DiagReport> {
     { name: "GEMINI_MODEL", set: present("GEMINI_MODEL"), value: geminiModel() },
     { name: "GEMINI_EMBEDDING_MODEL", set: present("GEMINI_EMBEDDING_MODEL"), value: geminiEmbeddingModel() },
     { name: "GROQ_MODEL", set: present("GROQ_MODEL"), value: groqModel() },
+    { name: "GROQ_VISION_MODEL", set: present("GROQ_VISION_MODEL"), value: groqVisionModel() },
   ];
 
   const rows = await Promise.all([

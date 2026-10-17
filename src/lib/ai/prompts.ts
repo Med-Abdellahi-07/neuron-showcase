@@ -30,6 +30,7 @@ export function buildSystemPrompt(opts: {
   web: { id: string; title: string; url: string; text: string }[];
   hasCourseMatch: boolean;
   smallTalk?: boolean;
+  deepen?: boolean;
   scopeNote: string;
 }): string {
   const parts: string[] = [
@@ -55,6 +56,11 @@ export function buildSystemPrompt(opts: {
   } else {
     parts.push(
       `No relevant course excerpt and no web result was found. Do NOT answer from general knowledge and do NOT invent a definition (especially not one from another field: a term must be understood in the AI / computer science / mathematics context). Say briefly that you could not find this in the course materials, ask the student to rephrase, name the lesson, or enable the "deepen" option for a web search. You may restate what you understood of the question.`
+    );
+  }
+  if (opts.deepen && opts.web.length && !opts.smallTalk) {
+    parts.push(
+      `DEEPEN MODE: the student asked to go further. First give the answer based on the course (as above). Then add a separate final section titled exactly "## Pour aller plus loin" that brings NEW information found ONLY in the web results (applications, extra details, recent developments, alternative explanations), citing each point with [W#]. Do not repeat what the course part already said. Keep the two parts clearly separate: statements in the first part come from the course, statements in "Pour aller plus loin" come from the internet. If the web results add nothing relevant, write one line saying so instead of padding.`
     );
   }
   if (opts.scopeNote) parts.push(opts.scopeNote);

@@ -4,8 +4,8 @@ import type { GenOpts } from "./gemini";
 /** Groq (احتياطي) عبر واجهته المتوافقة مع OpenAI. */
 const URL_ = (process.env.GROQ_BASE_URL?.trim() || "https://api.groq.com/openai/v1") + "/chat/completions"; // GROQ_BASE_URL: للاختبارات فقط
 
-export const groqModel = () => process.env.GROQ_MODEL?.trim() || "llama-3.3-70b-versatile";
-export const groqVisionModel = () => process.env.GROQ_VISION_MODEL?.trim() || "meta-llama/llama-4-scout-17b-16e-instruct";
+export const groqModel = () => process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
+export const groqVisionModel = () => process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b";
 
 function key(): string {
   const k = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
@@ -13,13 +13,21 @@ function key(): string {
   return k;
 }
 
-function body(o: GenOpts, stream: boolean) {
+/** نماذج التفكير: تُخفى سلسلة التفكير من الرد، ونزيد حد الرموز لأن التفكير يُحسب منه */
+const isOss = (m: string) => /gpt-oss/i.test(m);
+const isQwen = (m: string) => /qwen/i.test(m);
+
+function body(o: GenOpts, stream: boolean, extras = true) {
   const hasImages = o.messages.some((m) => m.images?.length);
+  const model = hasImages ? groqVisionModel() : groqModel();
+  const reasoning = isOss(model) || isQwen(model);
   return {
-    model: hasImages ? groqVisionModel() : groqModel(),
+    model,
     stream,
     temperature: o.temperature ?? 0.4,
-    max_tokens: o.maxTokens ?? 2048,
+    max_tokens: (o.maxTokens ?? 2048) + (reasoning ? 1024 : 0),
+    ...(extras && isOss(model) ? { include_reasoning: false, reasoning_effort: "low" } : {}),
+    ...(extras && isQwen(model) ? { reasoning_format: "hidden" } : {}),
     ...(o.json ? { response_format: { type: "json_object" } } : {}),
     messages: [
       { role: "system", content: o.system },
@@ -38,11 +46,9 @@ function body(o: GenOpts, stream: boolean) {
   };
 }
 
-async function post(o: GenOpts, stream: boolean): Promise<{ res: Response; model: string }> {
-  const b = body(o, stream);
-  let res: Response;
+async function send(b: unknown): Promise<Response> {
   try {
-    res = await fetch(URL_, {
+    return await fetch(URL_, {
       method: "POST",
       headers: { authorization: `Bearer ${key()}`, "content-type": "application/json" },
       body: JSON.stringify(b),
@@ -52,14 +58,28 @@ async function post(o: GenOpts, stream: boolean): Promise<{ res: Response; model
     if (e instanceof AiError) throw e;
     throw new AiError("groq", 0, `تعذّر الاتصال بـ Groq: ${e instanceof Error ? e.message : e}`);
   }
+}
+
+async function post(o: GenOpts, stream: boolean): Promise<{ res: Response; model: string }> {
+  const b = body(o, stream);
+  let res = await send(b);
+  if (res.status === 400) {
+    // قد يرفض النموذج حقول التفكير الإضافية: نعيد المحاولة بدونها
+    const err = await errorFromResponse("groq", res);
+    if (!/reason/i.test(err.message)) throw err;
+    res = await send(body(o, stream, false));
+  }
   if (!res.ok) throw await errorFromResponse("groq", res);
   return { res, model: b.model };
 }
 
+/** يزيل كتل <think>…</think> إن أرجعها النموذج داخل النص (احتياط) */
+export const stripThink = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^\s*<think>[\s\S]*$/i, "").trim();
+
 export async function groqGenerate(o: GenOpts): Promise<{ text: string; model: string }> {
   const { res, model } = await post(o, false);
   const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const text = j.choices?.[0]?.message?.content ?? "";
+  const text = stripThink(j.choices?.[0]?.message?.content ?? "");
   if (!text) throw new AiError("groq", 502, "رد Groq فارغ");
   return { text, model };
 }
@@ -71,6 +91,8 @@ export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
   const dec = new TextDecoder();
   let buf = "";
   let any = false;
+  let thinking = false;
+  let pending = "";
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -85,8 +107,31 @@ export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
       try {
         const t = (JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] }).choices?.[0]?.delta?.content;
         if (t) {
-          any = true;
-          yield t;
+          pending += t;
+          let out = "";
+          for (;;) {
+            if (thinking) {
+              const e = pending.indexOf("</think>");
+              if (e < 0) { pending = pending.slice(-7); break; }
+              pending = pending.slice(e + 8);
+              thinking = false;
+            } else {
+              const b = pending.indexOf("<think>");
+              if (b < 0) {
+                // نحتفظ بذيل قد يكون بداية وسم
+                const keep = pending.lastIndexOf("<");
+                if (keep >= 0 && "<think>".startsWith(pending.slice(keep))) { out += pending.slice(0, keep); pending = pending.slice(keep); } else { out += pending; pending = ""; }
+                break;
+              }
+              out += pending.slice(0, b);
+              pending = pending.slice(b + 7);
+              thinking = true;
+            }
+          }
+          if (out) {
+            any = true;
+            yield out;
+          }
         }
       } catch {
         /* تجاهل */

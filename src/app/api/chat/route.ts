@@ -142,6 +142,7 @@ export async function POST(req: Request) {
           web: web.map((w, i) => ({ id: `W${i + 1}`, title: w.title, url: w.url, text: w.content })),
           hasCourseMatch: retrieved.relevant,
           smallTalk,
+          deepen: !!body.deepen,
           scopeNote: [scope, webNote].filter(Boolean).join(" "),
         });
         const messages: ChatMsg[] = [
