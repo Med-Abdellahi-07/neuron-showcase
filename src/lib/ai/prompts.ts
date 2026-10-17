@@ -31,6 +31,7 @@ export function buildSystemPrompt(opts: {
   hasCourseMatch: boolean;
   smallTalk?: boolean;
   deepen?: boolean;
+  modeNote?: string;
   scopeNote: string;
 }): string {
   const parts: string[] = [
@@ -38,7 +39,7 @@ export function buildSystemPrompt(opts: {
     `LANGUAGE: answer in the language of the student's last message (Arabic, French or English). Keep technical terms in French as they appear in the course (e.g. "régression linéaire"). Write math in LaTeX ($...$ inline, $$...$$ block). Use Markdown, keep answers focused.`,
     `SCOPE: you only help with the student's studies (the course subjects, programming, math, study methods). If the request is clearly unrelated to studying, decline briefly and kindly and invite a study question.`,
     `PRIVACY: never ask for or repeat personal data (full name, email, phone, address).`,
-    MODE_RULES[opts.mode],
+    opts.modeNote ?? MODE_RULES[opts.mode],
     `SOURCES: below, course excerpts are labelled [C1], [C2]... (with lesson and page) and web results [W1], [W2].... When a statement relies on an excerpt, cite it inline with its marker, e.g. "... [C2]". Never invent a marker or a page. Do not cite things that are not in the excerpts.`,
   ];
   if (opts.smallTalk) {
@@ -48,6 +49,10 @@ export function buildSystemPrompt(opts: {
   } else if (opts.hasCourseMatch) {
     parts.push(
       `Prefer the course excerpts. If part of the answer is NOT supported by them, say so explicitly and start that part with "⚠ خارج المنهج / Hors programme:".`
+    );
+  } else if (opts.modeNote && !opts.web.length) {
+    parts.push(
+      "If no course excerpt is provided below, rely on standard university-level knowledge in the AI / computer science / mathematics context, without inventing what 'the course says'. Do not add an 'out of curriculum' warning."
     );
   } else if (opts.web.length) {
     parts.push(
@@ -60,7 +65,7 @@ export function buildSystemPrompt(opts: {
   }
   if (opts.deepen && opts.web.length && !opts.smallTalk) {
     parts.push(
-      `DEEPEN MODE: the student asked to go further. First give the answer based on the course (as above). Then add a separate final section titled exactly "## Pour aller plus loin" that brings NEW information found ONLY in the web results (applications, extra details, recent developments, alternative explanations), citing each point with [W#]. Do not repeat what the course part already said. Keep the two parts clearly separate: statements in the first part come from the course, statements in "Pour aller plus loin" come from the internet. If the web results add nothing relevant, write one line saying so instead of padding.`
+      `DEEPEN MODE: the student asked to go further. FIRST check the course excerpts: every fact that appears in them (even briefly, e.g. a section on another learning paradigm) MUST be stated in the first part and cited with its [C#] marker, never with [W#]. Give the answer based on the course (as above). Then add a separate final section titled exactly "## Pour aller plus loin" that brings ONLY information that is absent from the course excerpts and found in the web results (applications, extra details, recent developments, alternative explanations), citing each point with [W#]. Do not repeat what the course part already said. Keep the two parts clearly separate: statements in the first part come from the course, statements in "Pour aller plus loin" come from the internet. If the web results add nothing relevant, write one line saying so instead of padding.`
     );
   }
   if (opts.scopeNote) parts.push(opts.scopeNote);

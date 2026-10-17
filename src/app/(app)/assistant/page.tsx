@@ -5,8 +5,8 @@ import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
 import { formatDate } from "@/lib/dates";
-import { SubmitButton } from "@/components/submit-button";
-import { deleteConversation, startChat } from "@/app/actions/assistant";
+import { ChatPicker, type PickLesson } from "@/components/chat-picker";
+import { deleteConversation } from "@/app/actions/assistant";
 
 interface Conv {
   id: string;
@@ -17,11 +17,12 @@ interface Conv {
 }
 const first = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
 
-export default async function AssistantPage() {
+export default async function AssistantPage({ searchParams }: { searchParams: Promise<{ lesson?: string }> }) {
+  const sp = await searchParams;
   const userId = await requireUserId();
   const { t, locale } = await getT();
   const supabase = await createClient();
-  const [subjects, convRes] = await Promise.all([
+  const [subjects, convRes, lessonRes] = await Promise.all([
     getCurrentSubjects(),
     supabase
       .from("conversations")
@@ -29,7 +30,12 @@ export default async function AssistantPage() {
       .eq("user_id", userId)
       .order("updated_at", { ascending: false })
       .limit(50),
+    supabase.from("lessons").select("id, subject_id, kind, number, title").eq("status", "published").order("number").limit(600),
   ]);
+  const codeById = new Map(subjects.map((x) => [x.id, x.code]));
+  const lessons: PickLesson[] = (lessonRes.data ?? [])
+    .filter((l) => codeById.has(l.subject_id as string))
+    .map((l) => ({ id: l.id as string, subject: codeById.get(l.subject_id as string)!, kind: l.kind as string, number: l.number as number, title: l.title as string }));
   const convs = (convRes.data ?? []) as unknown as Conv[];
 
   return (
@@ -41,29 +47,7 @@ export default async function AssistantPage() {
         </Link>
       </div>
 
-      <form action={startChat} className="card space-y-3">
-        <h2 className="tech text-sm font-semibold">{t("chat.new")}</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label" htmlFor="c-subject">{t("chat.subject")}</label>
-            <select id="c-subject" name="subject" className="input" dir="auto">
-              <option value="">{t("common.all")}</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.code}>{s.code} — {s.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="c-mode">{t("chat.mode")}</label>
-            <select id="c-mode" name="mode" className="input" defaultValue="explain">
-              <option value="explain">{t("chat.mode.explain")}</option>
-              <option value="review">{t("chat.mode.review")}</option>
-              <option value="solve">{t("chat.mode.solve")}</option>
-            </select>
-          </div>
-        </div>
-        <SubmitButton className="btn btn-primary w-full">{t("chat.start")}</SubmitButton>
-      </form>
+      <ChatPicker subjects={subjects.map((x) => ({ code: x.code, name: x.name }))} lessons={lessons} initialLessonId={sp.lesson} />
 
       <section className="space-y-2" aria-labelledby="hist-h">
         <h2 id="hist-h" className="tech text-sm font-semibold text-muted">{t("chat.history")}</h2>

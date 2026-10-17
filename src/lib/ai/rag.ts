@@ -34,7 +34,7 @@ export interface RetrieveDebug {
   textError?: string;
 }
 
-const label = (r: Row) => `${r.lesson_kind.toUpperCase()} ${r.lesson_number} — ${r.lesson_title} (p. ${r.page})`;
+export const rowLabel = (r: Row) => `${r.lesson_kind.toUpperCase()} ${r.lesson_number} — ${r.lesson_title} (p. ${r.page})`;
 
 /** بحث هجين: دلالي + نصي معاً (لا نصي كاحتياط فقط)، ثم دمج بلا تكرار. */
 export async function searchBoth(
@@ -76,9 +76,23 @@ export async function searchBoth(
 export async function retrieve(
   supabase: SupabaseClient,
   query: string,
-  scope: { subjectId?: string | null; lessonId?: string | null }
+  scope: { subjectId?: string | null; lessonId?: string | null; lessonIds?: string[] },
+  opts: { k?: number } = {}
 ): Promise<Retrieved & { debug: RetrieveDebug }> {
-  const { vector, text, debug } = await searchBoth(supabase, query, scope);
+  const multi = (scope.lessonIds?.length ?? 0) > 1;
+  const found = await searchBoth(supabase, query, scope, multi ? 20 : (opts.k ?? K) + 3);
+  const debug = found.debug;
+  let { vector, text } = found;
+  if (multi) {
+    // نطاق عدة حصص: نرشّح نتائج المادة بالحصص المختارة (وإن لم يبقَ شيء نبقي نتائج المادة)
+    const inScope = new Set(scope.lessonIds);
+    const fv = vector.filter((r) => inScope.has(r.lesson_id));
+    const ft = text.filter((r) => inScope.has(r.lesson_id));
+    if (fv.length || ft.length) {
+      vector = fv;
+      text = ft;
+    }
+  }
   const seen = new Set<string>();
   const rows: Row[] = [];
   for (const r of [...vector.filter((r) => r.similarity >= MIN_SIMILARITY), ...text]) {
@@ -86,10 +100,10 @@ export async function retrieve(
     seen.add(r.id);
     rows.push(r);
   }
-  const top = rows.slice(0, K);
+  const top = rows.slice(0, opts.k ?? K);
   console.log(`retrieve: vec=${debug.vectorCount} top=${debug.topSimilarity?.toFixed(2) ?? "-"} text=${debug.textCount} used=${top.length}${debug.vectorError ? " vecErr=" + debug.vectorError : ""}`);
-  const chunks: ContextChunk[] = top.map((r, i) => ({ id: `C${i + 1}`, label: label(r), text: r.content }));
-  const sources: SourceRef[] = top.map((r, i) => ({ id: `C${i + 1}`, kind: "course", label: label(r), lessonId: r.lesson_id, page: r.page }));
+  const chunks: ContextChunk[] = top.map((r, i) => ({ id: `C${i + 1}`, label: rowLabel(r), text: r.content }));
+  const sources: SourceRef[] = top.map((r, i) => ({ id: `C${i + 1}`, kind: "course", label: rowLabel(r), lessonId: r.lesson_id, page: r.page }));
   const mode: Retrieved["mode"] = !top.length ? "none" : vector.some((r) => r.similarity >= MIN_SIMILARITY) ? "vector" : "text";
   return { chunks, sources, mode, relevant: top.length > 0, debug };
 }

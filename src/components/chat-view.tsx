@@ -149,7 +149,15 @@ export function ChatView({
   initialMode,
   scopeLabel,
   initialMessages,
+  guided = false,
+  autoStart = false,
+  initialProgress = { cursor: 0, total: 0, finished: false },
+  initialStep = 0,
 }: {
+  guided?: boolean;
+  autoStart?: boolean;
+  initialProgress?: { cursor: number; total: number; finished: boolean };
+  initialStep?: number;
   conversationId: string;
   initialMode: Mode;
   scopeLabel: string;
@@ -162,6 +170,8 @@ export function ChatView({
   const [deepen, setDeepen] = useState(false);
   const [images, setImages] = useState<{ mime: string; data: string; preview: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(initialProgress);
+  const [step, setStep] = useState(initialStep);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -184,19 +194,24 @@ export function ChatView({
     setImages((cur) => [...cur, ...next].slice(0, 2));
   }
 
-  async function send() {
-    const q = text.trim();
-    if (!q || busy) return;
-    const sentImages = images;
-    const uid = crypto.randomUUID();
+  type Ev =
+    | { type: "sources"; sources: ChatSource[]; outOfCurriculum: boolean }
+    | { type: "meta"; provider: string; fellBack: boolean }
+    | { type: "delta"; text: string }
+    | { type: "progress"; cursor: number; total: number; finished: boolean }
+    | { type: "step"; step: number; done: boolean }
+    | { type: "done" }
+    | { type: "error"; code: string };
+
+  /** يرسل طلباً إلى المساعد ويعرض الرد المتدفق. action: بدء/متابعة/أزرار سريعة في الجلسات الموجّهة */
+  async function run(o: { action?: string; text: string; images?: { mime: string; data: string }[] }) {
+    if (busy || (o.action !== "start" && !o.text.trim())) return;
     const aid = crypto.randomUUID();
     setMessages((m) => [
       ...m,
-      { id: uid, role: "user", content: q, hadImage: sentImages.length > 0 },
+      ...(o.action === "start" ? [] : [{ id: crypto.randomUUID(), role: "user" as const, content: o.text, hadImage: !!o.images?.length }]),
       { id: aid, role: "assistant", content: "" },
     ]);
-    setText("");
-    setImages([]);
     setBusy(true);
     const ac = new AbortController();
     abortRef.current = ac;
@@ -208,13 +223,7 @@ export function ChatView({
         method: "POST",
         headers: { "content-type": "application/json" },
         signal: ac.signal,
-        body: JSON.stringify({
-          conversationId,
-          text: q,
-          mode,
-          deepen,
-          images: sentImages.map(({ mime, data }) => ({ mime, data })),
-        }),
+        body: JSON.stringify({ conversationId, text: o.text, action: o.action, mode, deepen, images: o.images ?? [] }),
       });
       if (!res.ok || !res.body) {
         patch({ error: res.status === 429 ? "busy" : "unavailable" });
@@ -232,15 +241,12 @@ export function ChatView({
           const line = buf.slice(0, nl).trim();
           buf = buf.slice(nl + 1);
           if (!line) continue;
-          const ev = JSON.parse(line) as
-            | { type: "sources"; sources: ChatSource[]; outOfCurriculum: boolean }
-            | { type: "meta"; provider: string; fellBack: boolean }
-            | { type: "delta"; text: string }
-            | { type: "done" }
-            | { type: "error"; code: string };
+          const ev = JSON.parse(line) as Ev;
           if (ev.type === "sources") patch({ sources: ev.sources, outOfCurriculum: ev.outOfCurriculum });
           else if (ev.type === "meta") patch({ provider: ev.provider, fellBack: ev.fellBack });
           else if (ev.type === "delta") patch((x) => ({ content: x.content + ev.text }));
+          else if (ev.type === "progress") setProgress({ cursor: ev.cursor, total: ev.total, finished: ev.finished });
+          else if (ev.type === "step") setStep(ev.step);
           else if (ev.type === "error") patch({ error: ev.code });
         }
       }
@@ -252,12 +258,72 @@ export function ChatView({
     }
   }
 
-  const errText = (code?: string) => (code === "busy" ? t("chat.busy") : code ? t("chat.unavailable") : "");
+  async function send() {
+    const q = text.trim();
+    if (!q || busy) return;
+    const sentImages = images.map(({ mime, data }) => ({ mime, data }));
+    setText("");
+    setImages([]);
+    await run({ text: q, images: sentImages });
+  }
+
+  // بدء الجلسة الموجّهة تلقائياً: المساعد يبادر دون سؤال من الطالب
+  const started = useRef(false);
+  useEffect(() => {
+    if (!autoStart || started.current || initialMessages.length > 0) return;
+    started.current = true;
+    let imgs: { mime: string; data: string }[] = [];
+    try {
+      const raw = sessionStorage.getItem(`neuron-img-${conversationId}`);
+      if (raw) {
+        imgs = JSON.parse(raw);
+        sessionStorage.removeItem(`neuron-img-${conversationId}`);
+      }
+    } catch {
+      /* لا شيء */
+    }
+    window.history.replaceState(null, "", `/assistant/${conversationId}`);
+    void run({ action: "start", text: "", images: imgs });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const lastMsg = messages[messages.length - 1];
+  const idle = !busy && lastMsg?.role === "assistant" && !!lastMsg.content && !lastMsg.error;
+  const quick: { action: string; label: string }[] =
+    !guided || !idle
+      ? []
+      : mode === "explain"
+        ? progress.finished
+          ? []
+          : [
+              { action: "continue", label: t("chat.q.continue") },
+              { action: "more", label: t("chat.q.more") },
+              { action: "example", label: t("chat.q.example") },
+            ]
+        : mode === "review"
+          ? step >= 1 && step <= 5
+            ? [{ action: "finish", label: t("chat.q.finish") }]
+            : []
+          : [
+              { action: "hint", label: t("chat.q.hint") },
+              { action: "solution", label: t("chat.q.solution") },
+            ];
+
+  const errText = (code?: string) =>
+    code === "busy"
+      ? t("chat.busy")
+      : code === "no_material"
+        ? t("chat.noMaterial")
+        : code === "no_exercise"
+          ? t("chat.noExercise")
+          : code
+            ? t("chat.unavailable")
+            : "";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1.5" role="group" aria-label={t("chat.mode")}>
+        <div className={`flex gap-1.5 ${guided ? "hidden" : ""}`} role="group" aria-label={t("chat.mode")}>
           {MODES.map((m) => (
             <button
               key={m}
@@ -274,6 +340,17 @@ export function ChatView({
         </div>
         {scopeLabel && <span className="badge max-w-full truncate" dir="auto">{scopeLabel}</span>}
       </div>
+
+      {guided && mode === "explain" && progress.total > 0 && (
+        <div className="space-y-1">
+          <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={Math.min(progress.cursor, progress.total)} aria-label={t("chat.progress")}>
+            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${Math.min(100, (progress.cursor / progress.total) * 100)}%` }} />
+          </div>
+        </div>
+      )}
+      {guided && mode === "review" && step > 0 && (
+        <p className="tech text-xs text-muted" dir="ltr">{Math.min(step, 5)} / 5</p>
+      )}
 
       <ul className="space-y-4" aria-live="polite">
         {messages.length === 0 && <li className="card text-sm text-muted">{t("chat.welcome")}</li>}
@@ -318,6 +395,15 @@ export function ChatView({
           </li>
         ))}
       </ul>
+      {quick.length > 0 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("chat.quick")}>
+          {quick.map((b) => (
+            <button key={b.action} type="button" className="btn btn-sm" onClick={() => run({ action: b.action, text: b.label })}>
+              {b.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div ref={endRef} />
 
       <div className="sticky bottom-[4.5rem] space-y-2 rounded-[var(--radius)] border border-border bg-bg/95 p-3 backdrop-blur md:bottom-4">

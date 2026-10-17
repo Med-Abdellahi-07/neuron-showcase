@@ -21,7 +21,7 @@
 6. **إبقاء Supabase نشطاً:** نفّذ `supabase/migrations/0004_ping.sql` (دالة `ping()` يستدعيها anon فقط)، ثم أضف السرّين `SUPABASE_URL` و`SUPABASE_ANON_KEY` في GitHub → Settings → Secrets → Actions؛ سير العمل `keep-alive.yml` يستدعي `/rest/v1/rpc/ping` كل 3 أيام ويفشل إن لم يكن الرد 200.
 
 ## المساعد الذكي (المرحلة 3)
-ترتيب النشر: 1) ارفع الكود. 2) نفّذ `supabase/migrations/0005_phase3_assistant.sql` في SQL Editor. 3) أضف متغيرات Vercel ثم أعد النشر. 4) افتح لوحة المشرف ← «الذكاء الاصطناعي» وشغّل الاختبار. 5) أعد فهرسة الـPDF القديمة (زر «إعادة الفهرسة» في صفحة الحصة).
+ترتيب النشر: 1) ارفع الكود. 2) نفّذ `0005_phase3_assistant.sql` ثم `0006_rag_text_search.sql` ثم `0007_guided_sessions.sql` (بهذا الترتيب) في SQL Editor. 3) أضف متغيرات Vercel ثم أعد النشر. 4) افتح لوحة المشرف ← «الذكاء الاصطناعي» وشغّل الاختبار. 5) أعد فهرسة الـPDF القديمة (زر «إعادة الفهرسة» في صفحة الحصة).
 
 متغيرات Vercel (لا تضع المفاتيح في الكود ولا في المحادثات):
 - مطلوبة: `GEMINI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY` (و`SUPABASE_SERVICE_ROLE_KEY` للفهرسة إن لم تكن مضافة).

@@ -8,15 +8,16 @@ import { ChatView, type ChatMessage, type ChatSource } from "@/components/chat-v
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ChatPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ start?: string }> }) {
   const { id } = await params;
+  const wantsStart = (await searchParams).start === "1";
   if (!UUID_RE.test(id)) notFound();
   await requireUserId();
   const { t } = await getT();
   const supabase = await createClient();
 
   const [{ data: conv }, { data: msgs }] = await Promise.all([
-    supabase.from("conversations").select("id, subject_id, lesson_id, mode, title").eq("id", id).maybeSingle(),
+    supabase.from("conversations").select("id, subject_id, lesson_id, mode, title, guided, cursor, total, step").eq("id", id).maybeSingle(),
     supabase
       .from("messages")
       .select("id, role, content, sources, provider, had_image")
@@ -56,6 +57,10 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
         initialMode={conv.mode as "explain" | "review" | "solve"}
         scopeLabel={scopeLabel}
         initialMessages={initial}
+        guided={!!conv.guided}
+        autoStart={wantsStart && !!conv.guided && initial.length === 0}
+        initialProgress={{ cursor: conv.cursor as number, total: conv.total as number, finished: (conv.total as number) > 0 && (conv.cursor as number) >= (conv.total as number) }}
+        initialStep={conv.step as number}
       />
     </div>
   );
