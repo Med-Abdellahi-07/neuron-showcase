@@ -7,6 +7,7 @@ import type { DictKey } from "@/lib/i18n/dictionaries";
 
 const TABS: { href: string; key: DictKey }[] = [
   { href: "/practice", key: "arena.tab.train" },
+  { href: "/practice/duel", key: "duel.tab" },
   { href: "/practice/leaderboard", key: "arena.tab.ranking" },
   { href: "/practice/mistakes", key: "arena.tab.mistakes" },
 ];
@@ -18,7 +19,7 @@ export function PracticeTabs() {
     <nav aria-label={t("nav.practice")} className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
       <ul className="flex w-max gap-1.5">
         {TABS.map(({ href, key }) => {
-          const active = pathname === href;
+          const active = href === "/practice" ? pathname === href : pathname.startsWith(href);
           return (
             <li key={href}>
               <Link

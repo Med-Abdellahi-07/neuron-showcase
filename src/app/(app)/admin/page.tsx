@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
+import { AdminInsights } from "@/components/admin-insights";
 
 async function count(table: string, filter?: [string, string]) {
   const supabase = await createClient();
@@ -32,6 +33,7 @@ export default async function AdminHome() {
   ];
 
   return (
+    <div className="space-y-8">
     <ul className="grid grid-cols-2 gap-3">
       {stats.map((s) => {
         const body = (
@@ -51,5 +53,7 @@ export default async function AdminHome() {
         );
       })}
     </ul>
+    {isAdmin && <AdminInsights />}
+    </div>
   );
 }

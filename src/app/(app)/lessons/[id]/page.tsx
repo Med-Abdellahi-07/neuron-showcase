@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bot, Download, Dumbbell, ExternalLink, FileText, NotebookPen } from "lucide-react";
+import { Bot, Download, Dumbbell, ExternalLink, FileText, NotebookPen, Video } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { StudiedButton } from "@/components/studied-button";
+import { RecordingList, type RecordingRow } from "@/components/recording-list";
+import type { Mark } from "@/components/recording-player";
 import { getSubjectById } from "@/lib/data";
 import { formatDate } from "@/lib/dates";
 import type { Lesson, LessonFile } from "@/lib/types";
@@ -31,7 +33,11 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
   const files = (fileRows ?? []) as LessonFile[];
 
   // الموجة 2: ما يحتاج بيانات الحصة (الملخص، الروابط الموقّعة، المادة من الكتالوج المخزَّن)
-  const [{ data: resumeRow }, signed, subject] = await Promise.all([
+  // التسجيلات: المربوطة بهذه الحصة صراحةً، أو التي تطابق (مادة + نوع + تاريخ الحصة)
+  const recFilter = lesson.lesson_date
+    ? `lesson_id.eq.${lesson.id},and(subject_id.eq.${lesson.subject_id},kind.eq.${lesson.kind},rec_date.eq.${lesson.lesson_date})`
+    : `lesson_id.eq.${lesson.id}`;
+  const [{ data: resumeRow }, signed, subject, { data: recRows }] = await Promise.all([
     lesson.kind === "resume"
       ? Promise.resolve({ data: null })
       : supabase
@@ -46,8 +52,17 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       ? supabase.storage.from("lesson-files").createSignedUrls(files.map((f) => f.storage_path), 3600)
       : Promise.resolve(null),
     getSubjectById(lesson.subject_id),
+    lesson.kind === "resume"
+      ? Promise.resolve({ data: [] })
+      : supabase.from("recordings").select("id, title, kind, rec_date, provider, video_id, status").or(recFilter).order("rec_date", { ascending: false }),
   ]);
   if (!subject) notFound();
+  const recordings = (recRows ?? []) as RecordingRow[];
+  const marks: Record<string, Mark[]> = {};
+  if (recordings.length) {
+    const { data: m } = await supabase.from("recording_marks").select("recording_id, at_seconds, label").in("recording_id", recordings.map((r) => r.id)).order("at_seconds");
+    for (const x of m ?? []) (marks[x.recording_id as string] ??= []).push({ at_seconds: x.at_seconds as number, label: x.label as string });
+  }
 
   // روابط موقّعة لمدة ساعة
   const urls = new Map<string, string>();
@@ -71,6 +86,15 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       </div>
 
       <StudiedButton lessonId={lesson.id} studied={!!prog} />
+
+      {recordings.length > 0 && (
+        <section className="space-y-3" aria-labelledby="rec-h">
+          <h2 id="rec-h" className="tech flex items-center gap-2 text-sm font-semibold text-muted">
+            <Video size={16} aria-hidden /> {t("rec.section")}
+          </h2>
+          <RecordingList items={recordings} marks={marks} />
+        </section>
+      )}
 
       <section className="space-y-3" aria-labelledby="pdf-h">
         <h2 id="pdf-h" className="tech flex items-center gap-2 text-sm font-semibold text-muted">

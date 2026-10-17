@@ -4,6 +4,7 @@ import { getT } from "@/lib/i18n/server";
 import { logout } from "@/app/actions/auth";
 import { BottomNav, SideNav } from "@/components/app-nav";
 import { Logo } from "@/components/logo";
+import { SeenPing } from "@/components/seen-ping";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getProfile();
@@ -47,6 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
 
       <BottomNav />
+      <SeenPing />
     </div>
   );
 }

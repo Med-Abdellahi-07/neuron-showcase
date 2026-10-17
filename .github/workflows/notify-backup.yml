@@ -1,0 +1,23 @@
+# احتياطي: يستدعي مهمة الإشعارات اليومية يدوياً أو بجدول، إن لم تعمل Vercel Cron على خطتك.
+# المهمة آمنة للتكرار (لا ترسل الإشعار نفسه مرتين). أضف في GitHub → Settings → Secrets → Actions:
+#   SITE_URL  (مثل https://neuron-flame.vercel.app)   و   CRON_SECRET (نفس القيمة في Vercel)
+# لتفعيل الجدولة التلقائية بدل اليدوي: أزل علامة # من سطري schedule.
+name: notify-backup
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "10 17 * * *"
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron/notify
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$SITE_URL" && test -n "$CRON_SECRET" || { echo "secrets missing"; exit 1; }
+          code=$(curl -s -o body.txt -w "%{http_code}" -H "Authorization: Bearer $CRON_SECRET" "${SITE_URL%/}/api/cron/notify")
+          echo "status $code"; cat body.txt; echo
+          test "$code" = "200"

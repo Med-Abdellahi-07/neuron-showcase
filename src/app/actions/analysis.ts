@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 import { getLocale } from "@/lib/i18n/server";
 import { generateText } from "@/lib/ai";
+import { flushAiStats } from "@/lib/ai/stats";
 
 /** تحليل أداء الطالب: تُرسل للنموذج إحصاءات مجمّعة فقط، بلا اسم ولا بريد ولا هاتف. */
 export async function refreshAnalysis(): Promise<{ ok: boolean; error?: "busy" | "unavailable" | "empty" }> {
@@ -46,6 +47,8 @@ export async function refreshAnalysis(): Promise<{ ok: boolean; error?: "busy" |
   } catch (e) {
     console.error("analysis failed:", (e as Error).message);
     return { ok: false, error: "unavailable" };
+  } finally {
+    await flushAiStats(supabase);
   }
   revalidatePath("/assistant/analysis");
   return { ok: true };

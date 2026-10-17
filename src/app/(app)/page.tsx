@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, Megaphone, Repeat } from "lucide-react";
+import { CalendarClock, Megaphone, Repeat, Swords } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +7,7 @@ import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
 import { SLOTS } from "@/lib/constants";
 import { formatDate, todayISO } from "@/lib/dates";
 import type { Announcement, ScheduleSession } from "@/lib/types";
+import { hoursLeft, type DuelItem } from "@/lib/duel";
 
 export default async function HomePage() {
   const profile = await requireProfile();
@@ -16,7 +17,7 @@ export default async function HomePage() {
   const cohortId = profile.cohort_id;
 
   // كل هذه الاستعلامات مستقلة عن بعضها، فتُنفَّذ معاً في موجة واحدة
-  const [subjects, sessionsRes, annsRes, lessonsRes, progressRes, dueRes] = await Promise.all([
+  const [subjects, sessionsRes, annsRes, lessonsRes, progressRes, dueRes, duelsRes] = await Promise.all([
     getCurrentSubjects(),
     cohortId
       ? supabase
@@ -34,6 +35,7 @@ export default async function HomePage() {
           .from("announcements")
           .select("*")
           .eq("cohort_id", cohortId)
+          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
           .order("pinned", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(5)
@@ -46,7 +48,10 @@ export default async function HomePage() {
       .eq("user_id", profile.id)
       .eq("mastered", false)
       .lte("due_at", new Date().toISOString()),
+    supabase.rpc("my_duels"),
   ]);
+  const myTurn = ((duelsRes.data ?? []) as DuelItem[]).filter((d) => (d.status === "open" && !d.i_am_challenger && !d.my_finished) || (d.status === "challenger_turn" && d.i_am_challenger));
+  const soonest = myTurn.filter((d) => d.status === "open").sort((a, b) => hoursLeft(a.expires_at) - hoursLeft(b.expires_at))[0];
 
   const byId = new Map(subjects.map((s) => [s.id, s]));
   const next =
@@ -97,6 +102,18 @@ export default async function HomePage() {
         </span>
         {dueCount > 0 && <span className="tech text-2xl font-semibold text-accent" dir="ltr">{dueCount}</span>}
       </Link>
+
+      {myTurn.length > 0 && (
+        <Link href="/practice/duel" className="card flex items-center justify-between gap-3 border-accent">
+          <span className="tech flex items-center gap-2 text-sm font-semibold">
+            <Swords size={16} aria-hidden className="text-accent" /> {t("home.duelsPending")}
+          </span>
+          <span className="text-end">
+            <span className="tech block text-2xl font-semibold text-accent" dir="ltr">{myTurn.length}</span>
+            {soonest && <span className="text-xs text-muted">{t("duel.hoursLeft")}: {hoursLeft(soonest.expires_at)}h</span>}
+          </span>
+        </Link>
+      )}
 
       <section className="card space-y-3" aria-labelledby="progress-h">
         <h2 id="progress-h" className="tech text-sm font-semibold text-muted">{t("home.progress")}</h2>

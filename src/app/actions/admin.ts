@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { parseIdentifier } from "@/lib/identifier";
+import { notifyAnnouncement } from "@/lib/notify";
+import { isValidISO } from "@/lib/dates";
 import type { FormState } from "./auth";
 
 const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -19,14 +21,19 @@ export async function createAnnouncement(_prev: FormState, fd: FormData): Promis
   const cohort_id = text(fd, "cohort_id");
   const title = text(fd, "title");
   if (!UUID_RE.test(cohort_id) || !title) return { error: t("common.error") };
+  // تاريخ الانتهاء اختياري: يظل الإعلان ظاهراً حتى نهاية ذلك اليوم (UTC)
+  const exp = text(fd, "expires_on");
+  if (exp && !isValidISO(exp)) return { error: t("common.error") };
   const supabase = await createClient();
   const { error } = await supabase.from("announcements").insert({
     cohort_id,
     title: title.slice(0, 200),
     body: text(fd, "body").slice(0, 4000),
     pinned: fd.get("pinned") === "on",
+    expires_at: exp ? `${exp}T23:59:59Z` : null,
   });
   if (error) return { error: t("common.error") };
+  if (fd.get("notify") === "on") notifyAnnouncement(cohort_id, title.slice(0, 120), text(fd, "body"));
   revalidatePath("/", "layout");
   return { message: t("common.saved") };
 }

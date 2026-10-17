@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { notifyScheduleChange } from "@/lib/notify";
 import { addDays, isValidISO, isoWeekday, mondayOf } from "@/lib/dates";
 import type { FormState } from "./auth";
 
@@ -52,10 +53,15 @@ export async function setSessionStatus(fd: FormData) {
   const status = text(fd, "status");
   if (!UUID_RE.test(id) || !["scheduled", "cancelled", "changed"].includes(status)) return;
   const supabase = await createClient();
-  await supabase
+  const { data } = await supabase
     .from("schedule_sessions")
     .update({ status, note: optional(fd, "note") })
-    .eq("id", id);
+    .eq("id", id)
+    .select("cohort_id, subject_id, kind, session_date, group_label, status, note")
+    .maybeSingle();
+  // إلغاء أو تغيير حصة قادمة (لا نُشعر بحصص مضت)
+  if (data && (data.status === "cancelled" || data.status === "changed") && data.session_date >= new Date().toISOString().slice(0, 10))
+    await notifyScheduleChange(data);
   revalidatePath("/", "layout");
 }
 

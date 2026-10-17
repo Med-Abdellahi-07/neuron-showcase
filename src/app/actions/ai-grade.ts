@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 import { getLocale } from "@/lib/i18n/server";
 import { generateJson } from "@/lib/ai";
+import { flushAiStats } from "@/lib/ai/stats";
 import { gradingPrompt } from "@/lib/ai/prompts";
 import { scrubPII } from "@/lib/ai/privacy";
 import type { AnswerResult } from "./arena";
@@ -69,6 +70,8 @@ export async function gradeWrittenAnswer(input: {
   } catch (e) {
     console.error("grading failed:", (e as Error).message);
     return { ok: false, error: "unavailable" };
+  } finally {
+    await flushAiStats(supabase);
   }
 
   const { data, error } = await supabase.rpc("submit_answer", {

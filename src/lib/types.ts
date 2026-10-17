@@ -86,5 +86,6 @@ export interface Announcement {
   title: string;
   body: string;
   pinned: boolean;
+  expires_at: string | null;
   created_at: string;
 }

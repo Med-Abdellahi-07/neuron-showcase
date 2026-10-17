@@ -10,8 +10,10 @@ const TABS: { href: string; key: DictKey; adminOnly?: boolean }[] = [
   { href: "/admin/content", key: "admin.content" },
   { href: "/admin/questions", key: "admin.questionsMenu" },
   { href: "/admin/schedule", key: "admin.scheduleMenu" },
+  { href: "/admin/recordings", key: "admin.recordings" },
   { href: "/admin/approvals", key: "admin.approvals", adminOnly: true },
   { href: "/admin/announcements", key: "admin.announcements", adminOnly: true },
+  { href: "/admin/notifications", key: "admin.notifications", adminOnly: true },
   { href: "/admin/ai", key: "admin.aiMenu", adminOnly: true },
   { href: "/admin/accounts", key: "admin.accountsMenu", adminOnly: true },
 ];

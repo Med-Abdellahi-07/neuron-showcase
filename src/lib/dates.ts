@@ -60,3 +60,8 @@ export function formatDate(iso: string, locale: "ar" | "fr"): string {
 
 /** الوقت الحالي بالميلي ثانية (دالة منفصلة لاستعمالها داخل صفحات الخادم) */
 export const nowMs = () => Date.now();
+
+/** عدد الأيام الكاملة منذ لحظة معيّنة */
+export function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400_000);
+}

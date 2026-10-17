@@ -39,8 +39,16 @@ export default async function AnnouncementsPage() {
             <label className="label" htmlFor="body">{t("ann.body")}</label>
             <textarea id="body" name="body" className="input min-h-24" dir="auto" maxLength={4000} />
           </div>
+          <div>
+            <label className="label" htmlFor="expires_on">{t("ann.expires")}</label>
+            <input id="expires_on" name="expires_on" type="date" className="input" />
+            <p className="mt-1 text-xs text-muted">{t("ann.expiresHelp")}</p>
+          </div>
           <label className="flex min-h-10 items-center gap-3 text-sm">
             <input type="checkbox" name="pinned" className="size-4 accent-[var(--accent)]" /> {t("ann.pinned")}
+          </label>
+          <label className="flex min-h-10 items-center gap-3 text-sm">
+            <input type="checkbox" name="notify" defaultChecked className="size-4 accent-[var(--accent)]" /> {t("ann.notify")}
           </label>
         </ActionForm>
       </section>
@@ -52,6 +60,12 @@ export default async function AnnouncementsPage() {
               <p className="font-medium" dir="auto">{a.pinned && "📌 "}{a.title}</p>
               <span className="badge shrink-0">{names.get(a.cohort_id)}</span>
             </div>
+            {a.expires_at && (
+              <p className="tech text-xs text-muted" dir="ltr">
+                {new Date(a.expires_at) < new Date() ? `${t("ann.expired")} · ` : `${t("ann.expiresOn")} `}
+                {a.expires_at.slice(0, 10)}
+              </p>
+            )}
             {a.body && <p className="line-clamp-3 whitespace-pre-line text-sm text-muted" dir="auto">{a.body}</p>}
             <form action={deleteAnnouncement}>
               <input type="hidden" name="id" value={a.id} />

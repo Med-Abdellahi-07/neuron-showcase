@@ -1,6 +1,7 @@
 import { getUserId } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { drainFailures, errorInfo, streamChat, type ChatMsg } from "@/lib/ai";
+import { errorInfo, noteUse, streamChat, type ChatMsg } from "@/lib/ai";
+import { flushAiStats } from "@/lib/ai/stats";
 import { buildSystemPrompt, type ChatMode, type ContextChunk, type SourceRef } from "@/lib/ai/prompts";
 import { retrieve } from "@/lib/ai/rag";
 import {
@@ -288,6 +289,7 @@ export async function POST(req: Request) {
             if (okUser === true && (globalCount ?? 0) < 900) {
               try {
                 web = await tavilySearch(query);
+                noteUse("tavily");
               } catch (e) {
                 console.error("tavily failed:", errorInfo(e, "tavily").message);
               }
@@ -438,15 +440,8 @@ export async function POST(req: Request) {
         }
         send({ type: "error", code: "unavailable" });
       } finally {
-        // آخر أسباب فشل المزوّدين تُحفظ ليراها المدير (لا تُوقف الرد إن فشل الحفظ)
-        for (const f of drainFailures()) {
-          if (f.provider !== "gemini" && f.provider !== "groq") continue;
-          try {
-            await supabase.rpc("ai_note_error", { p_provider: f.provider, p_status: f.status, p_reason: f.reason ?? null, p_message: f.message });
-          } catch {
-            /* ignore */
-          }
-        }
+        // آخر أسباب فشل المزوّدين وعدّادات الاستهلاك تُحفظ لصفحة المدير
+        await flushAiStats(supabase);
         controller.close();
       }
     },

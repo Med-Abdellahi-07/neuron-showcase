@@ -41,6 +41,11 @@ const failures: ErrorInfo[] = [];
 const noteFailure = (i: ErrorInfo) => {
   if (failures.length < 10) failures.push(i);
 };
+const uses: ("gemini" | "groq" | "tavily")[] = [];
+export const noteUse = (p: "gemini" | "groq" | "tavily") => {
+  if (uses.length < 200) uses.push(p);
+};
+export const drainUses = () => uses.splice(0, uses.length);
 export const drainFailures = (): ErrorInfo[] => failures.splice(0, failures.length);
 
 const hasGroq = () => !!process.env.GROQ_API_KEY?.trim();
@@ -62,6 +67,7 @@ export async function generateText(o: GenOpts, opts: { skipBreaker?: boolean } =
     try {
       const r = await geminiGenerate(o);
       noteGeminiOk();
+      noteUse("gemini");
       return { text: r.text, provider: "gemini", model: r.model };
     } catch (e) {
       gerr = noteGeminiFailure(e);
@@ -70,6 +76,7 @@ export async function generateText(o: GenOpts, opts: { skipBreaker?: boolean } =
   if (!hasGroq()) throw new AiError("gemini", gerr.status, gerr.message, gerr.reason);
   try {
     const r = await groqGenerate(o);
+    noteUse("groq");
     return { text: r.text, provider: "groq", model: r.model, fellBackFrom: gerr };
   } catch (e) {
     noteFailure(errorInfo(e, "groq"));
@@ -102,6 +109,7 @@ export async function* streamChat(o: GenOpts): AsyncGenerator<StreamEvent> {
         if (!started) {
           started = true;
           noteGeminiOk();
+          noteUse("gemini");
           yield { type: "meta", used: { provider: "gemini", model: geminiModel() } };
         }
         yield { type: "delta", text: t };
@@ -119,6 +127,7 @@ export async function* streamChat(o: GenOpts): AsyncGenerator<StreamEvent> {
     for await (const t of groqStream(o)) {
       if (!started) {
         started = true;
+        noteUse("groq");
         yield { type: "meta", used: { provider: "groq", model, fellBackFrom: gerr } };
       }
       yield { type: "delta", text: t };

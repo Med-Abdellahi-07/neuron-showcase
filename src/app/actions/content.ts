@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { LESSON_KINDS } from "@/lib/constants";
+import { notifyNewLesson, notifyNewQuestions } from "@/lib/notify";
 import { parseQuestionInput, type ImportQuestion } from "@/lib/question-import";
 import type { FormState } from "./auth";
 import type { LessonKind } from "@/lib/types";
@@ -79,7 +80,10 @@ export async function setLessonStatus(fd: FormData) {
   const status = text(fd, "status");
   if (!UUID_RE.test(id) || !["draft", "pending", "published"].includes(status)) return;
   const supabase = await createClient();
-  await supabase.from("lessons").update({ status }).eq("id", id);
+  const { data: before } = await supabase.from("lessons").select("status").eq("id", id).maybeSingle();
+  const { data } = await supabase.from("lessons").update({ status }).eq("id", id).select("id, subject_id, kind, number, title, status").maybeSingle();
+  // إشعار «محتوى جديد» عند أول انتقال فعلي إلى منشور (الـtrigger قد يحوّل طلب المشرف إلى pending)
+  if (data?.status === "published" && before?.status !== "published") await notifyNewLesson(data);
   revalidatePath("/", "layout");
 }
 
@@ -199,12 +203,17 @@ export async function importQuestions(raw: string): Promise<ImportOutcome> {
   });
 
   let inserted = 0;
+  const published = new Map<string, number>();
   for (let i = 0; i < rows.length; i += 100) {
     const chunk = rows.slice(i, i + 100);
-    const { error, data } = await supabase.from("questions").insert(chunk).select("id");
+    const { error, data } = await supabase.from("questions").insert(chunk).select("id, subject_id, status");
     if (error) errors.push({ row: i + 1, message: error.message });
-    else inserted += data?.length ?? 0;
+    else {
+      inserted += data?.length ?? 0;
+      for (const r of data ?? []) if (r.status === "published") published.set(r.subject_id as string, (published.get(r.subject_id as string) ?? 0) + 1);
+    }
   }
+  for (const [sid, n] of [...published].slice(0, 3)) await notifyNewQuestions(sid, n);
   revalidatePath("/", "layout");
   return { inserted, unlinked, errors };
 }

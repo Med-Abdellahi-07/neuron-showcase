@@ -7,6 +7,8 @@ import { logout } from "@/app/actions/auth";
 import { LangSwitch } from "@/components/lang-switch";
 import { ENGLISH_CODE } from "@/lib/constants";
 import { getSubjectByCode } from "@/lib/data";
+import { vapidPublicKey } from "@/lib/push";
+import { NotificationSettings } from "@/components/notification-settings";
 import { ThemeSelect } from "./theme-select";
 import { PreferencesForm } from "./preferences-form";
 import { PasswordForm } from "./password-form";
@@ -31,6 +33,15 @@ export default async function ProfilePage() {
     }
   }
   const isStaff = profile.role !== "student";
+  const { data: prefRow } = await supabase.from("notification_prefs").select("lesson_tomorrow, schedule_change, new_content, duel, review, announcement").eq("user_id", profile.id).maybeSingle();
+  const prefs = {
+    lesson_tomorrow: prefRow?.lesson_tomorrow ?? true,
+    schedule_change: prefRow?.schedule_change ?? true,
+    new_content: prefRow?.new_content ?? true,
+    duel: prefRow?.duel ?? true,
+    review: prefRow?.review ?? true,
+    announcement: prefRow?.announcement ?? true,
+  };
 
   return (
     <div className="space-y-6">
@@ -66,9 +77,9 @@ export default async function ProfilePage() {
         />
       </section>
 
-      <section className="card space-y-2 opacity-70">
-        <h2 className="tech text-sm font-semibold text-muted">{t("profile.notifications")}</h2>
-        <p className="text-xs text-muted">{t("profile.notificationsSoon")}</p>
+      <section className="card space-y-3" aria-labelledby="notif-h">
+        <h2 id="notif-h" className="tech text-sm font-semibold text-muted">{t("profile.notifications")}</h2>
+        <NotificationSettings publicKey={vapidPublicKey()} initial={prefs} />
       </section>
 
       <section className="card space-y-3">

@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/auth";
 import { getAllSubjects } from "@/lib/data";
 import { addDays, isValidISO, isoWeekday, mondayOf } from "@/lib/dates";
 import { generateJson } from "@/lib/ai";
+import { flushAiStats } from "@/lib/ai/stats";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLOT_TIMES = "1=08:00-09:30, 2=09:30-11:00, 3=11:10-12:40, 4=12:40-14:10, 5=14:10-15:40, 6=15:40-17:10";
@@ -72,6 +73,8 @@ export async function extractSchedule(input: { image: { mime: string; data: stri
   } catch (e) {
     console.error("schedule extraction failed:", (e as Error).message);
     return { ok: false, error: "unavailable" };
+  } finally {
+    await flushAiStats(supabase);
   }
 }
 
