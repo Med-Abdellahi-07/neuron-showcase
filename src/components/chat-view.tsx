@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
-import { Check, Copy, ImagePlus, Send, Square, X } from "lucide-react";
+import { Camera, Check, Copy, ImagePlus, Send, Square, X } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 import "katex/dist/katex.min.css";
@@ -350,7 +350,7 @@ export function ChatView({
             : "";
 
   return (
-    <div className="space-y-4">
+    <div className="compact space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className={`flex gap-1.5 ${guided ? "hidden" : ""}`} role="group" aria-label={t("chat.mode")}>
           {MODES.map((m) => (
@@ -360,7 +360,7 @@ export function ChatView({
               aria-pressed={mode === m}
               onClick={() => setMode(m)}
               className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium ${
-                mode === m ? "border-transparent bg-accent text-accent-fg" : "border-border text-muted hover:text-fg"
+                mode === m ? "border-transparent bg-primary text-primary-fg" : "border-border text-muted hover:text-fg"
               }`}
             >
               {t(`chat.mode.${m}` as DictKey)}
@@ -394,7 +394,7 @@ export function ChatView({
           <li key={m.id} className={m.role === "user" ? "flex justify-end" : ""}>
             {m.role === "user" ? (
               <div className="max-w-[85%] whitespace-pre-wrap rounded-[var(--radius)] bg-accent-soft p-3 text-sm" dir="auto">
-                {m.hadImage && <span className="me-1" aria-label="image">📷</span>}
+                {m.hadImage && <Camera size={14} strokeWidth={1.9} className="me-1 inline" aria-label="image" />}
                 {m.content}
               </div>
             ) : (
@@ -458,7 +458,7 @@ export function ChatView({
       )}
       <div ref={endRef} />
 
-      <div className="sticky bottom-[4.5rem] space-y-2 rounded-[var(--radius)] border border-border bg-bg/95 p-3 backdrop-blur md:bottom-4">
+      <div className="sticky bottom-[6.25rem] space-y-2 rounded-[var(--radius)] border border-border bg-bg p-3 md:bottom-4">
         {images.length > 0 && (
           <ul className="flex gap-2">
             {images.map((im, i) => (

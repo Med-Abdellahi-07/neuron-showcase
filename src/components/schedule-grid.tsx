@@ -298,7 +298,7 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
                 type="button"
                 onClick={() => changeView(v)}
                 aria-pressed={view === v}
-                className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-[calc(var(--radius)-2px)] px-3 text-xs font-medium transition-colors ${view === v ? "bg-accent text-accent-fg" : "text-muted hover:text-fg"}`}
+                className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-[calc(var(--radius)-2px)] px-3 text-xs font-medium transition-colors ${view === v ? "bg-primary text-primary-fg" : "text-muted hover:text-fg"}`}
               >
                 <Icon size={14} aria-hidden />
                 {t(key)}
@@ -326,7 +326,7 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
             </colgroup>
             <thead>
               <tr>
-                <th scope="col" className="sticky start-0 z-20 bg-accent px-2 py-2.5 text-center text-xs font-semibold text-accent-fg">
+                <th scope="col" className="sticky start-0 z-20 bg-primary px-2 py-2.5 text-center text-xs font-semibold text-primary-fg">
                   {t("schedule.period")}
                 </th>
                 {days.map((d) => (
@@ -334,7 +334,7 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
                     key={d.n}
                     scope="col"
                     aria-current={d.date === now.today ? "date" : undefined}
-                    className={`px-2 py-2.5 text-center text-xs font-semibold ${d.date === now.today ? "bg-accent text-accent-fg ring-2 ring-inset ring-accent-fg/40" : "bg-accent/85 text-accent-fg"}`}
+                    className={`px-2 py-2.5 text-center text-xs font-semibold ${d.date === now.today ? "bg-primary text-primary-fg ring-2 ring-inset ring-primary-fg/40" : "bg-primary/85 text-primary-fg"}`}
                   >
                     <span className="block">{t(dayKey(d.n))}</span>
                     <span className="tech block text-[10px] font-normal opacity-90" dir="ltr">{formatDate(d.date, locale)}</span>
@@ -404,7 +404,7 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
                   aria-selected={selected}
                   onClick={() => setDay(d.n)}
                   className={`relative min-h-12 rounded-[var(--radius)] border px-1 py-1.5 text-center transition-colors ${
-                    selected ? "border-transparent bg-accent text-accent-fg" : d.date === now.today ? "border-accent text-accent" : "border-border text-muted hover:text-fg"
+                    selected ? "border-transparent bg-primary text-primary-fg" : d.date === now.today ? "border-accent text-accent" : "border-border text-muted hover:text-fg"
                   }`}
                 >
                   <span className="block truncate text-[11px] font-semibold">{locale === "ar" ? t(dayKey(d.n)) : t(dayKey(d.n)).slice(0, 3)}</span>

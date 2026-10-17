@@ -48,7 +48,7 @@ export function buildSystemPrompt(opts: {
     );
   } else if (opts.hasCourseMatch) {
     parts.push(
-      `Prefer the course excerpts. If part of the answer is NOT supported by them, say so explicitly and start that part with "⚠ خارج المنهج / Hors programme:".`
+      `Prefer the course excerpts. If part of the answer is NOT supported by them, say so explicitly and start that part with "[خارج المنهج / Hors programme]:".`
     );
   } else if (opts.modeNote && !opts.web.length) {
     parts.push(
@@ -56,7 +56,7 @@ export function buildSystemPrompt(opts: {
     );
   } else if (opts.web.length) {
     parts.push(
-      `No relevant course excerpt was found. Start with one line "⚠ خارج المنهج / Hors programme:" and answer ONLY from the web results below (cite [W#]). Interpret every term in the student's field (AI, computer science, mathematics, statistics). If the web results are about another domain or do not answer the question, say so and do not use them.`
+      `No relevant course excerpt was found. Start with one line "[خارج المنهج / Hors programme]:" and answer ONLY from the web results below (cite [W#]). Interpret every term in the student's field (AI, computer science, mathematics, statistics). If the web results are about another domain or do not answer the question, say so and do not use them.`
     );
   } else {
     parts.push(

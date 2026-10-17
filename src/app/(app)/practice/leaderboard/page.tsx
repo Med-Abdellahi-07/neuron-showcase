@@ -48,7 +48,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
               href={`/practice/leaderboard?scope=${s}`}
               aria-current={scope === s ? "page" : undefined}
               className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium ${
-                scope === s ? "border-transparent bg-accent text-accent-fg" : "border-border text-muted hover:text-fg"
+                scope === s ? "border-transparent bg-primary text-primary-fg" : "border-border text-muted hover:text-fg"
               }`}
             >
               {t(s === "week" ? "lb.week" : "lb.semester")}

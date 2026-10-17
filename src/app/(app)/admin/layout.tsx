@@ -6,7 +6,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const profile = await requireStaff();
   const { t } = await getT();
   return (
-    <div>
+    <div className="compact">
       <h1 className="page-title !mb-3">{t("admin.title")}</h1>
       <AdminTabs isAdmin={profile.role === "admin"} />
       {children}

@@ -26,7 +26,7 @@ export function PracticeTabs() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium whitespace-nowrap ${
-                  active ? "border-transparent bg-accent text-accent-fg" : "border-border text-muted hover:text-fg"
+                  active ? "border-transparent bg-primary text-primary-fg" : "border-border text-muted hover:text-fg"
                 }`}
               >
                 {t(key)}

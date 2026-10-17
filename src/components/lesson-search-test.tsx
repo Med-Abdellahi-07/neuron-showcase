@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { reindexAll, runLessonSearch, type ReindexResult } from "@/app/actions/ai-admin";
 import type { LessonSearchReport } from "@/lib/ai/lesson-diag";
@@ -58,7 +59,7 @@ export function LessonSearchTest({ subjects }: { subjects: string[] }) {
         <div className="space-y-1 text-xs" aria-live="polite">
           {re.results.map((r, i) => (
             <p key={i} className={r.ok ? "" : "text-danger"} dir="auto">
-              {r.ok ? "✓" : "✗"} {r.name}: {r.chunks} {t("ls.chunks")} ({r.embedded ? t("ls.withVectors") : t("ls.noVectors")}) {r.error ?? ""}
+              {r.ok ? <Check size={14} strokeWidth={1.9} className="inline text-success" aria-hidden /> : <X size={14} strokeWidth={1.9} className="inline text-danger" aria-hidden />} {r.name}: {r.chunks} {t("ls.chunks")} ({r.embedded ? t("ls.withVectors") : t("ls.noVectors")}) {r.error ?? ""}
             </p>
           ))}
           {re.remaining > 0 && <p className="text-warn">{re.remaining} {t("ls.remaining")}</p>}

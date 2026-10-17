@@ -1,3 +1,4 @@
+import { Pin } from "lucide-react";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -57,7 +58,7 @@ export default async function AnnouncementsPage() {
         {list.map((a) => (
           <li key={a.id} className="card space-y-1 !p-3">
             <div className="flex items-start justify-between gap-2">
-              <p className="font-medium" dir="auto">{a.pinned && "📌 "}{a.title}</p>
+              <p className="font-medium" dir="auto">{a.pinned && <Pin size={14} strokeWidth={1.9} className="me-1 inline text-accent" aria-hidden />}{a.title}</p>
               <span className="badge shrink-0">{names.get(a.cohort_id)}</span>
             </div>
             {a.expires_at && (

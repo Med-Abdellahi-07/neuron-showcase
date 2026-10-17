@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Repeat, Trophy } from "lucide-react";
+import { Repeat, Trophy, X } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -102,7 +102,7 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
             <div className="flex items-center justify-between gap-2 rounded-[var(--radius)] bg-accent-soft p-3 text-sm">
               <span className="min-w-0 truncate" dir="auto">{t("practice.lesson")}: {lessonTitle}</span>
               <input type="hidden" name="lesson" value={lessonId} />
-              <Link href="/practice" className="shrink-0 text-xs text-accent hover:underline" aria-label={t("common.cancel")}>✕</Link>
+              <Link href="/practice" className="shrink-0 text-xs text-accent hover:underline" aria-label={t("common.cancel")}><X size={16} strokeWidth={1.9} aria-hidden /></Link>
             </div>
           )}
           {!lessonId && (

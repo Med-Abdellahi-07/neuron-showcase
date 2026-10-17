@@ -106,10 +106,10 @@ export function summaryNote(a: { lang: SessionLang; log: ReviewEntry[]; pending:
 ${lines.length ? lines.join("\n") : "(no question was asked)"}
 
 Write a concise, encouraging summary with these sections, only including non-empty ones:
-- "✅ Maîtrisé" : the CORRECT questions (one short line each: the notion mastered).
-- "🔁 À revoir" : the WRONG and PARTIAL questions: for each, restate in one or two lines the correct idea (from the excerpts) and give the page to revisit, citing exactly the given [C#] marker (never another marker, never a page not listed above).
-- "⏸ Non répondu" : questions with status NOT ANSWERED.
-- Optional "📚 Pas encore abordé" : at most 3 topics taken from the UNTESTED MATERIAL (if provided), each with its label in plain text (no [C#]).
+- "Maîtrisé" : the CORRECT questions (one short line each: the notion mastered).
+- "À revoir" : the WRONG and PARTIAL questions: for each, restate in one or two lines the correct idea (from the excerpts) and give the page to revisit, citing exactly the given [C#] marker (never another marker, never a page not listed above).
+- "Non répondu" : questions with status NOT ANSWERED.
+- Optional "Pas encore abordé" : at most 3 topics taken from the UNTESTED MATERIAL (if provided), each with its label in plain text (no [C#]).
 Never place in Maîtrisé or À revoir a topic that was not asked above. Do not ask a new question. Finish with one motivating sentence and a suggestion of what to do next.${a.pending ? " The last question was left unanswered." : ""}
 Do NOT output any [[...]] marker.`;
 }

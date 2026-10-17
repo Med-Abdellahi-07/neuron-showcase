@@ -121,7 +121,7 @@ export async function AdminInsights() {
               <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="min-w-0 truncate" dir="auto"><span className="tech text-xs text-accent" dir="ltr">{s.code}</span> {s.name}</span>
                 <span className="tech shrink-0 text-xs" dir="ltr">
-                  {s.accuracy === null ? "—" : `${s.accuracy}%`} <span className="text-muted">· {s.answers} · {s.students}👤</span>
+                  {s.accuracy === null ? "—" : `${s.accuracy}%`} <span className="text-muted">· {s.answers} · {s.students} <Users size={12} strokeWidth={1.9} className="inline" aria-label="students" /></span>
                 </span>
               </div>
               <Bar pct={s.accuracy ?? 0} tone={s.accuracy !== null && s.accuracy < 50 ? "warn" : "accent"} />
@@ -172,7 +172,7 @@ export async function AdminInsights() {
                   <span className="tech text-sm font-semibold">{p}</span>
                   <span className="tech text-xs text-muted" dir="ltr">
                     {t("stats.todayCalls")}: {calls}
-                    {row?.failures ? ` · ✗ ${row.failures}` : ""}
+                    {row?.failures ? ` · x${row.failures}` : ""}
                   </span>
                 </div>
                 {lim ? (
@@ -207,7 +207,7 @@ export async function AdminInsights() {
                           <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2" aria-hidden>
                             <span className="block h-full rounded-full bg-accent" style={{ width: `${(r.calls / maxCalls) * 100}%` }} />
                           </span>
-                          <span className="tech w-14 shrink-0 text-end" dir="ltr">{r.calls}{r.failures ? ` ✗${r.failures}` : ""}</span>
+                          <span className="tech w-14 shrink-0 text-end" dir="ltr">{r.calls}{r.failures ? ` x${r.failures}` : ""}</span>
                         </span>
                       );
                     })}
@@ -225,7 +225,7 @@ export async function AdminInsights() {
               {kindRows.map((k) => (
                 <li key={k.kind} className="flex items-center justify-between gap-2 py-1.5">
                   <span>{t(`stats.kind.${k.kind}` as DictKey)}</span>
-                  <span className="tech text-xs text-muted" dir="ltr">{k.today} {t("stats.today")} · {k.users_today}👤 · {k.last_30d}/30d</span>
+                  <span className="tech text-xs text-muted" dir="ltr">{k.today} {t("stats.today")} · {k.users_today} <Users size={12} strokeWidth={1.9} className="inline" aria-hidden /> · {k.last_30d}/30d</span>
                 </li>
               ))}
             </ul>

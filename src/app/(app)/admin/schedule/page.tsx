@@ -50,7 +50,7 @@ export default async function AdminSchedulePage({
   const arrow = "size-4 rtl:rotate-180";
 
   return (
-    <div className="wide-page space-y-6">
+    <div className="wide-page compact space-y-6">
       {cohortList.length > 1 && (
         <form method="get" className="flex items-end gap-2">
           <input type="hidden" name="w" value={monday} />

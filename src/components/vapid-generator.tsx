@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Copy, KeyRound } from "lucide-react";
+import { Check, Copy, KeyRound } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import { generateVapidKeys } from "@/app/actions/push";
 
@@ -53,7 +53,7 @@ export function VapidGenerator() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="tech text-xs font-semibold">{v.name}</span>
                   <button type="button" className="btn btn-sm" onClick={() => copy(v.name, v.value)}>
-                    <Copy size={14} aria-hidden /> {copied === v.name ? "✓" : t("chat.copy")}
+                    <Copy size={14} aria-hidden /> {copied === v.name ? <Check size={14} strokeWidth={1.9} aria-hidden /> : t("chat.copy")}
                   </button>
                 </div>
                 <code className="mt-1 block break-all text-xs text-muted">{v.value}</code>

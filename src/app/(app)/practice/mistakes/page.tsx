@@ -34,7 +34,7 @@ export default async function MistakesPage() {
   const dueCount = active.filter((x) => new Date(x.due_at).getTime() <= now).length;
 
   return (
-    <div className="space-y-5">
+    <div className="compact space-y-5">
       <h1 className="page-title !mb-0">{t("practice.title")}</h1>
       <PracticeTabs />
 

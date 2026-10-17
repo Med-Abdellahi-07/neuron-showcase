@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { CalendarClock, Megaphone, Repeat, Swords } from "lucide-react";
+import { CalendarClock, DoorOpen, Hourglass, Megaphone, Pin, Repeat, Swords } from "lucide-react";
+import { ProgressRing } from "@/components/progress-ring";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
-import { COMMA } from "@/lib/i18n/dictionaries";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
 import { SLOTS } from "@/lib/constants";
@@ -72,75 +72,128 @@ export default async function HomePage() {
   const nextSubject = next ? byId.get(next.subject_id) : undefined;
   const nextSlot = next ? SLOTS.find((s) => s.n === next!.slot) : undefined;
 
+  // تقدّم كل مادة (حلقة لكل مادة) من الحصص المنشورة
+  const subjectOf = new Map((lessonsRes.data ?? []).map((l) => [l.id as string, l.subject_id as string]));
+  const perSubject = new Map<string, { done: number; total: number }>();
+  for (const [lid, sid] of subjectOf) {
+    if (!byId.has(sid)) continue;
+    const e = perSubject.get(sid) ?? { done: 0, total: 0 };
+    e.total += 1;
+    if ((progressRes.data ?? []).some((p) => p.lesson_id === lid)) e.done += 1;
+    perSubject.set(sid, e);
+  }
+  const ringSubjects = subjects.filter((s) => (perSubject.get(s.id)?.total ?? 0) > 0);
+  const firstName = profile.full_name.split(" ")[0];
+
   return (
-    <div className="space-y-6">
-      <h1 className="page-title !mb-0">
-        {t("home.greeting")}{COMMA[locale]} {profile.full_name.split(" ")[0]}
-      </h1>
+    <div className="space-y-4">
+      <header className="pb-1">
+        <div className="min-w-0">
+          <p className="text-[13px] text-muted">{t("home.greeting")}</p>
+          <h1 className="truncate text-2xl font-semibold" dir="auto">{firstName}</h1>
+        </div>
+      </header>
 
       {!profile.cohort_id && <p className="card text-sm text-warn">{t("home.noCohort")}</p>}
 
-      <section className="card space-y-2" aria-labelledby="next-h">
-        <h2 id="next-h" className="tech flex items-center gap-2 text-sm font-semibold text-muted">
-          <CalendarClock size={16} aria-hidden /> {t("home.nextSession")}
-        </h2>
+      <section className="card-featured space-y-3" aria-labelledby="next-h">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="next-h" className="flex items-center gap-2 text-[13px] font-medium opacity-90">
+            <CalendarClock size={16} strokeWidth={1.9} aria-hidden /> {t("home.nextSession")}
+          </h2>
+          {next && nextSlot && (
+            <span className="tech rounded-full bg-black/15 px-3 py-1 text-xs font-medium" dir="ltr">
+              {formatDate(next.session_date, locale)} · {nextSlot.start}
+            </span>
+          )}
+        </div>
         {next && nextSubject && nextSlot ? (
-          <Link href="/schedule" className="block">
-            <p className="font-semibold">{nextSubject.name}</p>
-            <p className="tech mt-1 text-sm text-muted" dir="ltr">
-              {t(`kind.${next.kind}`)} · {formatDate(next.session_date, locale)} · {nextSlot.start}–{nextSlot.end}
-              {next.room ? ` · ${next.room}` : ""}
-            </p>
+          <Link href="/schedule" className="block space-y-3">
+            <p className="text-[19px] font-semibold leading-snug" dir="auto">{nextSubject.name}</p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-black/15 px-3 py-1">{t(`kind.${next.kind}`)}</span>
+              <span className="tech inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1" dir="ltr">
+                <Hourglass size={12} strokeWidth={1.9} aria-hidden /> {nextSlot.start}–{nextSlot.end}
+              </span>
+              {next.room && (
+                <span className="tech inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1" dir="ltr">
+                  <DoorOpen size={12} strokeWidth={1.9} aria-hidden /> {next.room}
+                </span>
+              )}
+            </div>
           </Link>
         ) : (
-          <p className="text-sm text-muted">{t("home.noSession")}</p>
+          <p className="text-sm opacity-90">{t("home.noSession")}</p>
         )}
       </section>
 
-      <Link href={dueCount > 0 ? "/practice" : "/practice/mistakes"} className="card flex items-center justify-between gap-3">
-        <span className="tech flex items-center gap-2 text-sm font-semibold text-muted">
-          <Repeat size={16} aria-hidden /> {t(dueCount > 0 ? "home.reviewsDue" : "home.reviewsNone")}
-        </span>
-        {dueCount > 0 && <span className="tech text-2xl font-semibold text-accent" dir="ltr">{dueCount}</span>}
-      </Link>
-
-      {myTurn.length > 0 && (
-        <Link href="/practice/duel" className="card flex items-center justify-between gap-3 border-accent">
-          <span className="tech flex items-center gap-2 text-sm font-semibold">
-            <Swords size={16} aria-hidden className="text-accent" /> {t("home.duelsPending")}
-          </span>
-          <span className="text-end">
-            <span className="tech block text-2xl font-semibold text-accent" dir="ltr">{myTurn.length}</span>
-            {soonest && <span className="text-xs text-muted">{t("duel.hoursLeft")}: {hoursLeft(soonest.expires_at)}h</span>}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href={dueCount > 0 ? "/practice" : "/practice/mistakes"} className="card press flex items-center gap-3">
+          <span className="icon-box size-10"><Repeat size={20} strokeWidth={1.9} aria-hidden /></span>
+          <span className="min-w-0">
+            {dueCount > 0 && <span className="tech block text-xl font-semibold leading-none">{dueCount}</span>}
+            <span className="mt-1 block text-xs leading-snug text-muted">{t(dueCount > 0 ? "home.reviewsDue" : "home.reviewsNone")}</span>
           </span>
         </Link>
-      )}
+        {myTurn.length > 0 ? (
+          <Link href="/practice/duel" className="card press flex items-center gap-3">
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--r-icon)] bg-urgent-bg text-urgent">
+              <Swords size={20} strokeWidth={1.9} aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="tech block text-xl font-semibold leading-none text-urgent">{myTurn.length}</span>
+              <span className="mt-1 block text-xs leading-snug text-muted">
+                {t("home.duelsPending")}
+                {soonest && <span className="badge-urgent ms-1 !px-2 !py-0 tech" dir="ltr">{hoursLeft(soonest.expires_at)}h</span>}
+              </span>
+            </span>
+          </Link>
+        ) : (
+          <Link href="/practice/duel" className="card press flex items-center gap-3">
+            <span className="icon-box size-10"><Swords size={20} strokeWidth={1.9} aria-hidden /></span>
+            <span className="text-xs leading-snug text-muted">{t("duel.tab")}</span>
+          </Link>
+        )}
+      </div>
 
-      <section className="card space-y-3" aria-labelledby="progress-h">
-        <h2 id="progress-h" className="tech text-sm font-semibold text-muted">{t("home.progress")}</h2>
-        <div className="flex items-baseline gap-2">
-          <span className="tech text-3xl font-semibold" dir="ltr">{pct}%</span>
-          <span className="text-sm text-muted">
-            {studied} {t("home.studiedOf")} {total}
+      <section className="card-lg space-y-4" aria-labelledby="progress-h">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 id="progress-h" className="text-[13px] font-medium text-muted">{t("home.progress")}</h2>
+          <span className="text-xs text-muted">
+            <span className="tech font-semibold text-fg" dir="ltr">{pct}%</span> · {studied} {t("home.studiedOf")} {total}
           </span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-        </div>
+        {ringSubjects.length > 0 ? (
+          <ul className="flex flex-wrap justify-center gap-x-3 gap-y-4">
+            {ringSubjects.map((s) => {
+              const e = perSubject.get(s.id)!;
+              return (
+                <li key={s.id} className="w-[30%] min-w-24">
+                  <Link href={`/subjects/${s.code}`} className="press flex flex-col items-center gap-2 text-center">
+                    <ProgressRing done={e.done} total={e.total} />
+                    <span className="line-clamp-2 text-[11px] leading-snug text-muted" dir="auto">{s.name}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="flex justify-center"><ProgressRing done={studied} total={total} size={80} /></div>
+        )}
       </section>
 
       <section className="space-y-3" aria-labelledby="ann-h">
-        <h2 id="ann-h" className="tech flex items-center gap-2 text-sm font-semibold text-muted">
-          <Megaphone size={16} aria-hidden /> {t("home.announcements")}
+        <h2 id="ann-h" className="flex items-center gap-2 text-[13px] font-medium text-muted">
+          <Megaphone size={16} strokeWidth={1.9} aria-hidden /> {t("home.announcements")}
         </h2>
         {announcements.length === 0 ? (
           <p className="text-sm text-muted">{t("home.noAnnouncements")}</p>
         ) : (
           announcements.map((a) => (
-            <article key={a.id} className="card">
+            <article key={a.id} className="rounded-[20px] bg-announce p-4">
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-semibold">{a.title}</h3>
-                {a.pinned && <span className="badge badge-accent">📌</span>}
+                {a.pinned && <Pin size={16} strokeWidth={1.9} className="mt-0.5 shrink-0 text-accent" aria-label={t("ann.pinned")} />}
               </div>
               {a.body && <p className="mt-1 whitespace-pre-line text-sm text-muted">{a.body}</p>}
               <p className="tech mt-2 text-xs text-muted" dir="ltr">{a.created_at.slice(0, 10)}</p>

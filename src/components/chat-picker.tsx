@@ -180,7 +180,7 @@ export function ChatPicker({
             role="radio"
             aria-checked={lang === l}
             onClick={() => setLang(l)}
-            className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium ${lang === l ? "border-transparent bg-accent text-accent-fg" : "border-border text-muted hover:text-fg"}`}
+            className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium ${lang === l ? "border-transparent bg-primary text-primary-fg" : "border-border text-muted hover:text-fg"}`}
           >
             {LOCALE_LABELS[l]}
           </button>

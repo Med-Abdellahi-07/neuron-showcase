@@ -86,9 +86,9 @@ export async function GET(req: Request) {
     for (const d of (due ?? []) as { user_id: string; due: number }[]) {
       if (!(await once(d.user_id, "review", today))) continue;
       const r = await sendPush({ userIds: [d.user_id] }, "review", {
-        ar: { title: "🔁 وقت المراجعة", body: `لديك ${d.due} سؤال مستحق للمراجعة اليوم.` },
-        fr: { title: "🔁 Révision du jour", body: `${d.due} question(s) à réviser aujourd'hui.` },
-        en: { title: "🔁 Time to review", body: `${d.due} question(s) due for review today.` },
+        ar: { title: "وقت المراجعة", body: `لديك ${d.due} سؤال مستحق للمراجعة اليوم.` },
+        fr: { title: "Révision du jour", body: `${d.due} question(s) à réviser aujourd'hui.` },
+        en: { title: "Time to review", body: `${d.due} question(s) due for review today.` },
         url: "/practice",
         tag: "review",
       });
@@ -120,9 +120,9 @@ export async function GET(req: Request) {
         if (!(await once(uid, "duel_expired", d.id as string))) continue;
         const won = uid === d.challenger_id;
         const r = await sendPush({ userIds: [uid] }, "duel", {
-          ar: { title: "⚔️ انتهت مهلة التحدي", body: won ? "لم يُجب خصمك في الوقت: فزت!" : "انتهت المهلة قبل أن تجيب: فاز المتحدّي." },
-          fr: { title: "⚔️ Duel expiré", body: won ? "Ton adversaire n'a pas répondu à temps : victoire !" : "Délai dépassé : le challenger gagne." },
-          en: { title: "⚔️ Duel expired", body: won ? "Your opponent didn't answer in time: you win!" : "Time ran out before you answered: the challenger wins." },
+          ar: { title: "انتهت مهلة التحدي", body: won ? "لم يُجب خصمك في الوقت: فزت!" : "انتهت المهلة قبل أن تجيب: فاز المتحدّي." },
+          fr: { title: "Duel expiré", body: won ? "Ton adversaire n'a pas répondu à temps : victoire !" : "Délai dépassé : le challenger gagne." },
+          en: { title: "Duel expired", body: won ? "Your opponent didn't answer in time: you win!" : "Time ran out before you answered: the challenger wins." },
           url: `/practice/duel/${d.id}`,
           tag: `duel-${d.id}`,
         });

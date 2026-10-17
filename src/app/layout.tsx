@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { fontClasses } from "./fonts";
 import { Providers } from "@/components/providers";
 import { getLocale } from "@/lib/i18n/server";
 import { isRtl } from "@/lib/i18n/dictionaries";
@@ -13,8 +14,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0e16" },
+    { media: "(prefers-color-scheme: light)", color: "#F2F3F7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0F1220" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -23,7 +24,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   return (
-    <html lang={locale} dir={isRtl(locale) ? "rtl" : "ltr"} suppressHydrationWarning>
+    <html lang={locale} dir={isRtl(locale) ? "rtl" : "ltr"} className={fontClasses} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <Providers locale={locale}>{children}</Providers>
       </body>

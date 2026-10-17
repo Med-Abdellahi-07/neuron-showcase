@@ -4,6 +4,7 @@ import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
+import { ProgressRing } from "@/components/progress-ring";
 
 export default async function SubjectsPage() {
   const userId = await requireUserId();
@@ -31,23 +32,17 @@ export default async function SubjectsPage() {
       <ul className="space-y-3">
         {subjects.map((s) => {
           const st = stats.get(s.id) ?? { total: 0, studied: 0 };
-          const pct = st.total ? Math.round((st.studied / st.total) * 100) : 0;
-          return (
+                    return (
             <li key={s.id}>
-              <Link href={`/subjects/${s.code}`} className="card flex items-center gap-3 transition-colors hover:bg-surface-2">
+              <Link href={`/subjects/${s.code}`} className="card press flex items-center gap-3 transition-colors hover:bg-surface-2">
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="badge badge-accent tech" dir="ltr">{s.code}</span>
                     <span className="badge">{s.credits} {t("subjects.credits")}</span>
                   </div>
                   <p className="font-medium leading-snug" dir="auto">{s.name}</p>
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-                      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="tech text-xs text-muted" dir="ltr">{st.studied}/{st.total}</span>
-                  </div>
                 </div>
+                <ProgressRing done={st.studied} total={st.total} size={56} stroke={6} />
                 <ChevronLeft size={18} className="shrink-0 text-muted rtl:rotate-0 ltr:rotate-180" aria-hidden />
               </Link>
             </li>

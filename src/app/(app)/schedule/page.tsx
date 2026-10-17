@@ -66,7 +66,7 @@ export default async function SchedulePage({
 
   const arrow = "size-4 rtl:rotate-180";
   return (
-    <div className="wide-page space-y-6">
+    <div className="wide-page compact space-y-6">
       <h1 className="page-title !mb-0">{t("schedule.title")}</h1>
 
       <div className="flex items-center justify-between gap-2">

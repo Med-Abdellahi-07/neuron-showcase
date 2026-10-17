@@ -68,9 +68,9 @@ export async function sendTestPush(): Promise<{ ok: boolean; reason?: "not_confi
   if (!userId) return { ok: false, reason: "failed" };
   if (!pushConfigured()) return { ok: false, reason: "not_configured" };
   const r = await sendPush({ userIds: [userId] }, "announcement", {
-    ar: { title: "Neuron ✓", body: "الإشعارات تعمل على هذا الجهاز." },
-    fr: { title: "Neuron ✓", body: "Les notifications fonctionnent sur cet appareil." },
-    en: { title: "Neuron ✓", body: "Notifications are working on this device." },
+    ar: { title: "Neuron", body: "الإشعارات تعمل على هذا الجهاز." },
+    fr: { title: "Neuron", body: "Les notifications fonctionnent sur cet appareil." },
+    en: { title: "Neuron", body: "Notifications are working on this device." },
     url: "/profile",
     tag: "test",
   });

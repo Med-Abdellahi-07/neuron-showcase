@@ -40,7 +40,7 @@ export function RecordingPlayer({ provider, videoId, title, marks = [] }: { prov
             className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center transition-colors hover:bg-surface"
             aria-label={`${t("rec.play")}: ${title}`}
           >
-            <span className="flex size-14 items-center justify-center rounded-full bg-accent text-accent-fg">
+            <span className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-fg">
               <Play size={26} aria-hidden className="ms-0.5" />
             </span>
             <span className="text-sm font-medium" dir="auto">{t("rec.play")}</span>

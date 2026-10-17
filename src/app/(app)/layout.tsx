@@ -28,18 +28,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh md:flex">
-      <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-60 md:shrink-0 md:flex-col md:gap-6 md:border-e md:border-border md:p-4">
+      <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-60 md:shrink-0 md:flex-col md:gap-6 md:p-4">
         <Link href="/" aria-label="Neuron"><Logo /></Link>
         <SideNav isStaff={isStaff} />
       </aside>
 
-      <div className="min-w-0 flex-1 pb-20 md:pb-0">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-bg/90 px-4 backdrop-blur md:px-8">
+      <div className="min-w-0 flex-1 pb-28 md:pb-0">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-bg px-4 md:px-8">
           <Link href="/" className="md:invisible" aria-label="Neuron"><Logo size={24} /></Link>
           <Link
             href="/profile"
             aria-label={t("profile.title")}
-            className="tech flex size-9 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent"
+            className="press flex size-10 items-center justify-center rounded-2xl bg-surface text-sm font-semibold text-accent shadow-[var(--shadow)]"
           >
             {initial}
           </Link>

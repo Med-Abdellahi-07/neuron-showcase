@@ -34,11 +34,11 @@ export function SideNav({ isStaff }: { isStaff: boolean }) {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`flex min-h-10 items-center gap-3 rounded-[var(--radius)] px-3 text-sm font-medium transition-colors ${
+            className={`flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition-colors duration-[var(--t)] ${
               active ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-2 hover:text-fg"
             }`}
           >
-            <Icon size={18} aria-hidden />
+            <Icon size={18} strokeWidth={1.9} aria-hidden />
             {t(key)}
           </Link>
         );
@@ -53,7 +53,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 grid grid-cols-5 rounded-[28px] bg-nav px-1.5 py-2.5 shadow-[0_8px_24px_rgba(30,45,90,0.12)] dark:shadow-none md:hidden"
     >
       {ITEMS.map(({ href, key, icon: Icon }) => {
         const active = isActive(pathname, href);
@@ -62,12 +62,16 @@ export function BottomNav() {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${
-              active ? "text-accent" : "text-muted"
-            }`}
+            className="press flex min-h-[3.25rem] flex-col items-center justify-center gap-1 text-[11px] font-medium"
           >
-            <Icon size={20} aria-hidden />
-            {t(key)}
+            <span
+              className={`flex h-[30px] w-11 items-center justify-center rounded-full transition-colors duration-[var(--t)] ${
+                active ? "bg-accent-soft text-accent" : "text-muted"
+              }`}
+            >
+              <Icon size={22} strokeWidth={1.9} aria-hidden />
+            </span>
+            <span className={active ? "text-accent" : "text-muted"}>{t(key)}</span>
           </Link>
         );
       })}

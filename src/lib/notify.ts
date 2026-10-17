@@ -58,9 +58,9 @@ export async function notifyNewQuestions(subjectId: string, count: number) {
 export function notifyAnnouncement(cohortId: string, title: string, body: string) {
   const short = body.replace(/\s+/g, " ").slice(0, 120);
   pushLater({ cohortId }, "announcement", {
-    ar: { title: `📢 ${title}`, body: short },
-    fr: { title: `📢 ${title}`, body: short },
-    en: { title: `📢 ${title}`, body: short },
+    ar: { title: title, body: short },
+    fr: { title: title, body: short },
+    en: { title: title, body: short },
     url: "/",
     tag: "announcement",
   });
