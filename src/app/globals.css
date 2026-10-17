@@ -138,3 +138,21 @@ body {
   list-style: decimal;
   padding-inline-start: 1.25rem;
 }
+
+.rich table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-block: 0.5rem;
+  font-size: 0.8125rem;
+}
+.rich th,
+.rich td {
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.5rem;
+  text-align: start;
+}
+.rich th {
+  background: var(--surface-2);
+  font-weight: 600;
+}

@@ -1,10 +1,11 @@
 import { getUserId } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { errorInfo, streamChat, type ChatMsg } from "@/lib/ai";
+import { drainFailures, errorInfo, streamChat, type ChatMsg } from "@/lib/ai";
 import { buildSystemPrompt, type ChatMode, type ContextChunk, type SourceRef } from "@/lib/ai/prompts";
 import { retrieve } from "@/lib/ai/rag";
 import {
   GUIDED_ACTIONS,
+  NEUTRAL_COMMAND,
   REVIEW_QUESTIONS,
   explainNote,
   fetchWindow,
@@ -20,6 +21,16 @@ import {
 import { MarkerFilter, entryFromRow, extractQuestion, parseMarkers, summaryNote, type ReviewEntry } from "@/lib/ai/review";
 import { tavilySearch, type WebResult } from "@/lib/ai/tavily";
 import { scrubPII } from "@/lib/ai/privacy";
+import { dictionaries } from "@/lib/i18n/dictionaries";
+
+/** نصوص الأزرار المحلية (ar/fr) → أوامر محايدة، لتفادي انجرار النموذج إلى لغة الأزرار */
+const LABEL_TO_COMMAND = new Map<string, string>();
+for (const loc of Object.values(dictionaries)) {
+  for (const k of Object.keys(NEUTRAL_COMMAND)) {
+    const label = (loc as Record<string, string>)[`chat.q.${k}`];
+    if (label) LABEL_TO_COMMAND.set(label, NEUTRAL_COMMAND[k]);
+  }
+}
 
 const GREETING =
   /^(?:(?:hi|hello|hey|salut|bonjour|bonsoir|coucou|merci|thanks?|ok|d'accord|ça va|ca va|مرحبا|مرحباً|السلام عليكم|سلام|أهلا|اهلا|أهلاً|صباح الخير|مساء الخير|شكرا|شكراً|يعطيك العافية|كيف حالك|كيف الحال|شلونك|هلا)(?:[\s,.!؟?،]|وسهلا|بك|ك|you|à tous|tout le monde)*)+$/i;
@@ -116,7 +127,7 @@ export async function POST(req: Request) {
     .select("role, content")
     .eq("conversation_id", conv.id)
     .order("created_at", { ascending: false })
-    .limit(12);
+    .limit(conv.guided && mode === "explain" ? 4 : 12); // الشرح الموجَّه: كل جزء له مقاطعه، فلا حاجة لتاريخ طويل (توفير توكنات)
   const history = (hist ?? []).reverse() as { role: "user" | "assistant"; content: string }[];
 
   if (action === "start" && history.length > 0) return json(409, { error: "already_started" });
@@ -183,7 +194,7 @@ export async function POST(req: Request) {
           const part = Math.min(parts, Math.round(cursor / Math.max(1, curN)) + 1);
           modeNote = explainNote({ action, lang, part, parts, finished });
           send({ type: "progress", cursor: Math.min(cursor + (finished ? 0 : partRows.length), total), total, finished });
-          userText = action === "start" ? "(start)" : text;
+          userText = action === "start" ? "(start)" : (NEUTRAL_COMMAND[action ?? ""] ?? text);
         } else if (conv.guided && mode === "review" && (action === "start" || action === "finish" || (!action && conv.step >= 1 && conv.step <= REVIEW_QUESTIONS))) {
           // ───────── مراجعة موجَّهة: أسئلة أصلية من نص الدرس، ومصدر كل سؤال ونتيجته يُسجَّلان ─────────
           const R = { log: [...(conv.review_log ?? [])], total: conv.total, rows: [] as WindowRow[], prevN: 0, summaryOnly: action === "finish" };
@@ -256,7 +267,7 @@ export async function POST(req: Request) {
             relevant = r.relevant;
           }
           modeNote = solveNote({ action: action ?? "answer", lang, exercise, reference, fromImage });
-          userText = action === "start" ? (fromImage ? "(exercise in image)" : "(start)") : action === "hint" || action === "solution" ? text : text;
+          userText = action === "start" ? (fromImage ? "(exercise in image)" : "(start)") : NEUTRAL_COMMAND[action ?? ""] ?? text;
         } else {
           // ───────── سؤال حر (أي وضع) ─────────
           smallTalk = isSmallTalk(text) && images.length === 0;
@@ -313,7 +324,10 @@ export async function POST(req: Request) {
           }) + (extraContext ? `\n\n${extraContext}` : "");
 
         // المحادثة يجب أن تبدأ بدور المستخدم
-        const prior = history.map((m) => ({ role: m.role, text: scrubPII(m.content) }));
+        const prior = history.map((m) => ({
+          role: m.role,
+          text: m.role === "user" ? (LABEL_TO_COMMAND.get(m.content) ?? scrubPII(m.content)) : scrubPII(m.content),
+        }));
         if (prior.length && prior[0].role === "assistant") prior.unshift({ role: "user", text: "(start)" });
         const messages: ChatMsg[] = [
           ...prior,
@@ -357,7 +371,7 @@ export async function POST(req: Request) {
           const filter = hideMarkers ? new MarkerFilter() : null;
           let raw = "";
           answer = "";
-          for await (const ev of streamChat({ system: sys, messages: msgs, maxTokens: 3000, temperature: 0.3 })) {
+          for await (const ev of streamChat({ system: sys, messages: msgs, maxTokens: conv.guided ? 1800 : 3000, temperature: 0.3 })) {
             if (ev.type === "meta") {
               usedProvider = ev.used.provider;
               send({ type: "meta", provider: ev.used.provider, fellBack: !!ev.used.fellBackFrom });
@@ -424,6 +438,15 @@ export async function POST(req: Request) {
         }
         send({ type: "error", code: "unavailable" });
       } finally {
+        // آخر أسباب فشل المزوّدين تُحفظ ليراها المدير (لا تُوقف الرد إن فشل الحفظ)
+        for (const f of drainFailures()) {
+          if (f.provider !== "gemini" && f.provider !== "groq") continue;
+          try {
+            await supabase.rpc("ai_note_error", { p_provider: f.provider, p_status: f.status, p_reason: f.reason ?? null, p_message: f.message });
+          } catch {
+            /* ignore */
+          }
+        }
         controller.close();
       }
     },

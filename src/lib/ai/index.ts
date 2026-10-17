@@ -24,6 +24,7 @@ function geminiSkipped(): ErrorInfo | null {
 }
 function noteGeminiFailure(e: unknown): ErrorInfo {
   const info = errorInfo(e, "gemini");
+  noteFailure(info);
   if ([401, 403, 404].includes(info.status)) {
     geminiBlockedUntil = Date.now() + 60_000;
     geminiBlockedWith = info;
@@ -34,6 +35,13 @@ const noteGeminiOk = () => {
   geminiBlockedUntil = 0;
   geminiBlockedWith = null;
 };
+
+/** إخفاقات المزوّدين منذ آخر تفريغ؛ يحفظها مسار الطلب في قاعدة البيانات لتظهر للمدير */
+const failures: ErrorInfo[] = [];
+const noteFailure = (i: ErrorInfo) => {
+  if (failures.length < 10) failures.push(i);
+};
+export const drainFailures = (): ErrorInfo[] => failures.splice(0, failures.length);
 
 const hasGroq = () => !!process.env.GROQ_API_KEY?.trim();
 
@@ -64,6 +72,7 @@ export async function generateText(o: GenOpts, opts: { skipBreaker?: boolean } =
     const r = await groqGenerate(o);
     return { text: r.text, provider: "groq", model: r.model, fellBackFrom: gerr };
   } catch (e) {
+    noteFailure(errorInfo(e, "groq"));
     throw pickErr(gerr, e);
   }
 }
@@ -115,6 +124,7 @@ export async function* streamChat(o: GenOpts): AsyncGenerator<StreamEvent> {
       yield { type: "delta", text: t };
     }
   } catch (e) {
+    noteFailure(errorInfo(e, "groq"));
     if (!started) throw pickErr(gerr, e);
     throw e;
   }

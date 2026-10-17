@@ -22,17 +22,34 @@ export interface WindowRow {
 
 export const windowLabel = (r: WindowRow) => `${r.lesson_kind.toUpperCase()} ${r.lesson_number} — ${r.lesson_title} (p. ${r.page})`;
 
-/** عدد المقاطع التي يشملها «جزء» واحد: يتراكم حتى ~5000 حرف (مقطع واحد على الأقل). */
+/** مقطع يبدأ بعنوان قسم مرقّم («4. L'apprentissage…»، «2.1 …») أو عنوان Markdown */
+const HEADING = /^\s*(?:#{1,4}\s+\S|\d{1,2}(?:\.\d{1,2}){0,2}[.)]?\s+\p{Lu})/mu;
+const startsSection = (c: string) => HEADING.test(c.slice(0, 160));
+
+/**
+ * عدد المقاطع التي يشملها «جزء» واحد = قسم واحد من الدرس: نتوقف قبل المقطع التالي الذي يبدأ بعنوان قسم جديد.
+ * سقف احتياطي للأقسام الطويلة (حروف/مقاطع)، ومقطع واحد على الأقل.
+ */
 export function partSize(rows: { content: string }[]): number {
   let chars = 0;
   let n = 0;
   for (const r of rows) {
-    if (n >= PART_MAX || (n > 0 && chars + r.content.length > PART_CHARS)) break;
+    if (n >= PART_MAX || (n > 0 && (chars + r.content.length > PART_CHARS || startsSection(r.content)))) break;
     chars += r.content.length;
     n++;
   }
   return n;
 }
+
+/** أوامر محايدة (بالإنجليزية) تُرسل للنموذج بدل نص الزر المحلي، كي لا تجرّه إلى لغة الواجهة */
+export const NEUTRAL_COMMAND: Record<string, string> = {
+  continue: "(continue to the next part)",
+  more: "(explain this part more)",
+  example: "(give an example of this part)",
+  finish: "(finish and summarize)",
+  hint: "(give me a hint)",
+  solution: "(show the full solution)",
+};
 
 /** مواضع أسئلة المراجعة: موزعة بالتساوي على نطاق المقاطع. السؤال k (من 1) */
 export function reviewPosition(k: number, total: number): number {
@@ -72,15 +89,15 @@ export type SessionLang = "fr" | "ar";
 const LANG = (lang: SessionLang) => (lang === "fr" ? "French" : "Arabic (keep technical terms in French as in the course)");
 
 export function explainNote(a: { action: GuidedAction | "free"; lang: SessionLang; part: number; parts: number; finished: boolean }): string {
-  const base = `GUIDED EXPLANATION SESSION. Write everything (explanations, examples, questions) in ${LANG(a.lang)}, whatever language the student's buttons or messages are in. You are a patient teacher walking the student through the selected lessons part by part, in order. The excerpts below are the CURRENT PART only (approximately part ${a.part} of ${a.parts}).`;
+  const base = `GUIDED EXPLANATION SESSION. Write EVERYTHING (explanations, examples, questions) in ${LANG(a.lang)}, always, whatever language the student's buttons, commands or earlier messages are in. You are a patient teacher walking the student through the selected lessons part by part, in order. The excerpts below are the CURRENT PART only (approximately part ${a.part} of ${a.parts}); it is ONE section of the lesson.\nRULES: (1) Stay inside the lesson: use the lesson's OWN examples, numbers, notation and figures first (copy symbols, numbers and vectors exactly as written in the excerpts; never invent or alter notation, dimensions or values). (2) Only if the excerpts have no example, you may give a tiny one, and you must label anything that is not in the excerpts with the prefix "Hors programme :" (or "خارج المنهج:" in Arabic sessions) - never present outside material (other algorithms, formulas, losses...) as part of the course. (3) Use Markdown tables only with proper rows, one per line.`;
   if (a.finished)
     return `${base} The whole selected material has been covered. Congratulate the student, give a 3-line recap of what was covered, and suggest the Review mode to test themselves. No new content.`;
-  const stop = `Explain ONLY what is in the excerpts, following their order: one short sentence saying what this part is about, then the explanation step by step with a small concrete example when it helps, citing [C#] with pages. Keep it focused (about 250-350 words). Then STOP: do not start the next part and do not ask a quiz question; the interface shows buttons ("understood, continue" / "explain more" / "give me an example").`;
+  const stop = `Explain ONLY what is in the excerpts, following their order: one short sentence saying what this part is about, then the explanation step by step with the lesson's own example when there is one, citing [C#] with pages. Keep it focused (about 200-300 words). Then STOP: do not start the next part and do not ask a quiz question; the interface shows buttons ("understood, continue" / "explain more" / "give me an example").`;
   switch (a.action) {
     case "more":
       return `${base} The student asks you to explain THIS SAME PART more: use different wording, add the intuition and the intermediate steps you skipped, define each term. Do not advance. Cite [C#]. Then STOP.`;
     case "example":
-      return `${base} The student asks for an example of THIS SAME PART: give one concrete worked example (numbers or short code if relevant), step by step, tied to the excerpts. Do not advance. Cite [C#]. Then STOP.`;
+      return `${base} The student asks for an example of THIS SAME PART: give the lesson's own example from the excerpts if there is one (worked step by step); otherwise a tiny example clearly labelled \"Hors programme\". Do not advance. Cite [C#]. Then STOP.`;
     default:
       return `${base} ${stop}`;
   }

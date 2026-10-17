@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
+import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 import { Check, Copy, ImagePlus, Send, Square, X } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
@@ -117,7 +118,7 @@ function Markdown({ text, sources }: { text: string; sources: ChatSource[] }) {
   return (
     <div className="rich text-sm leading-7" dir="auto">
       <ReactMarkdown
-        remarkPlugins={[remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
           a({ href, children }) {
