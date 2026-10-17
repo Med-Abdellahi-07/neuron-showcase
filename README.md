@@ -25,7 +25,7 @@
 
 متغيرات Vercel (لا تضع المفاتيح في الكود ولا في المحادثات):
 - مطلوبة: `GEMINI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY` (و`SUPABASE_SERVICE_ROLE_KEY` للفهرسة إن لم تكن مضافة).
-- اختيارية: `GEMINI_MODEL` (الافتراضي gemini-3.6-flash)، `GEMINI_EMBEDDING_MODEL`، `GROQ_MODEL`، `GROQ_VISION_MODEL`، `RAG_MIN_SIMILARITY` (0.55).
+- اختيارية: `GEMINI_MODEL` (الافتراضي gemini-3.6-flash)، `GEMINI_EMBEDDING_MODEL`، `GROQ_MODEL`، `GROQ_VISION_MODEL`، `RAG_MIN_SIMILARITY` (0.45).
 
 الخصوصية: لا يُرسل أي اسم أو بريد أو هاتف إلى النماذج؛ تُنقّى رسائل الطالب من البريد والهاتف، والصور لا تُحفظ. Gemini عبر REST بالترويسة `x-goog-api-key`، ويتحوّل تلقائياً إلى Groq عند أي فشل (يظهر 401 بوضوح في صفحة الاختبار).
 

@@ -10,7 +10,7 @@ export interface Retrieved {
   relevant: boolean;
 }
 
-interface Row {
+export interface Row {
   id: string;
   lesson_id: string;
   page: number;
@@ -23,56 +23,73 @@ interface Row {
 }
 
 /** عتبة التشابه الدلالي (cosine) لاعتبار المقطع مرتبطاً. تُضبط بالتجربة على محتوى حقيقي. */
-const MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY ?? 0.55);
+const MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY ?? 0.45);
 const K = 5;
+
+export interface RetrieveDebug {
+  vectorCount: number;
+  textCount: number;
+  topSimilarity: number | null;
+  vectorError?: string;
+  textError?: string;
+}
 
 const label = (r: Row) => `${r.lesson_kind.toUpperCase()} ${r.lesson_number} — ${r.lesson_title} (p. ${r.page})`;
 
+/** بحث هجين: دلالي + نصي معاً (لا نصي كاحتياط فقط)، ثم دمج بلا تكرار. */
+export async function searchBoth(
+  supabase: SupabaseClient,
+  query: string,
+  scope: { subjectId?: string | null; lessonId?: string | null },
+  k = K + 3
+): Promise<{ vector: Row[]; text: Row[]; debug: RetrieveDebug }> {
+  const debug: RetrieveDebug = { vectorCount: 0, textCount: 0, topSimilarity: null };
+  const args = { p_subject: scope.subjectId ?? null, p_lesson: scope.lessonId ?? null };
+
+  const [v, t] = await Promise.allSettled([
+    (async () => {
+      const [vec] = await geminiEmbed([query.slice(0, 2000)], "RETRIEVAL_QUERY");
+      const { data, error } = await supabase.rpc("match_chunks", { p_embedding: `[${vec.join(",")}]`, ...args, p_k: k });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as Row[];
+    })(),
+    (async () => {
+      const { data, error } = await supabase.rpc("search_chunks_text", { p_query: query.slice(0, 500), ...args, p_k: k });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as Row[];
+    })(),
+  ]);
+  const vector = v.status === "fulfilled" ? v.value : [];
+  const text = t.status === "fulfilled" ? t.value : [];
+  if (v.status === "rejected") debug.vectorError = v.reason instanceof Error ? v.reason.message : String(v.reason);
+  if (t.status === "rejected") debug.textError = t.reason instanceof Error ? t.reason.message : String(t.reason);
+  debug.vectorCount = vector.length;
+  debug.textCount = text.length;
+  debug.topSimilarity = vector.length ? Math.max(...vector.map((r) => r.similarity)) : null;
+  return { vector, text, debug };
+}
+
 /**
- * يسترجع مقاطع الدروس المنشورة (RLS يطبّق صلاحيات الطالب). بحث دلالي أولاً، وإن تعذّر التضمين
- * (Gemini غير متاح) يُستعمل بحث نصي فرنسي كاحتياط.
+ * يسترجع مقاطع الدروس المنشورة (RLS يطبّق صلاحيات الطالب).
+ * المقطع مقبول إن بلغ تشابهه الدلالي العتبة، أو طابق نصياً كلمات السؤال المميزة.
  */
 export async function retrieve(
   supabase: SupabaseClient,
   query: string,
   scope: { subjectId?: string | null; lessonId?: string | null }
-): Promise<Retrieved> {
-  let rows: Row[] = [];
-  let mode: Retrieved["mode"] = "none";
-
-  try {
-    const [vec] = await geminiEmbed([query.slice(0, 2000)], "RETRIEVAL_QUERY");
-    const { data, error } = await supabase.rpc("match_chunks", {
-      p_embedding: `[${vec.join(",")}]`,
-      p_subject: scope.subjectId ?? null,
-      p_lesson: scope.lessonId ?? null,
-      p_k: K + 3,
-    });
-    if (error) throw new Error(error.message);
-    rows = ((data ?? []) as Row[]).filter((r) => r.similarity >= MIN_SIMILARITY);
-    mode = "vector";
-  } catch (e) {
-    console.error("retrieve: vector search unavailable, using text search:", e instanceof Error ? e.message : e);
-    const { data, error } = await supabase.rpc("search_chunks_text", {
-      p_query: query.slice(0, 500),
-      p_subject: scope.subjectId ?? null,
-      p_lesson: scope.lessonId ?? null,
-      p_k: K,
-    });
-    if (!error) {
-      rows = (data ?? []) as Row[];
-      mode = "text";
-    }
+): Promise<Retrieved & { debug: RetrieveDebug }> {
+  const { vector, text, debug } = await searchBoth(supabase, query, scope);
+  const seen = new Set<string>();
+  const rows: Row[] = [];
+  for (const r of [...vector.filter((r) => r.similarity >= MIN_SIMILARITY), ...text]) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    rows.push(r);
   }
-
-  rows = rows.slice(0, K);
-  const chunks: ContextChunk[] = rows.map((r, i) => ({ id: `C${i + 1}`, label: label(r), text: r.content }));
-  const sources: SourceRef[] = rows.map((r, i) => ({
-    id: `C${i + 1}`,
-    kind: "course",
-    label: label(r),
-    lessonId: r.lesson_id,
-    page: r.page,
-  }));
-  return { chunks, sources, mode: rows.length ? mode : mode === "none" ? "none" : mode, relevant: rows.length > 0 };
+  const top = rows.slice(0, K);
+  console.log(`retrieve: vec=${debug.vectorCount} top=${debug.topSimilarity?.toFixed(2) ?? "-"} text=${debug.textCount} used=${top.length}${debug.vectorError ? " vecErr=" + debug.vectorError : ""}`);
+  const chunks: ContextChunk[] = top.map((r, i) => ({ id: `C${i + 1}`, label: label(r), text: r.content }));
+  const sources: SourceRef[] = top.map((r, i) => ({ id: `C${i + 1}`, kind: "course", label: label(r), lessonId: r.lesson_id, page: r.page }));
+  const mode: Retrieved["mode"] = !top.length ? "none" : vector.some((r) => r.similarity >= MIN_SIMILARITY) ? "vector" : "text";
+  return { chunks, sources, mode, relevant: top.length > 0, debug };
 }

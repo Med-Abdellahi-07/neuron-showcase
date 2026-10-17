@@ -94,6 +94,7 @@ export async function runDiagnostics(): Promise<DiagReport> {
     { name: "GEMINI_API_KEY", set: present("GEMINI_API_KEY") },
     { name: "GROQ_API_KEY", set: present("GROQ_API_KEY") },
     { name: "TAVILY_API_KEY", set: present("TAVILY_API_KEY") },
+    { name: "SUPABASE_SERVICE_ROLE_KEY", set: present("SUPABASE_SERVICE_ROLE_KEY") },
     { name: "GEMINI_MODEL", set: present("GEMINI_MODEL"), value: geminiModel() },
     { name: "GEMINI_EMBEDDING_MODEL", set: present("GEMINI_EMBEDDING_MODEL"), value: geminiEmbeddingModel() },
     { name: "GROQ_MODEL", set: present("GROQ_MODEL"), value: groqModel() },

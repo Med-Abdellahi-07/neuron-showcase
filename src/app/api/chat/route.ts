@@ -102,7 +102,7 @@ export async function POST(req: Request) {
         const query = scrubPII(text.length < 40 && lastUser ? `${lastUser.content} ${text}` : text);
         const smallTalk = isSmallTalk(text) && images.length === 0;
         const retrieved = smallTalk
-          ? { chunks: [], sources: [], mode: "none" as const, relevant: false }
+          ? { chunks: [], sources: [], mode: "none" as const, relevant: false, debug: null }
           : await retrieve(supabase, query, { subjectId: conv.subject_id, lessonId: conv.lesson_id });
 
         // ───────── 2) بحث الإنترنت (للتعمق، أو عند غياب مقطع مرتبط) ─────────
