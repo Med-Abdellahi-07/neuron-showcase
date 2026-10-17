@@ -13,8 +13,19 @@ export interface SubInput {
   auth: string;
 }
 
+/** خدمات الدفع المعروفة فقط (يمنع توجيه الخادم إلى عنوان اعتباطي يختاره مستخدم). */
+const PUSH_HOSTS = [/(^|\.)googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
+function knownPushHost(endpoint: string): boolean {
+  try {
+    const u = new URL(endpoint);
+    return u.protocol === "https:" && PUSH_HOSTS.some((re) => re.test(u.hostname));
+  } catch {
+    return false;
+  }
+}
+
 const okSub = (s: SubInput) =>
-  typeof s?.endpoint === "string" && s.endpoint.startsWith("https://") && s.endpoint.length <= 1000 &&
+  typeof s?.endpoint === "string" && knownPushHost(s.endpoint) && s.endpoint.length <= 1000 &&
   typeof s.p256dh === "string" && s.p256dh.length > 20 && s.p256dh.length <= 200 &&
   typeof s.auth === "string" && s.auth.length > 8 && s.auth.length <= 100;
 
