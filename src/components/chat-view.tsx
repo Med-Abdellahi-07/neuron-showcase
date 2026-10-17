@@ -35,7 +35,17 @@ type Mode = "explain" | "review" | "solve";
 const MODES: Mode[] = ["explain", "review", "solve"];
 
 /** يحوّل [C1] و[W2] إلى روابط داخلية تُعرض كشارات */
-const withCitations = (text: string) => text.replace(/\[([CW]\d{1,2})\]/g, "[$1](#cite-$1)");
+/** يدعم [C1] و[C1, C2] و[C1][W2] و[C1; C2]: كل مرجع زر مستقل */
+const withCitations = (text: string) =>
+  text.replace(/\[((?:[CW]\d{1,2})(?:\s*[,;،]\s*[CW]\d{1,2})*)\]/g, (_m, list: string) =>
+    list
+      .split(/\s*[,;،]\s*/)
+      .map((id) => `[${id}](#cite-${id})`)
+      .join(" ")
+  );
+
+/** رابط المرجع: الحصة مع الصفحة، والحصة تفتح الـPDF على تلك الصفحة */
+const courseHref = (s: ChatSource) => `/lessons/${s.lessonId}${s.page ? `?page=${s.page}` : ""}#pdf-h`;
 
 function Markdown({ text, sources }: { text: string; sources: ChatSource[] }) {
   const { t } = useT();
@@ -53,7 +63,7 @@ function Markdown({ text, sources }: { text: string; sources: ChatSource[] }) {
               if (!src) return <span className={badge}>{children}</span>;
               if (src.kind === "course" && src.lessonId)
                 return (
-                  <Link href={`/lessons/${src.lessonId}`} className={badge} title={src.label}>
+                  <Link href={courseHref(src)} className={badge} title={src.label} aria-label={src.label}>
                     {children}
                   </Link>
                 );
@@ -247,7 +257,7 @@ export function ChatView({
                           <span className="tech rounded bg-accent-soft px-1 text-[11px] font-semibold text-accent">{s.id}</span>
                           <span className="badge shrink-0">{s.kind === "course" ? t("chat.fromCourse") : t("chat.fromWeb")}</span>
                           {s.kind === "course" && s.lessonId ? (
-                            <Link href={`/lessons/${s.lessonId}`} className="min-w-0 text-accent hover:underline">{s.label}</Link>
+                            <Link href={courseHref(s)} className="min-w-0 text-accent hover:underline">{s.label}</Link>
                           ) : (
                             <a href={s.url} target="_blank" rel="noopener noreferrer" className="min-w-0 break-words text-accent hover:underline">{s.label}</a>
                           )}

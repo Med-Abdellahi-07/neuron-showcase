@@ -13,9 +13,11 @@ import type { Lesson, LessonFile } from "@/lib/types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function LessonPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LessonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string }> }) {
   const userId = await requireUserId();
   const { id } = await params;
+  const pageNum = parseInt((await searchParams).page ?? "", 10);
+  const pdfHash = pageNum >= 1 && pageNum <= 5000 ? `#page=${pageNum}` : "";
   if (!UUID_RE.test(id)) notFound();
   const { t, locale } = await getT();
   const supabase = await createClient();
@@ -79,15 +81,16 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
         {pdfs.length === 0 && <p className="card text-sm text-muted">{t("lesson.noPdf")}</p>}
         {pdfs.map((f) => {
           const url = urls.get(f.id);
+          const viewUrl = url && pdfHash && f.id === pdfs[0].id ? url + pdfHash : url;
           return (
             <div key={f.id} className="space-y-2">
               {url && (
-                <iframe src={url} title={f.name} className="h-[70vh] w-full rounded-[var(--radius)] border border-border bg-surface-2" />
+                <iframe key={viewUrl} src={viewUrl} title={f.name} className="h-[70vh] w-full rounded-[var(--radius)] border border-border bg-surface-2" />
               )}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="tech truncate text-xs text-muted" dir="ltr">{f.name}</span>
                 {url && (
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-sm">
+                  <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="btn btn-sm">
                     <ExternalLink size={14} aria-hidden /> {t("common.open")}
                   </a>
                 )}
