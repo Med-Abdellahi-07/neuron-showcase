@@ -51,6 +51,25 @@ function citedIds(text: string): Set<string> {
   return ids;
 }
 
+/** يفصل خيارات QCM (A) B) C) D)) عن نص السؤال لعرضها أزراراً */
+function splitOptions(content: string): { body: string; options: { letter: string; text: string }[] } {
+  const lines = content.split("\n");
+  const re = /^\s*(?:[-*]\s*)?\**([A-D])\**\s*[).:]\s*(.+?)\s*$/;
+  for (let i = 0; i < lines.length; i++) {
+    if (re.exec(lines[i])?.[1] !== "A") continue;
+    const opts: { letter: string; text: string }[] = [];
+    let j = i;
+    while (j < lines.length) {
+      const m = re.exec(lines[j]);
+      if (!m || m[1] !== "ABCD"[opts.length]) break;
+      opts.push({ letter: m[1], text: m[2] });
+      j++;
+    }
+    if (opts.length >= 3) return { body: [...lines.slice(0, i), ...lines.slice(j)].join("\n").trim(), options: opts };
+  }
+  return { body: content, options: [] };
+}
+
 const usedSources = (m: ChatMessage) => {
   const cited = citedIds(m.content);
   return (m.sources ?? []).filter((s) => cited.has(s.id));
@@ -200,13 +219,14 @@ export function ChatView({
     | { type: "delta"; text: string }
     | { type: "progress"; cursor: number; total: number; finished: boolean }
     | { type: "step"; step: number; done: boolean }
+    | { type: "next" }
     | { type: "done" }
     | { type: "error"; code: string };
 
   /** يرسل طلباً إلى المساعد ويعرض الرد المتدفق. action: بدء/متابعة/أزرار سريعة في الجلسات الموجّهة */
   async function run(o: { action?: string; text: string; images?: { mime: string; data: string }[] }) {
     if (busy || (o.action !== "start" && !o.text.trim())) return;
-    const aid = crypto.randomUUID();
+    let aid = crypto.randomUUID();
     setMessages((m) => [
       ...m,
       ...(o.action === "start" ? [] : [{ id: crypto.randomUUID(), role: "user" as const, content: o.text, hadImage: !!o.images?.length }]),
@@ -247,6 +267,12 @@ export function ChatView({
           else if (ev.type === "delta") patch((x) => ({ content: x.content + ev.text }));
           else if (ev.type === "progress") setProgress({ cursor: ev.cursor, total: ev.total, finished: ev.finished });
           else if (ev.type === "step") setStep(ev.step);
+          else if (ev.type === "next") {
+            // رسالة ثانية في الرد نفسه (الملخص بعد التصحيح الأخير)
+            aid = crypto.randomUUID();
+            const nid = aid;
+            setMessages((m) => [...m, { id: nid, role: "assistant", content: "" }]);
+          }
           else if (ev.type === "error") patch({ error: ev.code });
         }
       }
@@ -289,6 +315,8 @@ export function ChatView({
 
   const lastMsg = messages[messages.length - 1];
   const idle = !busy && lastMsg?.role === "assistant" && !!lastMsg.content && !lastMsg.error;
+  const mcqRaw = guided && mode === "review" && idle && step >= 1 && step <= 5 ? splitOptions(lastMsg.content) : null;
+  const mcq = mcqRaw && mcqRaw.options.length >= 3 ? mcqRaw : null;
   const quick: { action: string; label: string }[] =
     !guided || !idle
       ? []
@@ -348,8 +376,15 @@ export function ChatView({
           </div>
         </div>
       )}
-      {guided && mode === "review" && step > 0 && (
-        <p className="tech text-xs text-muted" dir="ltr">{Math.min(step, 5)} / 5</p>
+      {guided && mode === "review" && step > 0 && step <= 5 && (
+        <div className="flex items-center gap-2" role="status" aria-label={`${t("chat.question")} ${step}/5`}>
+          <span className="badge badge-accent tech" dir="ltr">{t("chat.question")} {step}/5</span>
+          <span className="flex gap-1" aria-hidden>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <span key={n} className={`size-2 rounded-full ${n < step ? "bg-accent" : n === step ? "bg-accent/60 ring-2 ring-accent/30" : "bg-surface-2"}`} />
+            ))}
+          </span>
+        </div>
       )}
 
       <ul className="space-y-4" aria-live="polite">
@@ -365,9 +400,25 @@ export function ChatView({
               <div className="card space-y-2">
                 {m.outOfCurriculum && <span className="badge !text-warn">{t("chat.outOfCurriculum")}</span>}
                 {m.content ? (
-                  <Markdown text={m.content} sources={m.sources ?? []} />
+                  <Markdown text={mcq && m.id === lastMsg?.id ? mcq.body : m.content} sources={m.sources ?? []} />
                 ) : (
                   !m.error && <span className="text-sm text-muted" aria-busy="true">…</span>
+                )}
+                {mcq && m.id === lastMsg?.id && (
+                  <ul className="grid gap-2" role="group" aria-label={t("chat.options")}>
+                    {mcq.options.map((o) => (
+                      <li key={o.letter}>
+                        <button
+                          type="button"
+                          onClick={() => run({ text: `${o.letter}) ${o.text}` })}
+                          className="flex w-full items-start gap-3 rounded-[var(--radius)] border border-border p-3 text-start text-sm transition-colors hover:border-accent hover:bg-accent-soft"
+                        >
+                          <span className="tech flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-xs" dir="ltr">{o.letter}</span>
+                          <span className="min-w-0 flex-1" dir="auto">{o.text}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
                 {m.error && <p role="alert" className="text-sm text-danger">{errText(m.error)}</p>}
                 {m.content && !m.error && <div className="flex justify-end"><CopyButton text={m.content} /></div>}

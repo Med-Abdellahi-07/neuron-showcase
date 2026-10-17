@@ -26,6 +26,7 @@ export async function createChat(input: {
   subjectCode: string;
   lessonIds: string[];
   questionId?: string | null;
+  lang?: string;
 }): Promise<CreateChatResult> {
   const userId = await getUserId();
   if (!userId) return { ok: false, error: "failed" };
@@ -69,6 +70,7 @@ export async function createChat(input: {
       question_id: questionId,
       mode: input.mode,
       guided: true,
+      lang: input.lang === "ar" ? "ar" : "fr",
       title: title.slice(0, 120),
     })
     .select("id")

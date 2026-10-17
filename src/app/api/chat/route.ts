@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { errorInfo, streamChat, type ChatMsg } from "@/lib/ai";
 import { buildSystemPrompt, type ChatMode, type ContextChunk, type SourceRef } from "@/lib/ai/prompts";
 import { retrieve } from "@/lib/ai/rag";
-import { getLocale } from "@/lib/i18n/server";
 import {
   GUIDED_ACTIONS,
   REVIEW_QUESTIONS,
@@ -15,7 +14,10 @@ import {
   solveNote,
   toContext,
   type GuidedAction,
+  type SessionLang,
+  type WindowRow,
 } from "@/lib/ai/guided";
+import { MarkerFilter, entryFromRow, extractQuestion, parseMarkers, summaryNote, type ReviewEntry } from "@/lib/ai/review";
 import { tavilySearch, type WebResult } from "@/lib/ai/tavily";
 import { scrubPII } from "@/lib/ai/privacy";
 
@@ -60,6 +62,8 @@ interface Conv {
   cursor: number;
   total: number;
   step: number;
+  lang: string;
+  review_log: ReviewEntry[] | null;
 }
 
 export async function POST(req: Request) {
@@ -93,7 +97,7 @@ export async function POST(req: Request) {
 
   const { data: convRow } = await supabase
     .from("conversations")
-    .select("id, subject_id, lesson_id, lesson_ids, question_id, mode, title, guided, cursor, total, step")
+    .select("id, subject_id, lesson_id, lesson_ids, question_id, mode, title, guided, cursor, total, step, lang, review_log")
     .eq("id", body.conversationId)
     .maybeSingle();
   if (!convRow) return json(404, { error: "not_found" });
@@ -128,7 +132,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const locale = await getLocale();
+  const lang: SessionLang = conv.lang === "ar" ? "ar" : "fr";
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -146,6 +150,7 @@ export async function POST(req: Request) {
         let userText = text;
         const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
         let extraContext = "";
+        let review: { log: ReviewEntry[]; total: number; rows: WindowRow[]; prevN: number; summaryOnly: boolean } | null = null;
 
         if (conv.guided && mode === "explain" && (action === "start" || action === "continue" || action === "more" || action === "example")) {
           // ───────── شرح موجَّه: نافذة المقاطع الحالية ─────────
@@ -176,56 +181,52 @@ export async function POST(req: Request) {
           relevant = chunks.length > 0;
           const parts = Math.max(1, Math.round(total / Math.max(1, curN)));
           const part = Math.min(parts, Math.round(cursor / Math.max(1, curN)) + 1);
-          modeNote = explainNote({ action, locale, part, parts, finished });
+          modeNote = explainNote({ action, lang, part, parts, finished });
           send({ type: "progress", cursor: Math.min(cursor + (finished ? 0 : partRows.length), total), total, finished });
           userText = action === "start" ? "(start)" : text;
         } else if (conv.guided && mode === "review" && (action === "start" || action === "finish" || (!action && conv.step >= 1 && conv.step <= REVIEW_QUESTIONS))) {
-          // ───────── مراجعة موجَّهة: سؤال واحد في كل مرة ─────────
-          let total = conv.total;
-          let step = conv.step;
+          // ───────── مراجعة موجَّهة: أسئلة أصلية من نص الدرس، ومصدر كل سؤال ونتيجته يُسجَّلان ─────────
+          const R = { log: [...(conv.review_log ?? [])], total: conv.total, rows: [] as WindowRow[], prevN: 0, summaryOnly: action === "finish" };
+          review = R;
           if (action === "start") {
             const first = await fetchWindow(supabase, scope, 0, 1);
-            total = first[0]?.total ?? 0;
-            if (total === 0) {
+            R.total = first[0]?.total ?? 0;
+            if (R.total === 0) {
               send({ type: "error", code: "no_material" });
               return;
             }
-            step = 1;
+            R.log = [];
           }
-          const rowsAll = [];
-          const want: number[] = [];
-          if (action === "start") want.push(1);
-          else if (action === "finish") for (let k = 1; k <= Math.min(step, REVIEW_QUESTIONS); k++) want.push(k);
-          else {
-            want.push(step); // مادة السؤال الذي أجاب عنه الطالب
-            if (step < REVIEW_QUESTIONS) want.push(step + 1);
-          }
-          for (const k of want) rowsAll.push(...(await fetchWindow(supabase, scope, reviewPosition(k, total), 2)));
-          const ctx = toContext(rowsAll);
-          chunks = ctx.chunks;
-          sources = ctx.sources;
           relevant = true;
-          // بنك الأسئلة يُستعمل لإلهام الأسئلة فقط؛ لا تُرسل الإجابات الصحيحة ولا الشروح
-          let bank = "";
-          if (action !== "finish") {
-            let qb = supabase.from("questions").select("type, statement, options").eq("status", "published").limit(8);
+          patch.total = R.total;
+          if (!R.summaryOnly) {
+            const prevRows: WindowRow[] = [];
+            if (action !== "start") {
+              const prev = R.log[conv.step - 1];
+              if (prev) prevRows.push(...(await fetchWindow(supabase, scope, prev.ord, 2)));
+            }
+            const nextK = action === "start" ? 1 : conv.step + 1;
+            const newRows = nextK <= REVIEW_QUESTIONS ? await fetchWindow(supabase, scope, reviewPosition(nextK, R.total), 2) : [];
+            R.prevN = toContext(prevRows).rows.length;
+            const ctx = toContext([...prevRows, ...newRows]);
+            chunks = ctx.chunks;
+            sources = ctx.sources;
+            R.rows = ctx.rows;
+            // بنك الأسئلة للإلهام فقط: مقتطفات قصيرة بلا خيارات ولا إجابات
+            let qb = supabase.from("questions").select("statement").eq("status", "published").limit(6);
             qb = lessonIds.length ? qb.in("lesson_id", lessonIds) : conv.subject_id ? qb.eq("subject_id", conv.subject_id) : qb;
             const { data: qs } = await qb;
-            bank = (qs ?? [])
-              .map((q, i) => `(${i + 1}) ${q.statement as string}${Array.isArray(q.options) ? " Options: " + (q.options as string[]).join(" | ") : ""}`)
-              .join("\n");
+            const bank = (qs ?? []).map((q, i) => `(${i + 1}) ${(q.statement as string).replace(/\s+/g, " ").slice(0, 90)}…`).join("\n");
+            modeNote = reviewNote({ action: action === "start" ? "start" : "answer", lang, k: conv.step, last: action !== "start" && conv.step >= REVIEW_QUESTIONS, hasBank: bank.length > 0 });
+            if (bank) extraContext = `INSPIRATION ONLY (do not copy, do not reuse their wording):\n${bank}`;
+            extraContext += `${extraContext ? "\n\n" : ""}${
+              R.prevN > 0
+                ? `EXCERPT ROLES: C1..C${R.prevN} = PREVIOUS QUESTION MATERIAL; C${R.prevN + 1}..C${R.rows.length} = NEW MATERIAL.`
+                : "EXCERPT ROLES: all excerpts are NEW MATERIAL."
+            }`;
           }
-          const hasBank = bank.length > 0;
-          const last = action === undefined || action === null ? step >= REVIEW_QUESTIONS : false;
-          modeNote = reviewNote({ action: action === "start" ? "start" : action === "finish" ? "finish" : "answer", locale, k: step, last, hasBank });
-          if (hasBank) extraContext = `QUESTION BANK (existing exercises, for inspiration only):\n${bank}`;
-          if (action !== "start" && action !== "finish") {
-            extraContext += `${extraContext ? "\n\n" : ""}(Excerpts are ordered: the first ones are the PREVIOUS QUESTION MATERIAL, the last ones the NEW MATERIAL.)`;
-          }
-          patch.total = total;
-          patch.step = action === "finish" ? REVIEW_QUESTIONS + 1 : action === "start" ? 1 : last ? REVIEW_QUESTIONS + 1 : step + 1;
-          send({ type: "step", step: patch.step, done: (patch.step as number) > REVIEW_QUESTIONS });
-          userText = action === "start" ? "(start)" : action === "finish" ? text : text;
+          send({ type: "step", step: action === "start" ? 1 : conv.step, done: false });
+          userText = action === "start" ? "(start)" : text;
         } else if (conv.guided && mode === "solve" && (action === "start" || action === "hint" || action === "solution" || !action)) {
           // ───────── حل تمرين موجَّه ─────────
           let exercise: string | null = null;
@@ -254,7 +255,7 @@ export async function POST(req: Request) {
             sources = r.sources;
             relevant = r.relevant;
           }
-          modeNote = solveNote({ action: action ?? "answer", locale, exercise, reference, fromImage });
+          modeNote = solveNote({ action: action ?? "answer", lang, exercise, reference, fromImage });
           userText = action === "start" ? (fromImage ? "(exercise in image)" : "(start)") : action === "hint" || action === "solution" ? text : text;
         } else {
           // ───────── سؤال حر (أي وضع) ─────────
@@ -319,23 +320,98 @@ export async function POST(req: Request) {
           { role: "user", text: scrubPII(userText), images: images.length ? images : undefined },
         ];
 
-        for await (const ev of streamChat({ system, messages, maxTokens: 3000, temperature: 0.3 })) {
-          if (ev.type === "meta") {
-            usedProvider = ev.used.provider;
-            send({ type: "meta", provider: ev.used.provider, fellBack: !!ev.used.fellBackFrom });
-          } else {
-            answer += ev.text;
-            send({ type: "delta", text: ev.text });
+        /** الملخص النهائي: حقائق السجل فقط (الأسئلة المطروحة فعلاً ومصادرها الحقيقية) */
+        async function summarize(log: ReviewEntry[], total: number, msgs: ChatMsg[], pending = false) {
+          const sums: ContextChunk[] = [];
+          const srcs: SourceRef[] = [];
+          for (let i = 0; i < log.length; i++) {
+            const [row] = await fetchWindow(supabase, scope, log[i].ord, 1);
+            sums.push({ id: `C${i + 1}`, label: log[i].label, text: row?.content ?? "" });
+            srcs.push({ id: `C${i + 1}`, kind: "course", label: log[i].label, lessonId: log[i].lessonId, page: log[i].page });
           }
+          let untested = "";
+          const nextK = log.length + 1;
+          if (nextK <= REVIEW_QUESTIONS && total > 0) {
+            const rows = await fetchWindow(supabase, scope, reviewPosition(nextK, total), 2);
+            untested = "UNTESTED MATERIAL:\n" + rows.map((r) => `[${r.lesson_kind.toUpperCase()} ${r.lesson_number} p. ${r.page}] ${r.content.slice(0, 600)}`).join("\n---\n");
+          }
+          const sys =
+            buildSystemPrompt({ mode: "review", course: sums, web: [], hasCourseMatch: true, modeNote: summaryNote({ lang, log, pending }), scopeNote: "" }) +
+            (untested ? `\n\n${untested}` : "");
+          send({ type: "sources", sources: srcs, outOfCurriculum: false });
+          const out = await generate(sys, msgs, true);
+          await save(parseMarkers(out).clean, srcs);
         }
 
-        await supabase.from("messages").insert({
-          conversation_id: conv.id,
-          role: "assistant",
-          content: answer,
-          sources: allSources.length ? allSources : null,
-          provider: usedProvider,
-        });
+        const save = (content: string, srcs: SourceRef[]) =>
+          supabase.from("messages").insert({
+            conversation_id: conv.id,
+            role: "assistant",
+            content,
+            sources: srcs.length ? srcs : null,
+            provider: usedProvider,
+          });
+
+        /** يبث رد النموذج؛ في المراجعة تُحجب علامات [[...]] عن الطالب */
+        async function generate(sys: string, msgs: ChatMsg[], hideMarkers: boolean): Promise<string> {
+          const filter = hideMarkers ? new MarkerFilter() : null;
+          let raw = "";
+          answer = "";
+          for await (const ev of streamChat({ system: sys, messages: msgs, maxTokens: 3000, temperature: 0.3 })) {
+            if (ev.type === "meta") {
+              usedProvider = ev.used.provider;
+              send({ type: "meta", provider: ev.used.provider, fellBack: !!ev.used.fellBackFrom });
+            } else {
+              raw += ev.text;
+              answer = raw;
+              const out = filter ? filter.push(ev.text) : ev.text;
+              if (out) send({ type: "delta", text: out });
+            }
+          }
+          const rest = filter?.flush();
+          if (rest) send({ type: "delta", text: rest });
+          return raw;
+        }
+
+        const raw = await generate(system, messages, !!review && !review.summaryOnly);
+
+        if (review && !review.summaryOnly) {
+          // نسجّل نتيجة السؤال السابق ومصدر السؤال الجديد؛ وبعد السؤال الأخير يأتي الملخص مباشرة
+          const { clean, markers } = parseMarkers(raw);
+          await save(clean, allSources);
+          answer = "";
+          const R = review;
+          const grading = action !== "start";
+          if (grading) {
+            const e = R.log[conv.step - 1];
+            if (e) e.verdict = markers.verdict ?? "partial";
+          }
+          const newK = grading ? conv.step + 1 : 1;
+          if (newK <= REVIEW_QUESTIONS) {
+            const row = R.rows[(markers.src ?? R.prevN + 1) - 1] ?? R.rows[R.prevN] ?? R.rows[0];
+            if (row) R.log.push(entryFromRow(newK, row, extractQuestion(clean, newK)));
+          }
+          patch.review_log = R.log;
+          patch.step = grading ? Math.min(conv.step + 1, REVIEW_QUESTIONS + 1) : 1;
+          send({ type: "step", step: patch.step as number, done: (patch.step as number) > REVIEW_QUESTIONS });
+          if (grading && conv.step >= REVIEW_QUESTIONS) {
+            await supabase.from("conversations").update(patch).eq("id", conv.id);
+            send({ type: "next" });
+            await summarize(R.log, R.total, [...messages, { role: "assistant", text: scrubPII(clean) }, { role: "user", text: "(summary)" }]);
+            answer = "";
+            send({ type: "done" });
+            return;
+          }
+        } else if (review && review.summaryOnly) {
+          const last = review.log[review.log.length - 1];
+          await summarize(review.log, review.total, messages, !!last && last.verdict === null);
+          answer = "";
+          patch.step = REVIEW_QUESTIONS + 1;
+          send({ type: "step", step: REVIEW_QUESTIONS + 1, done: true });
+        } else {
+          await save(raw, allSources);
+          answer = "";
+        }
         if (!conv.title && text) patch.title = text.replace(/\s+/g, " ").slice(0, 60);
         await supabase.from("conversations").update(patch).eq("id", conv.id);
         send({ type: "done" });
@@ -344,7 +420,7 @@ export async function POST(req: Request) {
         console.error("chat failed:", info.provider, info.status, info.message);
         // إن وصل جزء من الإجابة نحفظه ليبقى السجل متسقاً
         if (answer) {
-          await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: answer, provider: usedProvider });
+          await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: parseMarkers(answer).clean, provider: usedProvider });
         }
         send({ type: "error", code: "unavailable" });
       } finally {

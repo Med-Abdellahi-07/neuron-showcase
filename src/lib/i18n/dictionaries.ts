@@ -405,6 +405,9 @@ export const ar = {
   "chat.pick.needExercise": "اختر تمريناً أو ارفع صورة.",
   "chat.pick.starting": "جارٍ البدء…",
   "chat.pick.freeNote": "ويمكنك طرح أي سؤال حر في أي وقت داخل المحادثة.",
+  "chat.question": "السؤال",
+  "chat.options": "الخيارات",
+  "chat.pick.lang": "لغة الجلسة",
 } as const;
 
 export type DictKey = keyof typeof ar;
@@ -816,6 +819,9 @@ export const fr: Record<DictKey, string> = {
   "chat.pick.needExercise": "Choisissez un exercice ou une photo.",
   "chat.pick.starting": "Démarrage…",
   "chat.pick.freeNote": "Vous pouvez poser une question libre à tout moment dans la conversation.",
+  "chat.question": "Question",
+  "chat.options": "Options",
+  "chat.pick.lang": "Langue de la session",
 };
 
 export const dictionaries = { ar, fr } as const;

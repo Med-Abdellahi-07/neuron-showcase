@@ -53,6 +53,7 @@ export function ChatPicker({
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exerciseId, setExerciseId] = useState<string>("");
   const [image, setImage] = useState<{ mime: string; data: string; preview: string } | null>(null);
+  const [lang, setLang] = useState<"fr" | "ar">("fr");
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
 
@@ -109,6 +110,7 @@ export function ChatPicker({
         subjectCode: subject,
         lessonIds: idsFor(lessonSel, multi),
         questionId: mode === "solve" ? exerciseId || null : null,
+        lang,
       });
       if (!r.ok) return setErr(t("chat.unavailable"));
       if (image && !exerciseId) {
@@ -166,6 +168,22 @@ export function ChatPicker({
             ))}
           </select>
         </div>
+      </div>
+
+      <div role="radiogroup" aria-label={t("chat.pick.lang")} className="flex flex-wrap items-center gap-2">
+        <span className="label !mb-0">{t("chat.pick.lang")}</span>
+        {(["fr", "ar"] as const).map((l) => (
+          <button
+            key={l}
+            type="button"
+            role="radio"
+            aria-checked={lang === l}
+            onClick={() => setLang(l)}
+            className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium ${lang === l ? "border-transparent bg-accent text-accent-fg" : "border-border text-muted hover:text-fg"}`}
+          >
+            {l === "fr" ? "Français" : "العربية"}
+          </button>
+        ))}
       </div>
 
       {lessonSel === MULTI && (
