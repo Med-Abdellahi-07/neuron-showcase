@@ -53,11 +53,17 @@ export default async function PrintQcmPage({ searchParams }: { searchParams: Pro
   if (error || !data) {
     const msg = error?.message ?? "";
     const text = msg.includes("download_limit") ? t("qcm.err.limit") : msg.includes("no_questions") ? t("qcm.err.none") : t("qcm.err.generic");
-    if (!msg.includes("download_limit") && !msg.includes("no_questions")) console.error("qcm_export failed:", msg);
+    const known = msg.includes("download_limit") || msg.includes("no_questions");
+    if (!known) console.error("qcm_export failed:", error?.code, msg);
+    // رمز تقني قصير (مثل PGRST202 = الدالة غير موجودة، أي لم يُشغَّل 0016) ليسهل تشخيص السبب دون كشف تفاصيل
+    const code = !known && error?.code ? String(error.code).slice(0, 12) : null;
     return (
       <main className="qcm-root">
         <div className="qcm-sheet">
-          <p role="alert" className="rounded-lg border border-neutral-400 p-4 text-sm">{text}</p>
+          <p role="alert" className="rounded-lg border border-neutral-400 p-4 text-sm">
+            {text}
+            {code && <span dir="ltr" className="mt-2 block text-xs opacity-70">code: {code}</span>}
+          </p>
           <Link href={backHref} className="mt-4 inline-block text-sm underline">{t("qcm.close")}</Link>
         </div>
       </main>
