@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
 import { SLOTS } from "@/lib/constants";
 import { formatDate, todayISO } from "@/lib/dates";
+import { studyDateFrom } from "@/lib/weeks";
 import type { Announcement, ScheduleSession } from "@/lib/types";
 import { hoursLeft, type DuelItem } from "@/lib/duel";
 
@@ -25,7 +26,7 @@ export default async function HomePage() {
           .from("schedule_sessions")
           .select("*")
           .eq("cohort_id", cohortId)
-          .gte("session_date", today)
+          .gte("session_date", studyDateFrom(today))
           .neq("status", "cancelled")
           .order("session_date")
           .order("slot")

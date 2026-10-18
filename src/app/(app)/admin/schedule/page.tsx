@@ -1,12 +1,12 @@
-import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
-import { getAllSubjects, getCurrentSubjects } from "@/lib/data";
-import { addDays, appTimeZone, formatDate, isValidISO, mondayOf, nowHM, todayISO } from "@/lib/dates";
+import { getAllSubjects, getCurrentSubjects, getSemesterStart } from "@/lib/data";
+import { appTimeZone, isValidISO, nowHM, todayISO } from "@/lib/dates";
+import { addDays, defaultWeekMonday, mondayOf } from "@/lib/weeks";
+import { WeekNav } from "@/components/week-nav";
 import { colorMap, toGridSession } from "@/lib/schedule-grid";
-import { copyPreviousWeek } from "@/app/actions/schedule";
+import { copyPreviousWeek, setSemesterStart } from "@/app/actions/schedule";
 import { ScheduleAi } from "@/components/schedule-ai";
 import { ScheduleGrid } from "@/components/schedule-grid";
 import type { ScheduleSession } from "@/lib/types";
@@ -20,7 +20,8 @@ export default async function AdminSchedulePage({
   const { t, locale } = await getT();
   const sp = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const monday = mondayOf(isValidISO(one(sp.w)) ? (one(sp.w) as string) : todayISO());
+  const defaultMonday = defaultWeekMonday(todayISO());
+  const monday = isValidISO(one(sp.w)) ? mondayOf(one(sp.w) as string) : defaultMonday;
 
   const supabase = await createClient();
   const { data: cohorts } = await supabase.from("cohorts").select("id, name").order("name");
@@ -30,9 +31,10 @@ export default async function AdminSchedulePage({
 
   if (!cohortId) return <p className="card text-sm text-warn">{t("schedule.noCohort")}</p>;
 
-  const [subjects, current, { data }] = await Promise.all([
+  const [subjects, current, sem, { data }] = await Promise.all([
     getAllSubjects(),
     getCurrentSubjects(),
+    getSemesterStart(),
     supabase
       .from("schedule_sessions")
       .select("*")
@@ -46,8 +48,6 @@ export default async function AdminSchedulePage({
   const sessions = (data ?? []) as ScheduleSession[];
   const colors = colorMap(current, subjects);
   const gridSessions = sessions.map((x) => toGridSession(x, byId.get(x.subject_id), colors.get(x.subject_id) ?? 0));
-  const q = (w: string) => `/admin/schedule?w=${w}&c=${cohortId}`;
-  const arrow = "size-4 rtl:rotate-180";
 
   return (
     <div className="wide-page compact space-y-6">
@@ -66,11 +66,26 @@ export default async function AdminSchedulePage({
         </form>
       )}
 
-      <div className="flex items-center justify-between gap-2">
-        <Link href={q(addDays(monday, -7))} className="btn btn-sm" aria-label={t("schedule.prev")}><ChevronLeft className={arrow} aria-hidden /></Link>
-        <p className="tech text-sm font-semibold" dir="ltr">{formatDate(monday, locale)} → {formatDate(addDays(monday, 5), locale)}</p>
-        <Link href={q(addDays(monday, 7))} className="btn btn-sm" aria-label={t("schedule.next")}><ChevronRight className={arrow} aria-hidden /></Link>
-      </div>
+      <WeekNav
+        monday={monday}
+        defaultMonday={defaultMonday}
+        semesterStart={sem?.start ?? null}
+        locale={locale}
+        hrefFor={(w) => `/admin/schedule?${w ? `w=${w}&` : ""}c=${cohortId}`}
+        labels={{ week: t("schedule.week"), prev: t("schedule.prev"), next: t("schedule.next"), thisWeek: t("schedule.thisWeek") }}
+      />
+
+      {profile.role === "admin" && sem && (
+        <form action={setSemesterStart} className="card flex flex-wrap items-end gap-2">
+          <input type="hidden" name="semester_id" value={sem.id} />
+          <div className="min-w-0 flex-1">
+            <label className="label" htmlFor="sem-start">{t("schedule.semStart")}</label>
+            <input id="sem-start" name="start_date" type="date" className="input" defaultValue={sem.start ?? ""} dir="ltr" />
+          </div>
+          <button className="btn btn-sm">{t("schedule.semStartSave")}</button>
+          <p className="w-full text-xs text-muted">{t("schedule.semStartHelp")}</p>
+        </form>
+      )}
 
       <form action={copyPreviousWeek}>
         <input type="hidden" name="cohort_id" value={cohortId} />

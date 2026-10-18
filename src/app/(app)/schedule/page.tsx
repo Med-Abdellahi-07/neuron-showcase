@@ -1,12 +1,12 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
+import { getCurrentSubjects, getSemesterStart, hasEnded, visibleForGroup } from "@/lib/data";
 import { ENGLISH_CODE, SESSION_KINDS, sessionsFromHours } from "@/lib/constants";
-import { addDays, appTimeZone, formatDate, isValidISO, mondayOf, nowHM, todayISO } from "@/lib/dates";
+import { appTimeZone, isValidISO, nowHM, todayISO } from "@/lib/dates";
+import { addDays, defaultWeekMonday, mondayOf } from "@/lib/weeks";
+import { WeekNav } from "@/components/week-nav";
 import { VIEW_COOKIE, colorMap, toGridSession } from "@/lib/schedule-grid";
 import { ScheduleGrid } from "@/components/schedule-grid";
 import type { ScheduleSession, SessionKind } from "@/lib/types";
@@ -21,8 +21,9 @@ export default async function SchedulePage({
   const sp = await searchParams;
   const raw = Array.isArray(sp.w) ? sp.w[0] : sp.w;
   const today = todayISO();
-  const monday = mondayOf(isValidISO(raw) ? raw : today);
-  const thisMonday = mondayOf(today);
+  // الإثنين–السبت: الأسبوع الحالي؛ الأحد: القادم مباشرة (لا دراسة يوم الأحد)
+  const defaultMonday = defaultWeekMonday(today);
+  const monday = isValidISO(raw) ? mondayOf(raw) : defaultMonday;
 
   if (!profile.cohort_id) {
     return (
@@ -34,8 +35,9 @@ export default async function SchedulePage({
   }
 
   const supabase = await createClient();
-  const [subjects, { data }] = await Promise.all([
+  const [subjects, sem, { data }] = await Promise.all([
     getCurrentSubjects(),
+    getSemesterStart(),
     supabase
       .from("schedule_sessions")
       .select("*")
@@ -64,27 +66,18 @@ export default async function SchedulePage({
     done.set(key, (done.get(key) ?? 0) + 1);
   }
 
-  const arrow = "size-4 rtl:rotate-180";
   return (
     <div className="wide-page compact space-y-6">
       <h1 className="page-title !mb-0">{t("schedule.title")}</h1>
 
-      <div className="flex items-center justify-between gap-2">
-        <Link href={`/schedule?w=${addDays(monday, -7)}`} className="btn btn-sm" aria-label={t("schedule.prev")}>
-          <ChevronLeft className={arrow} aria-hidden />
-        </Link>
-        <div className="text-center">
-          <p className="tech text-sm font-semibold" dir="ltr">
-            {formatDate(monday, locale)} → {formatDate(addDays(monday, 5), locale)}
-          </p>
-          {monday !== thisMonday && (
-            <Link href="/schedule" className="text-xs text-accent hover:underline">{t("schedule.thisWeek")}</Link>
-          )}
-        </div>
-        <Link href={`/schedule?w=${addDays(monday, 7)}`} className="btn btn-sm" aria-label={t("schedule.next")}>
-          <ChevronRight className={arrow} aria-hidden />
-        </Link>
-      </div>
+      <WeekNav
+        monday={monday}
+        defaultMonday={defaultMonday}
+        semesterStart={sem?.start ?? null}
+        locale={locale}
+        hrefFor={(w) => (w ? `/schedule?w=${w}` : "/schedule")}
+        labels={{ week: t("schedule.week"), prev: t("schedule.prev"), next: t("schedule.next"), thisWeek: t("schedule.thisWeek") }}
+      />
 
       <ScheduleGrid
         key={monday}

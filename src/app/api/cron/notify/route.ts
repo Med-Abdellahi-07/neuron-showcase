@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalog } from "@/lib/catalog";
 import { addDays, todayISO } from "@/lib/dates";
+import { isStudyDay } from "@/lib/weeks";
 import { SLOTS } from "@/lib/constants";
 import { visibleForGroup } from "@/lib/data";
 import { pushConfigured, sendPush } from "@/lib/push";
@@ -43,8 +44,8 @@ export async function GET(req: Request) {
   // 1) مباريات انتهت مهلتها
   await admin.rpc("duel_sweep");
 
-  // 2) حصة غداً
-  try {
+  // 2) حصة غداً — لا دراسة يوم الأحد: مساء السبت لا يُرسل شيئاً، ومساء الأحد يُرسل حصص الإثنين
+  if (isStudyDay(tomorrow)) try {
     const { subjects } = await getCatalog();
     const code = new Map(subjects.map((s) => [s.id, s.code]));
     const name = new Map(subjects.map((s) => [s.id, s.name]));

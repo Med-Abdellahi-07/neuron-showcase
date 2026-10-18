@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/auth";
+import { requireAdmin, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { notifyScheduleChange } from "@/lib/notify";
 import { addDays, isValidISO, isoWeekday, mondayOf } from "@/lib/dates";
@@ -105,5 +105,16 @@ export async function copyPreviousWeek(fd: FormData) {
     }))
     .filter((r) => !have.has(key(r.session_date, r.slot as number, r.subject_id as string, r.kind as string, r.group_label as string | null)));
   if (rows.length) await supabase.from("schedule_sessions").insert(rows);
+  revalidatePath("/", "layout");
+}
+
+/** المدير فقط: تاريخ بداية السداسي (لترقيم الأسابيع). فارغ = بلا ترقيم. */
+export async function setSemesterStart(fd: FormData) {
+  await requireAdmin();
+  const id = text(fd, "semester_id");
+  const raw = text(fd, "start_date");
+  if (!UUID_RE.test(id) || (raw !== "" && !isValidISO(raw))) return;
+  const supabase = await createClient();
+  await supabase.from("semesters").update({ start_date: raw || null }).eq("id", id);
   revalidatePath("/", "layout");
 }
