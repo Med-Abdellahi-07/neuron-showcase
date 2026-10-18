@@ -61,6 +61,7 @@ export interface Question {
   options: string[] | null;
   correct_index: number | null;
   model_answer: string | null;
+  exam_only?: boolean;
   explanation: string | null;
   status: Status;
 }

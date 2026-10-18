@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Repeat, Trophy, X } from "lucide-react";
+import { FileDown, Repeat, Trophy, X } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -167,6 +167,10 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
           <SubmitButton className="btn btn-primary w-full">{t("practice.start")}</SubmitButton>
         </form>
       </section>
+
+      <Link href={lessonId ? `/practice/qcm?lesson=${lessonId}` : "/practice/qcm"} className="btn w-full">
+        <FileDown size={18} strokeWidth={1.9} aria-hidden /> {t("qcm.title")}
+      </Link>
     </div>
   );
 }

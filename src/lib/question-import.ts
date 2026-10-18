@@ -29,6 +29,12 @@ const rowSchema = z
     correct: z.preprocess((v) => emptyToUndef(v)?.toUpperCase(), z.string().optional()),
     model_answer: z.preprocess(emptyToUndef, z.string().optional()),
     explanation: z.preprocess(emptyToUndef, z.string().optional()),
+    // اختياري: سؤال مخصّص للاختبار المصنّف فقط (لا يظهر في التدريب الحر ولا في تنزيل QCM)
+    exam_only: z.preprocess((v) => {
+      if (typeof v === "boolean") return v;
+      const x = emptyToUndef(v)?.toLowerCase();
+      return x === undefined ? false : ["1", "true", "yes", "oui", "y", "x", "نعم"].includes(x);
+    }, z.boolean()),
   })
   .superRefine((r, ctx) => {
     if (r.type === "mcq") {
@@ -59,6 +65,7 @@ export interface ImportQuestion {
   correct_index?: number;
   model_answer?: string;
   explanation?: string;
+  exam_only: boolean;
 }
 
 export interface ParseResult {
@@ -116,6 +123,7 @@ export function parseQuestionInput(text: string): ParseResult {
       correct_index: r.type === "mcq" ? LETTERS.indexOf(r.correct as (typeof LETTERS)[number]) : undefined,
       model_answer: r.model_answer,
       explanation: r.explanation,
+      exam_only: r.exam_only,
     });
   });
   return result;
@@ -130,6 +138,7 @@ Règles :
 - Le code s'écrit entre triples backticks.
 - Chaque question doit être vérifiable à partir du cours (pas de piège ambigu).
 - "correct" est la LETTRE de la bonne option (A, B, C ou D).
+- Optionnel : "exam_only": true pour réserver une question au test classé (elle n'apparaîtra ni dans l'entraînement libre ni dans le QCM PDF). Par défaut : false.
 - Renseigne "subject" avec le code de la matière (ex : LIAA311) et "lesson_kind" (cm, td, tp ou resume) + "lesson_number" de la séance concernée.
 
 Réponds UNIQUEMENT par un tableau JSON valide (sans texte autour), au format :
@@ -158,6 +167,6 @@ Réponds UNIQUEMENT par un tableau JSON valide (sans texte autour), au format :
   }
 ]`;
 
-export const QUESTION_CSV_EXAMPLE = `subject,lesson_kind,lesson_number,type,difficulty,statement,option_a,option_b,option_c,option_d,correct,model_answer,explanation
-LIAA311,cm,3,mcq,easy,"Quelle est la fonction de coût usuelle en régression linéaire ?",Entropie croisée,Erreur quadratique moyenne,Distance de Hamming,Indice de Gini,B,,La régression linéaire minimise la MSE.
-LIAA311,td,2,written,hard,"Démontrer les équations normales.",,,,,,"On dérive J(θ) puis on annule le gradient.",Équations normales.`;
+export const QUESTION_CSV_EXAMPLE = `subject,lesson_kind,lesson_number,type,difficulty,statement,option_a,option_b,option_c,option_d,correct,model_answer,explanation,exam_only
+LIAA311,cm,3,mcq,easy,"Quelle est la fonction de coût usuelle en régression linéaire ?",Entropie croisée,Erreur quadratique moyenne,Distance de Hamming,Indice de Gini,B,,La régression linéaire minimise la MSE.,
+LIAA311,td,2,written,hard,"Démontrer les équations normales.",,,,,,"On dérive J(θ) puis on annule le gradient.",Équations normales.,`;

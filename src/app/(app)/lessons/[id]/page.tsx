@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bot, Download, Dumbbell, ExternalLink, FileText, NotebookPen, Video } from "lucide-react";
+import { Bot, Download, Dumbbell, FileDown, ExternalLink, FileText, NotebookPen, Video } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -152,7 +152,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
         </section>
       )}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {resumeRow && (
           <Link href={`/lessons/${(resumeRow as { id: string }).id}`} className="btn">
             <FileText size={16} aria-hidden /> {t("lesson.resume")}
@@ -160,6 +160,9 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
         )}
         <Link href={`/practice?lesson=${lesson.id}`} className="btn">
           <Dumbbell size={16} aria-hidden /> {t("lesson.practice")}
+        </Link>
+        <Link href={`/practice/qcm?lesson=${lesson.id}`} className="btn">
+          <FileDown size={16} aria-hidden /> {t("qcm.title")}
         </Link>
 <Link href={`/assistant?lesson=${lesson.id}`} className="btn w-full">
             <Bot size={16} aria-hidden /> {t("lesson.ask")}

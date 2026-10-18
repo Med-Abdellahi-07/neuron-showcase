@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { indexFile } from "@/lib/ai/indexing";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/auth";
+import { requireAdmin, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { LESSON_KINDS } from "@/lib/constants";
 import { notifyNewLesson, notifyNewQuestions } from "@/lib/notify";
@@ -198,6 +198,7 @@ export async function importQuestions(raw: string): Promise<ImportOutcome> {
       correct_index: q.type === "mcq" ? q.correct_index : null,
       model_answer: q.type === "written" ? q.model_answer : (q.model_answer ?? null),
       explanation: q.explanation ?? null,
+      exam_only: q.exam_only,
       status: "published", // trigger يحوّلها إلى pending لمن لا يملك النشر المباشر
     });
   });
@@ -248,4 +249,14 @@ export async function reindexFile(fd: FormData) {
     console.error("indexFile failed:", e);
   }
   revalidatePath("/", "layout");
+}
+
+/** المدير فقط: تخصيص سؤال للاختبار المصنّف (لا يظهر في التدريب الحر ولا في تنزيل QCM) أو إلغاء التخصيص. */
+export async function setQuestionExamOnly(fd: FormData) {
+  await requireAdmin();
+  const id = text(fd, "id");
+  if (!UUID_RE.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("questions").update({ exam_only: text(fd, "value") === "1" }).eq("id", id);
+  revalidatePath("/admin/questions");
 }

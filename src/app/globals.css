@@ -284,3 +284,187 @@ body {
 .tech {
   font-variant-numeric: tabular-nums;
 }
+
+/* ───────── صفحة طباعة QCM: A4، أبيض وأسود، بلا تنقل ───────── */
+.qcm-root {
+  background: #fff;
+  color: #000;
+  min-height: 100dvh;
+}
+.qcm-sheet {
+  max-width: 190mm;
+  margin-inline: auto;
+  padding: 16px;
+  font-size: 11pt;
+  line-height: 1.45;
+}
+.qcm-head {
+  border-bottom: 2px solid #000;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+  font-size: 11pt;
+}
+.qcm-q {
+  break-inside: avoid;
+  margin-bottom: 14px;
+}
+.qcm-q-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.qcm-num {
+  font-weight: 700;
+  min-width: 1.6em;
+}
+.qcm-stmt {
+  flex: 1;
+  min-width: 0;
+}
+.qcm-box {
+  flex: none;
+  width: 7mm;
+  height: 7mm;
+  border: 1.5px solid #000;
+  border-radius: 1.5mm;
+  margin-top: 2px;
+}
+.qcm-opts {
+  list-style: none;
+  margin: 4px 0 0;
+  padding-inline-start: calc(1.6em + 8px);
+}
+.qcm-opts li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin-block: 2px;
+}
+.qcm-letter {
+  font-weight: 700;
+  flex: none;
+  min-width: 1.4em;
+}
+.qcm-md p {
+  margin: 0 0 4px;
+}
+.qcm-md-inline {
+  min-width: 0;
+}
+.qcm-md-inline p {
+  margin: 0;
+}
+.qcm-md pre {
+  direction: ltr;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid #555;
+  border-radius: 2mm;
+  padding: 6px 8px;
+  margin: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 9.5pt;
+  line-height: 1.35;
+  background: #fff;
+}
+.qcm-md code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+.qcm-md .katex {
+  direction: ltr;
+  font-size: 1.05em;
+}
+.qcm-md .katex-display {
+  margin: 6px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.qcm-md table {
+  border-collapse: collapse;
+  margin-block: 4px;
+}
+.qcm-md th,
+.qcm-md td {
+  border: 1px solid #555;
+  padding: 2px 6px;
+}
+.qcm-answers {
+  break-before: page;
+  page-break-before: always;
+  margin-top: 28px;
+}
+.qcm-answers h2 {
+  font-size: 14pt;
+  font-weight: 700;
+  border-bottom: 2px solid #000;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+}
+.qcm-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38mm, 1fr));
+  gap: 10mm 8mm;
+  align-items: start;
+}
+.qcm-tables table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+.qcm-tables th,
+.qcm-tables td {
+  border: 1px solid #000;
+  padding: 3px 6px;
+}
+.qcm-tables th {
+  font-size: 9pt;
+  font-weight: 700;
+  background: #fff;
+  border-bottom-width: 2px;
+}
+.qcm-tables td:last-child {
+  font-weight: 700;
+}
+.qcm-expl {
+  margin-top: 18px;
+}
+.qcm-expl h3 {
+  font-size: 12pt;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.qcm-expl-item {
+  break-inside: avoid;
+  margin-bottom: 8px;
+  font-size: 10pt;
+}
+.qcm-expl-n {
+  display: inline-block;
+  font-weight: 700;
+  border: 1px solid #000;
+  border-radius: 1.5mm;
+  padding: 0 6px;
+  margin-bottom: 2px;
+}
+
+@page {
+  size: A4;
+  margin: 14mm;
+}
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .qcm-sheet {
+    max-width: none;
+    padding: 0;
+  }
+  .qcm-md .katex,
+  .qcm-md * {
+    color: #000 !important;
+  }
+}
