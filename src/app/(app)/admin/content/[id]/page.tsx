@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireStaff } from "@/lib/auth";
+import { isManagerRole, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { deleteFile, deleteLesson, reindexFile, setLessonStatus, updateLesson } from "@/app/actions/content";
@@ -37,7 +37,7 @@ export default async function EditLessonPage({ params }: { params: Promise<{ id:
     const { data: cs } = await supabase.from("lesson_chunks").select("file_id").eq("lesson_id", id).limit(5000);
     (cs ?? []).forEach((c) => chunkCounts.set(c.file_id as string, (chunkCounts.get(c.file_id as string) ?? 0) + 1));
   }
-  const canPublish = profile.role === "admin" || profile.can_publish_direct;
+  const canPublish = isManagerRole(profile.role) || profile.can_publish_direct;
 
   return (
     <div className="space-y-6">

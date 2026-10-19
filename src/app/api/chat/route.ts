@@ -24,6 +24,7 @@ import { tavilySearch, type WebResult } from "@/lib/ai/tavily";
 import { scrubPII } from "@/lib/ai/privacy";
 import { dictionaries } from "@/lib/i18n/dictionaries";
 import { asSessionLang } from "@/lib/ai/lang";
+import { featureEnabled } from "@/lib/spaces";
 
 /** نصوص الأزرار المحلية (ar/fr) → أوامر محايدة، لتفادي انجرار النموذج إلى لغة الأزرار */
 const LABEL_TO_COMMAND = new Map<string, string>();
@@ -82,6 +83,7 @@ interface Conv {
 export async function POST(req: Request) {
   const userId = await getUserId();
   if (!userId) return json(401, { error: "unauthorized" });
+  if (!(await featureEnabled("ai"))) return json(403, { error: "feature_disabled" });
 
   let body: Body;
   try {

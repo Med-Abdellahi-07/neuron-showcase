@@ -4,6 +4,7 @@ import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { appTimeZone } from "@/lib/dates";
 import { PracticeTabs } from "@/components/practice-tabs";
+import { requireFeature } from "@/lib/spaces";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -23,6 +24,7 @@ const fmt = (n: number) => (Math.round(Number(n) * 10) / 10).toString();
 
 export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<SP> }) {
   await requireUserId();
+  await requireFeature("ranking");
   const sp = await searchParams;
   const raw = Array.isArray(sp.scope) ? sp.scope[0] : sp.scope;
   const scope = raw === "semester" ? "semester" : "week";

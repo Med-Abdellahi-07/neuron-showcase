@@ -8,12 +8,14 @@ import { getSubjectById } from "@/lib/data";
 import { Rich } from "@/components/rich";
 import { DuelRunner } from "@/components/duel-runner";
 import { hoursLeft, type DuelItem, type DuelResult } from "@/lib/duel";
+import { requireFeature } from "@/lib/spaces";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 export default async function DuelDetail({ params }: { params: Promise<{ id: string }> }) {
   await requireUserId();
+  await requireFeature("duel");
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
   const { t } = await getT();

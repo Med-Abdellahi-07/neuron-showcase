@@ -1,4 +1,5 @@
-export type Role = "student" | "moderator" | "admin";
+/** student طالب · moderator مشرف (بموافقة) · space_admin مشرف فضاء (ينشر مباشرة في فضائه) · admin المشرف العام */
+export type Role = "student" | "moderator" | "space_admin" | "admin";
 export type LessonKind = "cm" | "td" | "tp" | "resume";
 export type SessionKind = "cm" | "td" | "tp";
 export type Status = "draft" | "pending" | "published";
@@ -19,6 +20,7 @@ export interface Profile {
 
 export interface Subject {
   id: string;
+  cohort_id: string;
   semester_id: string;
   code: string;
   name: string;

@@ -8,6 +8,7 @@ import { PracticeTabs } from "@/components/practice-tabs";
 import { DuelCreate, type DuelLesson } from "@/components/duel-create";
 import { hoursLeft, type DuelItem } from "@/lib/duel";
 import type { DictKey } from "@/lib/i18n/dictionaries";
+import { requireFeature } from "@/lib/spaces";
 
 interface RecordRow {
   user_id: string;
@@ -28,6 +29,7 @@ const ERR: Record<string, DictKey> = {
 
 export default async function DuelPage({ searchParams }: { searchParams: Promise<{ err?: string }> }) {
   await requireUserId();
+  await requireFeature("duel");
   const { err } = await searchParams;
   const { t } = await getT();
   const supabase = await createClient();

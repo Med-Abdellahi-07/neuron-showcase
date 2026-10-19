@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserId } from "@/lib/auth";
 import { getAllSubjects } from "@/lib/data";
 import { pushLater } from "@/lib/notify";
+import { featureEnabled } from "@/lib/spaces";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KNOWN = ["duel_exists", "too_many", "not_enough_questions", "bad_opponent"];
@@ -14,6 +15,7 @@ const KNOWN = ["duel_exists", "too_many", "not_enough_questions", "bad_opponent"
 export async function createDuel(fd: FormData) {
   const userId = await getUserId();
   if (!userId) redirect("/login");
+  if (!(await featureEnabled("duel"))) redirect("/practice");
   const opponent = String(fd.get("opponent") ?? "");
   const subjectCode = String(fd.get("subject") ?? "");
   const lessons = fd.getAll("lessons").map(String).filter((x) => UUID_RE.test(x)).slice(0, 40);
@@ -42,7 +44,7 @@ export type DuelLoad = { ok: true; questions: DuelQuestion[] } | { ok: false; er
 
 /** أول استدعاء يبدأ ساعة اللاعب. الأسئلة بلا إجابة صحيحة. */
 export async function loadDuelQuestions(duelId: string): Promise<DuelLoad> {
-  if (!UUID_RE.test(duelId) || !(await getUserId())) return { ok: false, error: "unavailable" };
+  if (!UUID_RE.test(duelId) || !(await getUserId()) || !(await featureEnabled("duel"))) return { ok: false, error: "unavailable" };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("duel_questions", { p_duel: duelId });
   if (error || !data) {
@@ -57,7 +59,7 @@ export async function loadDuelQuestions(duelId: string): Promise<DuelLoad> {
 /** تسجيل إجابة. لا تُرجع صحتها. عند انتهاء اللاعب تُرسل الإشعارات المناسبة. */
 export async function answerDuel(input: { duelId: string; questionId: string; selected: number }): Promise<{ ok: boolean; finished?: boolean }> {
   const userId = await getUserId();
-  if (!userId || !UUID_RE.test(input.duelId) || !UUID_RE.test(input.questionId) || !Number.isInteger(input.selected)) return { ok: false };
+  if (!userId || !(await featureEnabled("duel")) || !UUID_RE.test(input.duelId) || !UUID_RE.test(input.questionId) || !Number.isInteger(input.selected)) return { ok: false };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("duel_answer", { p_duel: input.duelId, p_question: input.questionId, p_selected: input.selected });
   if (error || !data) {

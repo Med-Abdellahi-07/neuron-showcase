@@ -1,4 +1,4 @@
-import { requireStaff } from "@/lib/auth";
+import { isManagerRole, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { deleteQuestion, setQuestionExamOnly, setQuestionStatus } from "@/app/actions/content";
@@ -17,7 +17,7 @@ export default async function AdminQuestionsPage() {
   const profile = await requireStaff();
   const { t } = await getT();
   const supabase = await createClient();
-  const canPublish = profile.role === "admin" || profile.can_publish_direct;
+  const canPublish = isManagerRole(profile.role) || profile.can_publish_direct;
 
   const { data } = await supabase
     .from("questions")
@@ -65,7 +65,7 @@ export default async function AdminQuestionsPage() {
                       <button className="btn btn-sm">{t("action.unpublish")}</button>
                     </form>
                   )}
-                  {profile.role === "admin" && q.type === "mcq" && (
+                  {isManagerRole(profile.role) && q.type === "mcq" && (
                     <form action={setQuestionExamOnly}>
                       <input type="hidden" name="id" value={q.id} />
                       <input type="hidden" name="value" value={q.exam_only ? "0" : "1"} />

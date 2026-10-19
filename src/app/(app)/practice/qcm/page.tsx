@@ -5,10 +5,12 @@ import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
 import { QCM_COUNTS, parseQcmParams } from "@/lib/qcm";
+import { requireFeature } from "@/lib/spaces";
 
 /** خيارات تنزيل QCM. النموذج GET إلى صفحة الطباعة في تبويب جديد؛ لا جلب للأسئلة هنا. */
 export default async function QcmDownloadPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireUserId();
+  await requireFeature("qcm_pdf");
   const { t } = await getT();
   const p = parseQcmParams(await searchParams);
   const supabase = await createClient();

@@ -9,6 +9,7 @@ import { LANG_NAME } from "@/lib/ai/lang";
 import { gradingPrompt } from "@/lib/ai/prompts";
 import { scrubPII } from "@/lib/ai/privacy";
 import type { AnswerResult } from "./arena";
+import { featureEnabled } from "@/lib/spaces";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -26,7 +27,7 @@ export async function gradeWrittenAnswer(input: {
   if (!UUID_RE.test(input.attemptId) || !UUID_RE.test(input.questionId)) return { ok: false, error: "failed" };
   const answer = scrubPII(input.answer.trim()).slice(0, 4000);
   if (!answer) return { ok: false, error: "failed" };
-  if (!(await getUserId())) return { ok: false, error: "failed" };
+  if (!(await getUserId()) || !(await featureEnabled("ai")) || !(await featureEnabled("written"))) return { ok: false, error: "failed" };
   const supabase = await createClient();
 
   const { data: allowed } = await supabase.rpc("ai_take", {

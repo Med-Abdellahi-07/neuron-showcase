@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { FileText, Video } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { getSpace } from "@/lib/spaces";
 import { createClient } from "@/lib/supabase/server";
 import { getSubjectByCode } from "@/lib/data";
 import { LESSON_KINDS } from "@/lib/constants";
@@ -14,6 +15,7 @@ export default async function SubjectPage({ params }: { params: Promise<{ code: 
   const userId = await requireUserId();
   const { code } = await params;
   const { t } = await getT();
+  const features = (await getSpace())?.features;
   const subject = await getSubjectByCode(decodeURIComponent(code));
   if (!subject) notFound();
 
@@ -73,12 +75,14 @@ export default async function SubjectPage({ params }: { params: Promise<{ code: 
         ))}
       </ul>
 
+      {features?.recordings && (
       <section className="space-y-3" aria-labelledby="rec-h">
         <h2 id="rec-h" className="tech flex items-center gap-2 text-sm font-semibold text-muted">
           <Video size={16} aria-hidden /> {t("subjects.recordings")}
         </h2>
         {recordings.length === 0 ? <p className="card text-sm text-muted">{t("rec.none")}</p> : <RecordingList items={recordings} marks={marks} />}
       </section>
+      )}
     </div>
   );
 }

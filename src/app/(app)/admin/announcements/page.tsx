@@ -1,5 +1,5 @@
 import { Pin } from "lucide-react";
-import { requireAdmin } from "@/lib/auth";
+import { requireManager } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAnnouncement, deleteAnnouncement } from "@/app/actions/admin";
@@ -8,11 +8,11 @@ import { ConfirmButton } from "@/components/confirm-button";
 import type { Announcement } from "@/lib/types";
 
 export default async function AnnouncementsPage() {
-  const profile = await requireAdmin();
+  const profile = await requireManager();
   const { t } = await getT();
   const supabase = await createClient();
   const [{ data: cohorts }, { data: anns }] = await Promise.all([
-    supabase.from("cohorts").select("id, name").order("name"),
+    supabase.from("cohorts").select("id, name").eq("id", profile.cohort_id ?? ""),
     supabase.from("announcements").select("*").order("created_at", { ascending: false }).limit(30),
   ]);
   const cohortList = (cohorts ?? []) as { id: string; name: string }[];

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 import { getAllSubjects } from "@/lib/data";
 import { asSessionLang } from "@/lib/ai/lang";
+import { featureEnabled } from "@/lib/spaces";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MODES = ["explain", "review", "solve"];
@@ -30,7 +31,7 @@ export async function createChat(input: {
   lang?: string;
 }): Promise<CreateChatResult> {
   const userId = await getUserId();
-  if (!userId) return { ok: false, error: "failed" };
+  if (!userId || !(await featureEnabled("ai"))) return { ok: false, error: "failed" };
   if (!MODES.includes(input.mode)) return { ok: false, error: "invalid" };
   const lessonIds = [...new Set((input.lessonIds ?? []).filter((x) => UUID_RE.test(x)))].slice(0, 30);
   const supabase = await createClient();
@@ -87,7 +88,7 @@ export async function createChat(input: {
 /** تمارين بنك الأسئلة المنشورة ضمن النطاق (الحصص المختارة أو كل المادة). لا تُرجع الإجابات. */
 export async function listExercises(subjectCode: string, lessonIds: string[]): Promise<Exercise[]> {
   const userId = await getUserId();
-  if (!userId) return [];
+  if (!userId || !(await featureEnabled("ai"))) return [];
   const supabase = await createClient();
   const ids = lessonIds.filter((x) => UUID_RE.test(x)).slice(0, 30);
   let qb = supabase

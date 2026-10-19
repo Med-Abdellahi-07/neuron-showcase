@@ -8,6 +8,7 @@ import { appTimeZone, todayISO } from "@/lib/dates";
 import { chunk, optionLetter, parseQcmParams, scopeLabel } from "@/lib/qcm";
 import { PrintMd } from "@/components/print-md";
 import { PrintControls } from "@/components/print-controls";
+import { requireFeature } from "@/lib/spaces";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ interface ExportResult {
  */
 export default async function PrintQcmPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireUserId();
+  await requireFeature("qcm_pdf");
   const { t, locale } = await getT();
   const p = parseQcmParams(await searchParams);
   const subjects = await getAllSubjects();

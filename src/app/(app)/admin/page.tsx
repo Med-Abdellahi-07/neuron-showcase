@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireStaff } from "@/lib/auth";
+import { isManagerRole, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { AdminInsights } from "@/components/admin-insights";
@@ -16,6 +16,7 @@ export default async function AdminHome() {
   const profile = await requireStaff();
   const { t } = await getT();
   const isAdmin = profile.role === "admin";
+  const isManager = isManagerRole(profile.role);
 
   const [published, pendingLessons, pendingQuestions, questions, accounts] = await Promise.all([
     count("lessons", ["status", "published"]),
@@ -28,7 +29,7 @@ export default async function AdminHome() {
   const stats = [
     { label: t("admin.lessonsPublished"), value: published },
     { label: t("admin.questions"), value: questions },
-    { label: t("admin.lessonsPending"), value: pendingLessons + pendingQuestions, href: isAdmin ? "/admin/approvals" : undefined },
+    { label: t("admin.lessonsPending"), value: pendingLessons + pendingQuestions, href: isManager ? "/admin/approvals" : undefined },
     ...(accounts !== null ? [{ label: t("admin.accounts"), value: accounts, href: "/admin/accounts" }] : []),
   ];
 
