@@ -205,32 +205,35 @@ ok("نطاق حصص بلا حصص مرتبطة → لا أسئلة", /no_questio
 const dueNow = async (qid) => db.query("update public.review_queue set due_at = now() - interval '1 minute' where user_id=$1 and question_id=$2", [A, qid]);
 // الأخطاء الحالية للـ Alice: ids[1] (خطأ في R1) + 3 أسئلة R2/R2b (أخطأت 0 ثم؟) ... خذ سؤالاً محدداً
 const target = ids[1];
+// الاتجاه الصحيح/الخاطئ يُشتق من correct_index الفعلي (كان 1 مفترضاً فيتذبذب الاختبار)
+const ci = async () => Number((await db.query("select correct_index from public.questions where id=$1", [target])).rows[0].correct_index);
+const RIGHT = await ci(), WRONG = RIGHT === 0 ? 1 : 0;
 ok("لا مراجعة قبل الاستحقاق", /no_questions/.test(await err(start(A, "review")) ?? "") || (await call(A, "select count(*)::int c from public.review_queue where due_at <= now()"))[0].c >= 0);
 await db.query("update public.review_queue set due_at = now() + interval '1 day' where user_id=$1", [A]); // لا شيء مستحق
 ok("لا شيء مستحق → no_questions", /no_questions/.test(await err(start(A, "review")) ?? ""));
 await dueNow(target);
 const V1 = await start(A, "review");
 ok("المراجعة تضم المستحق فقط", (await attemptQs(A, V1)).length === 1 && (await attemptQs(A, V1))[0] === target);
-const v1r = await answer(A, V1, target, 1);
+const v1r = await answer(A, V1, target, RIGHT);
 const st = async () => (await call(A, "select stage, mastered, extract(epoch from (due_at - now()))/86400 as days from public.review_queue where question_id=$1", [target]))[0];
 let s = await st();
 ok("صحيح في المراجعة: مرحلة 1 بعد 3 أيام", s.stage === 1 && Math.abs(s.days - 3) < 0.01 && !s.mastered, JSON.stringify(s));
 ok("المراجعة لا تعطي نقاطاً ولا تدخل الترتيب", Number(v1r.points) === 0 && !v1r.counted);
-await dueNow(target); let V = await start(A, "review"); await answer(A, V, target, 1); s = await st();
+await dueNow(target); let V = await start(A, "review"); await answer(A, V, target, RIGHT); s = await st();
 ok("المرحلة 2: بعد أسبوع", s.stage === 2 && Math.abs(s.days - 7) < 0.01, JSON.stringify(s));
-await dueNow(target); V = await start(A, "review"); await answer(A, V, target, 1); s = await st();
+await dueNow(target); V = await start(A, "review"); await answer(A, V, target, RIGHT); s = await st();
 ok("المرحلة 3: بعد أسبوعين", s.stage === 3 && Math.abs(s.days - 14) < 0.01, JSON.stringify(s));
-await dueNow(target); V = await start(A, "review"); await answer(A, V, target, 0); s = await st();
+await dueNow(target); V = await start(A, "review"); await answer(A, V, target, WRONG); s = await st();
 ok("الخطأ يعيد إلى البداية (مرحلة 0 بعد يوم)", s.stage === 0 && Math.abs(s.days - 1) < 0.01 && !s.mastered, JSON.stringify(s));
-for (let k = 0; k < 4; k++) { await dueNow(target); V = await start(A, "review"); await answer(A, V, target, 1); }
+for (let k = 0; k < 4; k++) { await dueNow(target); V = await start(A, "review"); await answer(A, V, target, RIGHT); }
 s = await st();
 ok("بعد إكمال المراحل الأربع → متقَن", s.mastered === true, JSON.stringify(s));
 ok("المتقَن لا يعود للمراجعة", /no_questions/.test(await err(start(A, "review")) ?? ""));
 // خطأ في تدريب حر على سؤال متقَن يعيده
 const F3 = await start(A, "free", { subject: S1, count: 50 });
 const inF3 = (await attemptQs(A, F3)).includes(target);
-if (inF3) { await answer(A, F3, target, 0); const r = await st(); ok("خطأ لاحق يعيد المتقَن إلى المراجعة", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
-else { await db.query("update public.attempts set question_ids = question_ids || $2::uuid where id=$1", [F3, target]); await answer(A, F3, target, 0); const r = await st(); ok("خطأ لاحق يعيد المتقَن إلى المراجعة", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
+if (inF3) { await answer(A, F3, target, WRONG); const r = await st(); ok("خطأ لاحق يعيد المتقَن إلى المراجعة", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
+else { await db.query("update public.attempts set question_ids = question_ids || $2::uuid where id=$1", [F3, target]); await answer(A, F3, target, WRONG); const r = await st(); ok("خطأ لاحق يعيد المتقَن إلى المراجعة", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
 
 // ── p_client_ms وattempt_review
 {
