@@ -121,8 +121,9 @@ function SessionBlock({
           {t("schedule.sharedWith")} {s.sharedWith}
         </span>
       )}
-      {(s.groupLabel || cancelled || s.status === "changed") && (
+      {(s.l1 || s.groupLabel || cancelled || s.status === "changed") && (
         <span className="mt-1 flex flex-wrap gap-1">
+          {s.l1 && <span className="badge badge-accent !px-1.5 !py-0 text-[10px]" dir="ltr">L1</span>}
           {s.groupLabel && <span className="badge !px-1.5 !py-0 text-[10px]" dir="auto">{s.groupLabel}</span>}
           {cancelled && <span className="badge !px-1.5 !py-0 text-[10px] !text-danger">{t("schedule.cancelled")}</span>}
           {s.status === "changed" && <span className="badge !px-1.5 !py-0 text-[10px] !border-warn !text-warn">{t("schedule.changed")}</span>}
@@ -150,6 +151,7 @@ function SessionDetails({ s, mode }: { s: GridSession; mode: "student" | "admin"
         <p className={`font-semibold leading-snug ${cancelled ? "text-danger line-through" : ""}`} dir="auto">{s.subjectName}</p>
         <div className="flex flex-wrap gap-1">
           <span className="badge badge-accent tech">{t(`kind.${s.kind}`)}</span>
+          {s.l1 && <span className="badge badge-accent" dir="ltr">L1</span>}
           {cancelled && <span className="badge !text-danger">{t("schedule.cancelled")}</span>}
           {s.status === "changed" && <span className="badge !border-warn !text-warn">{t("schedule.changed")}</span>}
         </div>

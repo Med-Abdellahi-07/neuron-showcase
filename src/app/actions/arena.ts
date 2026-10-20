@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
-import { getAllSubjects } from "@/lib/data";
+import { getSubjectByCode } from "@/lib/data";
 import { featureEnabled } from "@/lib/spaces";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -32,7 +32,7 @@ export async function startAttempt(fd: FormData) {
   const lessonRaw = str(fd, "lesson");
   const lesson = UUID_RE.test(lessonRaw) ? lessonRaw : null;
   const subjectCode = str(fd, "subject");
-  const subject = subjectCode ? (await getAllSubjects()).find((s) => s.code === subjectCode) : undefined;
+  const subject = subjectCode ? ((await getSubjectByCode(subjectCode)) ?? undefined) : undefined; // يشمل المواد المتبقية من L1
   const type = ["mcq", "written"].includes(str(fd, "type")) ? str(fd, "type") : "mixed";
   const difficulty = ["easy", "medium", "hard"].includes(str(fd, "difficulty")) ? str(fd, "difficulty") : null;
 

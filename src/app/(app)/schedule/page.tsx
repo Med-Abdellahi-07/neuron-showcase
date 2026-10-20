@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentSubjects, getSemesterStart, hasEnded, visibleForGroup } from "@/lib/data";
+import { getCurrentSubjects, getRemainingSubjects, getSemesterStart, hasEnded, visibleForGroup } from "@/lib/data";
 import { ENGLISH_CODE, SESSION_KINDS, sessionsFromHours } from "@/lib/constants";
 import { appTimeZone, isValidISO, nowHM, todayISO } from "@/lib/dates";
 import { addDays, defaultWeekMonday, mondayOf } from "@/lib/weeks";
@@ -35,16 +35,15 @@ export default async function SchedulePage({
   }
 
   const supabase = await createClient();
-  const [subjects, sem, { data }] = await Promise.all([
-    getCurrentSubjects(),
-    getSemesterStart(),
-    supabase
-      .from("schedule_sessions")
-      .select("*")
-      .eq("cohort_id", profile.cohort_id)
-      .order("session_date")
-      .order("slot"),
-  ]);
+  const [current, remaining, sem] = await Promise.all([getCurrentSubjects(), getRemainingSubjects(), getSemesterStart()]);
+  const subjects = [...current, ...remaining.filter((r) => !current.some((c) => c.id === r.id))];
+  // حصص فضائي + حصص موادي المتبقية من L1 (RLS يقيّد الاثنتين)
+  const { data } = await supabase
+    .from("schedule_sessions")
+    .select("*")
+    .or([`cohort_id.eq.${profile.cohort_id}`, ...(remaining.length ? [`subject_id.in.(${remaining.map((r) => r.id).join(",")})`] : [])].join(","))
+    .order("session_date")
+    .order("slot");
   const byId = new Map(subjects.map((s) => [s.id, s]));
   const all = ((data ?? []) as ScheduleSession[]).filter((s) =>
     visibleForGroup(s, byId.get(s.subject_id)?.code, profile)
@@ -52,8 +51,8 @@ export default async function SchedulePage({
 
   const weekEnd = addDays(monday, 6);
   const week = all.filter((s) => s.session_date >= monday && s.session_date <= weekEnd);
-  const colors = colorMap(subjects);
-  const gridSessions = week.map((s) => toGridSession(s, byId.get(s.subject_id), colors.get(s.subject_id) ?? 0));
+  const colors = colorMap(current, remaining);
+  const gridSessions = week.map((s) => toGridSession(s, byId.get(s.subject_id), colors.get(s.subject_id) ?? 0, s.cohort_id !== profile.cohort_id));
   const initialView = (await cookies()).get(VIEW_COOKIE)?.value === "day" ? "day" : "grid";
   // لم يختر مجموعة الإنجليزية: تظهر كل المجموعات، فننبّهه
   const showGroupHint = !profile.english_group && week.some((s) => byId.get(s.subject_id)?.code === ENGLISH_CODE && s.group_label);

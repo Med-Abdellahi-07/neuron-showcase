@@ -18,6 +18,8 @@ export interface GridSession {
   note: string | null;
   /** رقم لون المادة (ثابت لكل مادة) */
   color: number;
+  /** حصة مادة متبقية من L1 (من فضاء آخر) ← شارة «L1» */
+  l1: boolean;
 }
 
 /** درجات اللون (HSL hue): الأزرق أولاً ثم ألوان متناسقة معه. تُخلط مع لون السطح فتبقى خفيفة في الوضعين. */
@@ -41,7 +43,7 @@ export function colorMap(current: Pick<Subject, "id" | "code">[], extra: Pick<Su
   return m;
 }
 
-export function toGridSession(s: ScheduleSession, subject: Pick<Subject, "code" | "name"> | undefined, color: number): GridSession {
+export function toGridSession(s: ScheduleSession, subject: Pick<Subject, "code" | "name"> | undefined, color: number, l1 = false): GridSession {
   return {
     id: s.id,
     date: s.session_date,
@@ -57,6 +59,7 @@ export function toGridSession(s: ScheduleSession, subject: Pick<Subject, "code" 
     status: s.status,
     note: s.note,
     color,
+    l1,
   };
 }
 
