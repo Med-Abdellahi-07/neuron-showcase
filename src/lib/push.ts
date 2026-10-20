@@ -21,8 +21,6 @@ export interface PushMessage {
 export interface PushTarget {
   userIds?: string[];
   cohortId?: string;
-  /** كل المستخدمين (المحتوى المشترك بين الدفعات) */
-  all?: boolean;
   excludeUserId?: string;
 }
 export interface PushResult {
@@ -58,10 +56,6 @@ export async function sendPush(target: PushTarget, kind: PushKind, msg: PushMess
     const admin = createAdminClient();
 
     let ids = target.userIds ?? [];
-    if (target.all) {
-      const { data } = await admin.from("profiles").select("id");
-      ids = [...new Set([...ids, ...(data ?? []).map((r) => r.id as string)])];
-    }
     if (target.cohortId) {
       const { data } = await admin.from("profiles").select("id").eq("cohort_id", target.cohortId);
       ids = [...new Set([...ids, ...(data ?? []).map((r) => r.id as string)])];

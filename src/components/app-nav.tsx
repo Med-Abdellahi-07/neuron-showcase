@@ -19,12 +19,14 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function SideNav({ isStaff }: { isStaff: boolean }) {
+/** عناصر التنقل تتكيّف مع ميزات الفضاء: بلا ذكاء اصطناعي ← يختفي «المساعد» */
+const itemsFor = (ai: boolean) => ITEMS.filter((i) => ai || i.href !== "/assistant");
+
+export function SideNav({ isStaff, ai }: { isStaff: boolean; ai: boolean }) {
   const { t } = useT();
   const pathname = usePathname();
-  const items = isStaff
-    ? [...ITEMS, { href: "/admin", key: "admin.title" as DictKey, icon: ShieldCheck }]
-    : ITEMS;
+  const base = itemsFor(ai);
+  const items = isStaff ? [...base, { href: "/admin", key: "admin.title" as DictKey, icon: ShieldCheck }] : base;
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
       {items.map(({ href, key, icon: Icon }) => {
@@ -47,15 +49,17 @@ export function SideNav({ isStaff }: { isStaff: boolean }) {
   );
 }
 
-export function BottomNav() {
+export function BottomNav({ ai }: { ai: boolean }) {
   const { t } = useT();
   const pathname = usePathname();
+  const items = itemsFor(ai);
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 grid grid-cols-5 rounded-[28px] bg-nav px-1.5 py-2.5 shadow-[0_8px_24px_rgba(30,45,90,0.12)] dark:shadow-none md:hidden"
+      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 grid rounded-[28px] bg-nav px-1.5 py-2.5 shadow-[0_8px_24px_rgba(30,45,90,0.12)] dark:shadow-none md:hidden"
     >
-      {ITEMS.map(({ href, key, icon: Icon }) => {
+      {items.map(({ href, key, icon: Icon }) => {
         const active = isActive(pathname, href);
         return (
           <Link

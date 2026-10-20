@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 import { getAllSubjects } from "@/lib/data";
+import { featureEnabled } from "@/lib/spaces";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KNOWN_ERRORS = ["no_questions", "not_enough_questions"];
@@ -27,6 +28,7 @@ export async function startAttempt(fd: FormData) {
   if (!userId) redirect("/login");
 
   const mode = str(fd, "mode") === "ranked" ? "ranked" : "free";
+  if (mode === "ranked" && !(await featureEnabled("arena"))) redirect("/practice");
   const lessonRaw = str(fd, "lesson");
   const lesson = UUID_RE.test(lessonRaw) ? lessonRaw : null;
   const subjectCode = str(fd, "subject");
@@ -57,6 +59,7 @@ export async function startAttempt(fd: FormData) {
 export async function startReview() {
   const userId = await getUserId();
   if (!userId) redirect("/login");
+  if (!(await featureEnabled("review"))) redirect("/practice");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("start_attempt", { p_mode: "review", p_count: 15 });
   if (error || !data) {

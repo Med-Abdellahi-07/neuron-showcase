@@ -43,6 +43,7 @@ export default async function AccountsPage() {
               <select id="role" name="role" className="input" defaultValue="student">
                 <option value="student">{t("role.student")}</option>
                 <option value="moderator">{t("role.moderator")}</option>
+                <option value="space_admin">{t("role.space_admin")}</option>
                 <option value="admin">{t("role.admin")}</option>
               </select>
             </div>
@@ -91,6 +92,7 @@ export default async function AccountsPage() {
                         <select id={`r-${p.id}`} name="role" className="input" defaultValue={p.role}>
                           <option value="student">{t("role.student")}</option>
                           <option value="moderator">{t("role.moderator")}</option>
+                          <option value="space_admin">{t("role.space_admin")}</option>
                           <option value="admin">{t("role.admin")}</option>
                         </select>
                       </div>

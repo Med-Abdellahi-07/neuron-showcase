@@ -1,9 +1,10 @@
-import { requireStaff } from "@/lib/auth";
+import { isManagerRole, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAllSubjects, getCurrentSubjects, getSemesterStart } from "@/lib/data";
 import { appTimeZone, isValidISO, nowHM, todayISO } from "@/lib/dates";
 import { addDays, defaultWeekMonday, mondayOf } from "@/lib/weeks";
+import { getSpace } from "@/lib/spaces";
 import { WeekNav } from "@/components/week-nav";
 import { colorMap, toGridSession } from "@/lib/schedule-grid";
 import { copyPreviousWeek, setSemesterStart } from "@/app/actions/schedule";
@@ -23,8 +24,9 @@ export default async function AdminSchedulePage({
   const defaultMonday = defaultWeekMonday(todayISO());
   const monday = isValidISO(one(sp.w)) ? mondayOf(one(sp.w) as string) : defaultMonday;
 
+  const space = await getSpace();
   const supabase = await createClient();
-  const { data: cohorts } = await supabase.from("cohorts").select("id, name").order("name");
+  const { data: cohorts } = await supabase.from("cohorts").select("id, name").eq("id", profile.cohort_id ?? "");
   const cohortList = (cohorts ?? []) as { id: string; name: string }[];
   const cohortId =
     cohortList.find((c) => c.id === one(sp.c))?.id ?? cohortList.find((c) => c.id === profile.cohort_id)?.id ?? cohortList[0]?.id;
@@ -75,7 +77,7 @@ export default async function AdminSchedulePage({
         labels={{ week: t("schedule.week"), prev: t("schedule.prev"), next: t("schedule.next"), thisWeek: t("schedule.thisWeek") }}
       />
 
-      {profile.role === "admin" && sem && (
+      {isManagerRole(profile.role) && sem && (
         <form action={setSemesterStart} className="card flex flex-wrap items-end gap-2">
           <input type="hidden" name="semester_id" value={sem.id} />
           <div className="min-w-0 flex-1">
@@ -92,7 +94,7 @@ export default async function AdminSchedulePage({
         <input type="hidden" name="week" value={monday} />
         <button className="btn btn-sm">{t("sa.copyPrev")}</button>
       </form>
-      <ScheduleAi cohortId={cohortId} week={monday} subjects={subjects.map((s) => ({ id: s.id, code: s.code }))} />
+      {space?.features.ai && <ScheduleAi cohortId={cohortId} week={monday} subjects={subjects.map((s) => ({ id: s.id, code: s.code }))} />}
 
       <ScheduleGrid
         key={`${monday}|${cohortId}`}

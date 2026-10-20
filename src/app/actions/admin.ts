@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireManager } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { parseIdentifier } from "@/lib/identifier";
 import { notifyAnnouncement } from "@/lib/notify";
@@ -16,9 +16,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // ───────────── الإعلانات ─────────────
 
 export async function createAnnouncement(_prev: FormState, fd: FormData): Promise<FormState> {
-  await requireAdmin();
+  const me = await requireManager();
   const { t } = await getT();
-  const cohort_id = text(fd, "cohort_id");
+  // الفضاء يُؤخذ من ملف المنشئ على الخادم لا من النموذج (والـ RLS يتحقق كذلك)
+  const cohort_id = me.cohort_id ?? "";
   const title = text(fd, "title");
   if (!UUID_RE.test(cohort_id) || !title) return { error: t("common.error") };
   // تاريخ الانتهاء اختياري: يظل الإعلان ظاهراً حتى نهاية ذلك اليوم (UTC)
@@ -39,7 +40,7 @@ export async function createAnnouncement(_prev: FormState, fd: FormData): Promis
 }
 
 export async function deleteAnnouncement(fd: FormData) {
-  await requireAdmin();
+  await requireManager();
   const id = text(fd, "id");
   if (!UUID_RE.test(id)) return;
   const supabase = await createClient();
@@ -73,8 +74,9 @@ export async function createAccount(_prev: FormState, fd: FormData): Promise<For
   if (!full_name) return { error: t("common.error") };
   if (!parsed) return { error: t("acc.badIdentifier") };
   if (password.length < 8) return { error: t("reset.short") };
-  if (!["student", "moderator", "admin"].includes(role)) return { error: t("common.error") };
+  if (!["student", "moderator", "space_admin", "admin"].includes(role)) return { error: t("common.error") };
   if (cohort_id && !UUID_RE.test(cohort_id)) return { error: t("common.error") };
+  if (role !== "admin" && !cohort_id) return { error: t("acc.needSpace") };
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.createUser({
@@ -101,6 +103,8 @@ export async function createAccount(_prev: FormState, fd: FormData): Promise<For
     await admin.auth.admin.deleteUser(data.user.id);
     return { error: profileError.code === "23505" ? t("acc.exists") : t("common.error") };
   }
+  // أول مشرف فضاء يُنشأ يفعّل فضاءه تلقائياً (يظهر في شاشة الدخول)
+  if (role === "space_admin" && cohort_id) await admin.from("cohorts").update({ is_active: true }).eq("id", cohort_id);
   revalidatePath("/", "layout");
   return { message: t("acc.created") };
 }
@@ -110,7 +114,7 @@ export async function updateAccount(fd: FormData) {
   const id = text(fd, "id");
   const role = text(fd, "role");
   const cohort_id = text(fd, "cohort_id");
-  if (!UUID_RE.test(id) || !["student", "moderator", "admin"].includes(role)) return;
+  if (!UUID_RE.test(id) || !["student", "moderator", "space_admin", "admin"].includes(role)) return;
   if (id === me.id && role !== "admin") return; // لا يخفّض المدير نفسه
   const admin = createAdminClient();
   await admin

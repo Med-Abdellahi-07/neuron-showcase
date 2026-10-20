@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireManager } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { setLessonStatus, setQuestionStatus } from "@/app/actions/content";
@@ -35,7 +35,7 @@ async function RejectBtn() {
 }
 
 export default async function ApprovalsPage() {
-  await requireAdmin();
+  await requireManager();
   const { t } = await getT();
   const supabase = await createClient();
   const [{ data: lessons }, { data: questions }, { data: recs }] = await Promise.all([

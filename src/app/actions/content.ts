@@ -5,7 +5,8 @@ import { after } from "next/server";
 import { indexFile } from "@/lib/ai/indexing";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, requireStaff } from "@/lib/auth";
+import { requireManager, requireStaff } from "@/lib/auth";
+import { getSpace } from "@/lib/spaces";
 import { getT } from "@/lib/i18n/server";
 import { LESSON_KINDS } from "@/lib/constants";
 import { notifyNewLesson, notifyNewQuestions } from "@/lib/notify";
@@ -124,7 +125,9 @@ export async function registerFile(input: {
     })
     .select("id")
     .single();
-  if (!error && inserted && input.kind === "pdf" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  // الفهرسة للمساعد الذكي فقط: الفضاء الأساسي لا يستدعي الذكاء الاصطناعي إطلاقاً
+  const aiOn = (await getSpace())?.features.ai === true;
+  if (!error && inserted && aiOn && input.kind === "pdf" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     // الفهرسة (استخراج النص + التضمين) بعد إرسال الرد، فلا ينتظر المشرف
     after(async () => {
       try {
@@ -168,6 +171,7 @@ export async function importQuestions(raw: string): Promise<ImportOutcome> {
   const errors = [...parsed.errors];
   if (!parsed.valid.length) return { inserted: 0, unlinked: 0, errors };
 
+  const writtenOn = (await getSpace())?.features.written === true;
   const supabase = await createClient();
   const { data: subjects } = await supabase.from("subjects").select("id, code");
   const subjectByCode = new Map((subjects ?? []).map((s) => [(s.code as string).toUpperCase(), s.id as string]));
@@ -179,6 +183,10 @@ export async function importQuestions(raw: string): Promise<ImportOutcome> {
   const rows: Record<string, unknown>[] = [];
   parsed.valid.forEach((q: ImportQuestion, i) => {
     const subject_id = subjectByCode.get(q.subject);
+    if (q.type === "written" && !writtenOn) {
+      errors.push({ row: i + 1, keys: ["imp.err.writtenLocked"] });
+      return;
+    }
     if (!subject_id) {
       errors.push({ row: i + 1, keys: ["imp.err.unknownSubject"], detail: q.subject });
       return;
@@ -241,6 +249,7 @@ export async function deleteQuestion(fd: FormData) {
 /** إعادة فهرسة ملف PDF يدوياً (بعد إصلاح المفاتيح مثلاً). */
 export async function reindexFile(fd: FormData) {
   await requireStaff();
+  if (!(await getSpace())?.features.ai) return;
   const id = text(fd, "id");
   if (!UUID_RE.test(id)) return;
   try {
@@ -253,7 +262,7 @@ export async function reindexFile(fd: FormData) {
 
 /** المدير فقط: تخصيص سؤال للاختبار المصنّف (لا يظهر في التدريب الحر ولا في تنزيل QCM) أو إلغاء التخصيص. */
 export async function setQuestionExamOnly(fd: FormData) {
-  await requireAdmin();
+  await requireManager();
   const id = text(fd, "id");
   if (!UUID_RE.test(id)) return;
   const supabase = await createClient();

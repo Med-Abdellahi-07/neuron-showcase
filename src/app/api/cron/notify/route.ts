@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCatalog } from "@/lib/catalog";
+import { getAllSpacesCatalog } from "@/lib/catalog";
 import { addDays, todayISO } from "@/lib/dates";
 import { isStudyDay } from "@/lib/weeks";
 import { SLOTS } from "@/lib/constants";
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
 
   // 2) حصة غداً — لا دراسة يوم الأحد: مساء السبت لا يُرسل شيئاً، ومساء الأحد يُرسل حصص الإثنين
   if (isStudyDay(tomorrow)) try {
-    const { subjects } = await getCatalog();
+    const { subjects } = await getAllSpacesCatalog();
     const code = new Map(subjects.map((s) => [s.id, s.code]));
     const name = new Map(subjects.map((s) => [s.id, s.name]));
     const { data: sessions } = await admin

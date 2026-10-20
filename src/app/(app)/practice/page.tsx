@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FileDown, Repeat, Trophy, X } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { getSpace } from "@/lib/spaces";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
 import { PracticeTabs } from "@/components/practice-tabs";
@@ -22,6 +23,7 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
   const userId = await requireUserId();
   const sp = await searchParams;
   const { t } = await getT();
+  const features = (await getSpace())?.features;
   const supabase = await createClient();
 
   const lessonId = UUID_RE.test(one(sp.lesson)) ? one(sp.lesson) : "";
@@ -53,7 +55,7 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
         </p>
       )}
 
-      {dueCount > 0 && (
+      {features?.review && dueCount > 0 && (
         <section className="card flex items-center justify-between gap-3" aria-labelledby="due-h">
           <div className="min-w-0">
             <h2 id="due-h" className="tech flex items-center gap-2 text-sm font-semibold">
@@ -67,7 +69,7 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
         </section>
       )}
 
-      {!lessonId && (
+      {features?.arena && !lessonId && (
         <section className="card space-y-3" aria-labelledby="ranked-h">
           <h2 id="ranked-h" className="tech flex items-center gap-2 text-sm font-semibold">
             <Trophy size={16} aria-hidden /> {t("arena.ranked.title")}
@@ -138,14 +140,18 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
                 <option value="hard">{t("diff.hard")}</option>
               </select>
             </div>
-            <div>
-              <label className="label" htmlFor="type">{t("arena.type")}</label>
-              <select id="type" name="type" className="input">
-                <option value="mixed">{t("arena.type.mixed")}</option>
-                <option value="mcq">{t("arena.type.mcq")}</option>
-                <option value="written">{t("arena.type.written")}</option>
-              </select>
-            </div>
+            {features?.written ? (
+              <div>
+                <label className="label" htmlFor="type">{t("arena.type")}</label>
+                <select id="type" name="type" className="input">
+                  <option value="mixed">{t("arena.type.mixed")}</option>
+                  <option value="mcq">{t("arena.type.mcq")}</option>
+                  <option value="written">{t("arena.type.written")}</option>
+                </select>
+              </div>
+            ) : (
+              <input type="hidden" name="type" value="mcq" />
+            )}
             <div>
               <label className="label" htmlFor="count">{t("practice.count")}</label>
               <select id="count" name="count" className="input" defaultValue="10" dir="ltr">
@@ -168,9 +174,11 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
         </form>
       </section>
 
-      <Link href={lessonId ? `/practice/qcm?lesson=${lessonId}` : "/practice/qcm"} className="btn w-full">
-        <FileDown size={18} strokeWidth={1.9} aria-hidden /> {t("qcm.title")}
-      </Link>
+      {features?.qcm_pdf && (
+        <Link href={lessonId ? `/practice/qcm?lesson=${lessonId}` : "/practice/qcm"} className="btn w-full">
+          <FileDown size={18} strokeWidth={1.9} aria-hidden /> {t("qcm.title")}
+        </Link>
+      )}
     </div>
   );
 }

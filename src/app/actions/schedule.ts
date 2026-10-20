@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, requireStaff } from "@/lib/auth";
+import { requireManager, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { notifyScheduleChange } from "@/lib/notify";
 import { addDays, isValidISO, isoWeekday, mondayOf } from "@/lib/dates";
@@ -13,12 +13,12 @@ const optional = (fd: FormData, k: string) => text(fd, k) || null;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function addSession(_prev: FormState, fd: FormData): Promise<FormState> {
-  await requireStaff();
+  const me = await requireStaff();
   const { t } = await getT();
   const date = text(fd, "session_date");
   const slot = parseInt(text(fd, "slot"), 10);
   const kind = text(fd, "kind");
-  const cohort_id = text(fd, "cohort_id");
+  const cohort_id = me.cohort_id ?? ""; // فضاء المستخدم، لا ما في النموذج
   const subject_id = text(fd, "subject_id");
   if (
     !isValidISO(date) ||
@@ -76,8 +76,8 @@ export async function deleteSession(fd: FormData) {
 
 /** ينسخ حصص الأسبوع السابق إلى الأسبوع المحدد (يتجاوز المكرر، ويعيد الحالة إلى مجدولة). */
 export async function copyPreviousWeek(fd: FormData) {
-  await requireStaff();
-  const cohort_id = text(fd, "cohort_id");
+  const me = await requireStaff();
+  const cohort_id = me.cohort_id ?? "";
   const week = text(fd, "week");
   if (!UUID_RE.test(cohort_id) || !isValidISO(week)) return;
   const monday = mondayOf(week);
@@ -110,7 +110,7 @@ export async function copyPreviousWeek(fd: FormData) {
 
 /** المدير فقط: تاريخ بداية السداسي (لترقيم الأسابيع). فارغ = بلا ترقيم. */
 export async function setSemesterStart(fd: FormData) {
-  await requireAdmin();
+  await requireManager();
   const id = text(fd, "semester_id");
   const raw = text(fd, "start_date");
   if (!UUID_RE.test(id) || (raw !== "" && !isValidISO(raw))) return;

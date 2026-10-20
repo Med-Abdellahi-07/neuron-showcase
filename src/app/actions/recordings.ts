@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, requireStaff } from "@/lib/auth";
+import { requireManager, requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { parseVideoUrl } from "@/lib/recordings";
 import { isValidISO } from "@/lib/dates";
@@ -14,9 +14,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /** المشرف: ينتظر الموافقة ما لم يملك النشر المباشر (trigger). المدير: ينشر فوراً. */
 export async function createRecording(_prev: FormState, fd: FormData): Promise<FormState> {
-  await requireStaff();
+  const me = await requireStaff();
   const { t } = await getT();
-  const cohort_id = text(fd, "cohort_id");
+  const cohort_id = me.cohort_id ?? "";
   const subject_id = text(fd, "subject_id");
   const kind = text(fd, "kind");
   const rec_date = text(fd, "rec_date");
@@ -45,7 +45,7 @@ export async function createRecording(_prev: FormState, fd: FormData): Promise<F
 }
 
 export async function setRecordingStatus(fd: FormData) {
-  await requireAdmin();
+  await requireManager();
   const id = text(fd, "id");
   const status = text(fd, "status");
   if (!UUID_RE.test(id) || !["draft", "pending", "published"].includes(status)) return;

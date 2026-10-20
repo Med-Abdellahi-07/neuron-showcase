@@ -7,6 +7,7 @@ import { getAllSubjects } from "@/lib/data";
 import { addDays, isValidISO, isoWeekday, mondayOf } from "@/lib/dates";
 import { generateJson } from "@/lib/ai";
 import { flushAiStats } from "@/lib/ai/stats";
+import { featureEnabled } from "@/lib/spaces";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLOT_TIMES = "1=08:00-09:30, 2=09:30-11:00, 3=11:10-12:40, 4=12:40-14:10, 5=14:10-15:40, 6=15:40-17:10";
@@ -26,6 +27,7 @@ export type ExtractResponse = { ok: true; rows: DraftRow[]; skipped: number } | 
 /** يقرأ صورة جدول أسبوعي ويقترح حصصاً؛ لا يُحفظ شيء حتى يراجعها المشرف. */
 export async function extractSchedule(input: { image: { mime: string; data: string }; week: string }): Promise<ExtractResponse> {
   await requireStaff();
+  if (!(await featureEnabled("ai"))) return { ok: false, error: "unavailable" };
   if (!["image/jpeg", "image/png", "image/webp"].includes(input.image.mime) || input.image.data.length > 6_000_000 || !isValidISO(input.week))
     return { ok: false, error: "invalid" };
   const monday = mondayOf(input.week);
@@ -79,8 +81,9 @@ export async function extractSchedule(input: { image: { mime: string; data: stri
 }
 
 /** بعد المراجعة: حفظ الحصص (مع تجاهل المكرر). */
-export async function saveExtracted(cohortId: string, rows: DraftRow[]): Promise<{ ok: boolean; saved: number }> {
-  await requireStaff();
+export async function saveExtracted(_cohortId: string, rows: DraftRow[]): Promise<{ ok: boolean; saved: number }> {
+  const me = await requireStaff();
+  const cohortId = me.cohort_id ?? ""; // فضاء المشرف، لا ما يرسله العميل
   if (!UUID_RE.test(cohortId) || !Array.isArray(rows) || rows.length > 80) return { ok: false, saved: 0 };
   const valid = rows.filter(
     (r) =>

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { StudiedButton } from "@/components/studied-button";
 import { RecordingList, type RecordingRow } from "@/components/recording-list";
 import type { Mark } from "@/components/recording-player";
+import { getSpace } from "@/lib/spaces";
 import { getSubjectById } from "@/lib/data";
 import { formatDate } from "@/lib/dates";
 import type { Lesson, LessonFile } from "@/lib/types";
@@ -20,6 +21,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
   const pdfHash = pageNum >= 1 && pageNum <= 5000 ? `#page=${pageNum}` : "";
   if (!UUID_RE.test(id)) notFound();
   const { t, locale } = await getT();
+  const features = (await getSpace())?.features;
   const supabase = await createClient();
 
   // الموجة 1: كل ما يكفيه معرّف الحصة من الرابط يُجلب معاً
@@ -161,12 +163,16 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
         <Link href={`/practice?lesson=${lesson.id}`} className="btn">
           <Dumbbell size={16} aria-hidden /> {t("lesson.practice")}
         </Link>
-        <Link href={`/practice/qcm?lesson=${lesson.id}`} className="btn">
-          <FileDown size={16} aria-hidden /> {t("qcm.title")}
-        </Link>
-<Link href={`/assistant?lesson=${lesson.id}`} className="btn w-full">
+        {features?.qcm_pdf && (
+          <Link href={`/practice/qcm?lesson=${lesson.id}`} className="btn">
+            <FileDown size={16} aria-hidden /> {t("qcm.title")}
+          </Link>
+        )}
+        {features?.ai && (
+          <Link href={`/assistant?lesson=${lesson.id}`} className="btn w-full">
             <Bot size={16} aria-hidden /> {t("lesson.ask")}
           </Link>
+        )}
       </div>
     </div>
   );

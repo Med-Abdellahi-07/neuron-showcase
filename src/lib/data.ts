@@ -2,6 +2,7 @@ import { cache } from "react";
 import { getCatalog } from "@/lib/catalog";
 import { ENGLISH_CODE, SLOTS } from "@/lib/constants";
 import { nowHM } from "@/lib/dates";
+import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, ScheduleSession, Subject } from "@/lib/types";
 
@@ -15,7 +16,14 @@ export const getCurrentSubjects = cache(async (): Promise<Subject[]> => {
 /** تاريخ بداية السداسي الحالي (YYYY-MM-DD) أو null — يُقرأ مباشرة (طازجاً) لا من الكتالوج المخزَّن ساعة */
 export const getSemesterStart = cache(async (): Promise<{ id: string; start: string | null } | null> => {
   const supabase = await createClient();
-  const { data } = await supabase.from("semesters").select("id, start_date").eq("is_current", true).maybeSingle();
+  const profile = await getProfile();
+  if (!profile?.cohort_id) return null;
+  const { data } = await supabase
+    .from("semesters")
+    .select("id, start_date")
+    .eq("cohort_id", profile.cohort_id)
+    .eq("is_current", true)
+    .maybeSingle();
   return data ? { id: data.id as string, start: (data.start_date as string | null) ?? null } : null;
 });
 

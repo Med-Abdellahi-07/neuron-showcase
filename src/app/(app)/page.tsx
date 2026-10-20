@@ -3,6 +3,7 @@ import { CalendarClock, DoorOpen, Hourglass, Megaphone, Pin, Repeat, Swords } fr
 import { ProgressRing } from "@/components/progress-ring";
 import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { getSpace } from "@/lib/spaces";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
 import { SLOTS } from "@/lib/constants";
@@ -17,6 +18,7 @@ export default async function HomePage() {
   const supabase = await createClient();
   const today = todayISO();
   const cohortId = profile.cohort_id;
+  const features = (await getSpace())?.features;
 
   // كل هذه الاستعلامات مستقلة عن بعضها، فتُنفَّذ معاً في موجة واحدة
   const [subjects, sessionsRes, annsRes, lessonsRes, progressRes, dueRes, duelsRes] = await Promise.all([
@@ -128,7 +130,9 @@ export default async function HomePage() {
         )}
       </section>
 
-      <div className="grid grid-cols-2 gap-3">
+      {(features?.review || features?.duel) && (
+      <div className={`grid gap-3 ${features?.review && features?.duel ? "grid-cols-2" : "grid-cols-1"}`}>
+        {features?.review && (
         <Link href={dueCount > 0 ? "/practice" : "/practice/mistakes"} className="card press flex items-center gap-3">
           <span className="icon-box size-10"><Repeat size={20} strokeWidth={1.9} aria-hidden /></span>
           <span className="min-w-0">
@@ -136,7 +140,8 @@ export default async function HomePage() {
             <span className="mt-1 block text-xs leading-snug text-muted">{t(dueCount > 0 ? "home.reviewsDue" : "home.reviewsNone")}</span>
           </span>
         </Link>
-        {myTurn.length > 0 ? (
+        )}
+        {features?.duel && (myTurn.length > 0 ? (
           <Link href="/practice/duel" className="card press flex items-center gap-3">
             <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--r-icon)] bg-urgent-bg text-urgent">
               <Swords size={20} strokeWidth={1.9} aria-hidden />
@@ -154,8 +159,9 @@ export default async function HomePage() {
             <span className="icon-box size-10"><Swords size={20} strokeWidth={1.9} aria-hidden /></span>
             <span className="text-xs leading-snug text-muted">{t("duel.tab")}</span>
           </Link>
-        )}
+        ))}
       </div>
+      )}
 
       <section className="card-lg space-y-4" aria-labelledby="progress-h">
         <div className="flex items-baseline justify-between gap-2">

@@ -5,6 +5,7 @@ import { formatDate, nowMs } from "@/lib/dates";
 import { PracticeTabs } from "@/components/practice-tabs";
 import { SubmitButton } from "@/components/submit-button";
 import { startReview } from "@/app/actions/arena";
+import { requireFeature } from "@/lib/spaces";
 
 interface Item {
   question_id: string;
@@ -18,6 +19,7 @@ const first = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? 
 
 export default async function MistakesPage() {
   const userId = await requireUserId();
+  await requireFeature("review");
   const { t, locale } = await getT();
   const supabase = await createClient();
 

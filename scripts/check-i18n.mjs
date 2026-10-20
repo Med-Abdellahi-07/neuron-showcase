@@ -86,7 +86,9 @@ const FAMILIES = {
   "day.": ["1", "2", "3", "4", "5", "6"],
   "file.": ["pdf", "code", "data"],
   "qtype.": ["mcq", "written"],
-  "role.": ["student", "moderator", "admin"],
+  "role.": ["student", "moderator", "space_admin", "admin"],
+  "plan.": ["full", "basic", "custom"],
+  "feat.": ["ai", "arena", "ranking", "duel", "review", "recordings", "qcm_pdf", "written"],
   "arena.mode.": ["free", "ranked", "review"],
 };
 for (const [prefix, values] of Object.entries(FAMILIES)) for (const v of values) for (const [name, d] of Object.entries(langs)) if (!(`${prefix}${v}` in d)) fail(`[${name}] مفتاح ديناميكي ناقص: ${prefix}${v}`);

@@ -7,11 +7,12 @@ import { getLocale } from "@/lib/i18n/server";
 import { generateText } from "@/lib/ai";
 import { flushAiStats } from "@/lib/ai/stats";
 import { LANG_NAME } from "@/lib/ai/lang";
+import { featureEnabled } from "@/lib/spaces";
 
 /** تحليل أداء الطالب: تُرسل للنموذج إحصاءات مجمّعة فقط، بلا اسم ولا بريد ولا هاتف. */
 export async function refreshAnalysis(): Promise<{ ok: boolean; error?: "busy" | "unavailable" | "empty" }> {
   const userId = await getUserId();
-  if (!userId) return { ok: false, error: "unavailable" };
+  if (!userId || !(await featureEnabled("ai"))) return { ok: false, error: "unavailable" };
   const supabase = await createClient();
 
   const { data: allowed } = await supabase.rpc("ai_take", {

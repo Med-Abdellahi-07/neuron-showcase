@@ -44,14 +44,27 @@ export async function requireProfile(): Promise<Profile> {
   return profile;
 }
 
+/** طاقم الفضاء الحالي: مشرف، مشرف فضاء، أو المشرف العام (داخل الفضاء الذي دخله) */
+export const isStaffRole = (role: Profile["role"]) => role === "moderator" || role === "space_admin" || role === "admin";
+/** «مدير» الفضاء: مشرف الفضاء أو المشرف العام. ينشر مباشرة ويدير كل محتوى فضائه. */
+export const isManagerRole = (role: Profile["role"]) => role === "space_admin" || role === "admin";
+
 export async function requireStaff(): Promise<Profile> {
   const profile = await requireProfile();
-  if (profile.role !== "moderator" && profile.role !== "admin") redirect("/");
+  if (!isStaffRole(profile.role)) redirect("/");
   return profile;
 }
 
+/** مدير الفضاء (مشرف فضاء أو المشرف العام). كل ما يخص فضاءً واحداً: الإعلانات، الأسئلة المخصّصة، بداية السداسي… */
+export async function requireManager(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (!isManagerRole(profile.role)) redirect(isStaffRole(profile.role) ? "/admin" : "/");
+  return profile;
+}
+
+/** المشرف العام فقط (إدارة الفضاءات والحسابات عبر الفضاءات وكل ما هو عام للجامعة) */
 export async function requireAdmin(): Promise<Profile> {
   const profile = await requireProfile();
-  if (profile.role !== "admin") redirect("/admin");
+  if (profile.role !== "admin") redirect(isStaffRole(profile.role) ? "/admin" : "/");
   return profile;
 }

@@ -22,7 +22,8 @@ export const KIND_LABEL: Record<Locale, Record<string, string>> = {
 export async function notifyNewLesson(l: { subject_id: string; kind: string; number: number; title: string; id: string }) {
   const s = await sub(l.subject_id);
   const name = s?.code ?? "";
-  pushLater({ all: true }, "new_content", {
+  if (!s?.cohort_id) return;
+  pushLater({ cohortId: s.cohort_id }, "new_content", {
     ar: { title: `درس جديد · ${name}`, body: `${KIND_LABEL.ar[l.kind] ?? l.kind} ${l.number}: ${l.title}` },
     fr: { title: `Nouveau cours · ${name}`, body: `${KIND_LABEL.fr[l.kind] ?? l.kind} ${l.number} : ${l.title}` },
     en: { title: `New session · ${name}`, body: `${KIND_LABEL.en[l.kind] ?? l.kind} ${l.number}: ${l.title}` },
@@ -46,7 +47,8 @@ export async function notifyNewRecording(r: { cohort_id: string; subject_id: str
 export async function notifyNewQuestions(subjectId: string, count: number) {
   const s = await sub(subjectId);
   const name = s?.code ?? "";
-  pushLater({ all: true }, "new_content", {
+  if (!s?.cohort_id) return;
+  pushLater({ cohortId: s.cohort_id }, "new_content", {
     ar: { title: `تمارين جديدة · ${name}`, body: `أُضيف ${count} سؤال للتدرّب` },
     fr: { title: `Nouveaux exercices · ${name}`, body: `${count} question(s) ajoutée(s)` },
     en: { title: `New exercises · ${name}`, body: `${count} question(s) added` },
