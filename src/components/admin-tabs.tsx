@@ -11,6 +11,7 @@ const TABS: { href: string; key: DictKey; level: Level; feature?: Feature }[] = 
   { href: "/admin", key: "admin.stats", level: "staff" },
   { href: "/admin/content", key: "admin.content", level: "staff" },
   { href: "/admin/questions", key: "admin.questionsMenu", level: "staff" },
+  { href: "/admin/students", key: "admin.studentsMenu", level: "manager" },
   { href: "/admin/subjects", key: "admin.subjectsMenu", level: "manager" },
   { href: "/admin/schedule", key: "admin.scheduleMenu", level: "staff" },
   { href: "/admin/recordings", key: "admin.recordings", level: "staff", feature: "recordings" },
