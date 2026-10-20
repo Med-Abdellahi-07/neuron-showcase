@@ -5,7 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { getSpace } from "@/lib/spaces";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentSubjects, hasEnded, visibleForGroup } from "@/lib/data";
+import { getCurrentSubjects, getRemainingSubjects, hasEnded, visibleForGroup } from "@/lib/data";
 import { SLOTS } from "@/lib/constants";
 import { formatDate, todayISO } from "@/lib/dates";
 import { studyDateFrom } from "@/lib/weeks";
@@ -21,13 +21,15 @@ export default async function HomePage() {
   const features = (await getSpace())?.features;
 
   // كل هذه الاستعلامات مستقلة عن بعضها، فتُنفَّذ معاً في موجة واحدة
+  const remaining = await getRemainingSubjects(); // مواد متبقية من L1 (طالب L2 فقط)
+  const sessionFilter = [`cohort_id.eq.${cohortId}`, ...(remaining.length ? [`subject_id.in.(${remaining.map((r) => r.id).join(",")})`] : [])].join(",");
   const [subjects, sessionsRes, annsRes, lessonsRes, progressRes, dueRes, duelsRes] = await Promise.all([
     getCurrentSubjects(),
     cohortId
       ? supabase
           .from("schedule_sessions")
           .select("*")
-          .eq("cohort_id", cohortId)
+          .or(sessionFilter)
           .gte("session_date", studyDateFrom(today))
           .neq("status", "cancelled")
           .order("session_date")
@@ -57,7 +59,8 @@ export default async function HomePage() {
   const myTurn = ((duelsRes.data ?? []) as DuelItem[]).filter((d) => (d.status === "open" && !d.i_am_challenger && !d.my_finished) || (d.status === "challenger_turn" && d.i_am_challenger));
   const soonest = myTurn.filter((d) => d.status === "open").sort((a, b) => hoursLeft(a.expires_at) - hoursLeft(b.expires_at))[0];
 
-  const byId = new Map(subjects.map((s) => [s.id, s]));
+  const byId = new Map([...subjects, ...remaining].map((s) => [s.id, s]));
+  const ownIds = new Set(subjects.map((s) => s.id)); // التقدّم لمواد فضائي فقط؛ المتبقية في قسمها
   const next =
     ((sessionsRes?.data ?? []) as ScheduleSession[]).find(
       (s) => !hasEnded(s, today) && visibleForGroup(s, byId.get(s.subject_id)?.code, profile)
@@ -66,7 +69,7 @@ export default async function HomePage() {
 
   // التقدم: الحصص المنشورة (CM/TD/TP) في مواد السداسي الحالي مقابل ما درسه الطالب
   const lessonIds = new Set(
-    (lessonsRes.data ?? []).filter((l) => byId.has(l.subject_id as string)).map((l) => l.id as string)
+    (lessonsRes.data ?? []).filter((l) => ownIds.has(l.subject_id as string)).map((l) => l.id as string)
   );
   const total = lessonIds.size;
   const studied = (progressRes.data ?? []).filter((p) => lessonIds.has(p.lesson_id as string)).length;
@@ -79,7 +82,7 @@ export default async function HomePage() {
   const subjectOf = new Map((lessonsRes.data ?? []).map((l) => [l.id as string, l.subject_id as string]));
   const perSubject = new Map<string, { done: number; total: number }>();
   for (const [lid, sid] of subjectOf) {
-    if (!byId.has(sid)) continue;
+    if (!ownIds.has(sid)) continue;
     const e = perSubject.get(sid) ?? { done: 0, total: 0 };
     e.total += 1;
     if ((progressRes.data ?? []).some((p) => p.lesson_id === lid)) e.done += 1;
@@ -115,6 +118,7 @@ export default async function HomePage() {
             <p className="text-[19px] font-semibold leading-snug" dir="auto">{nextSubject.name}</p>
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="rounded-full bg-black/15 px-3 py-1">{t(`kind.${next.kind}`)}</span>
+              {next.cohort_id !== cohortId && <span className="tech rounded-full bg-black/15 px-3 py-1" dir="ltr">L1</span>}
               <span className="tech inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1" dir="ltr">
                 <Hourglass size={12} strokeWidth={1.9} aria-hidden /> {nextSlot.start}–{nextSlot.end}
               </span>

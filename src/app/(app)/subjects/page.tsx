@@ -3,16 +3,19 @@ import { ChevronLeft } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentSubjects } from "@/lib/data";
+import { getCurrentSubjects, getRemainingSubjects } from "@/lib/data";
 import { ProgressRing } from "@/components/progress-ring";
+import type { DictKey } from "@/lib/i18n/dictionaries";
+import type { Subject } from "@/lib/types";
 
 export default async function SubjectsPage() {
   const userId = await requireUserId();
   const { t } = await getT();
   const supabase = await createClient();
 
-  const [subjects, { data: lessons }, { data: progress }] = await Promise.all([
+  const [subjects, remaining, { data: lessons }, { data: progress }] = await Promise.all([
     getCurrentSubjects(),
+    getRemainingSubjects(),
     supabase.from("lessons").select("id, subject_id").neq("kind", "resume").eq("status", "published"),
     supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId),
   ]);
@@ -29,6 +32,22 @@ export default async function SubjectsPage() {
     <div>
       <h1 className="page-title">{t("subjects.title")}</h1>
       {subjects.length === 0 && <p className="text-sm text-muted">{t("subjects.empty")}</p>}
+      <SubjectList subjects={subjects} stats={stats} t={t} />
+      {remaining.length > 0 && (
+        <section className="mt-8 space-y-3" aria-labelledby="rem-h">
+          <div>
+            <h2 id="rem-h" className="tech text-sm font-semibold">{t("rem.section")}</h2>
+            <p className="mt-1 text-xs text-muted">{t("rem.sectionHelp")}</p>
+          </div>
+          <SubjectList subjects={remaining} stats={stats} t={t} l1 />
+        </section>
+      )}
+    </div>
+  );
+}
+
+function SubjectList({ subjects, stats, t, l1 = false }: { subjects: Subject[]; stats: Map<string, { total: number; studied: number }>; t: (k: DictKey) => string; l1?: boolean }) {
+  return (
       <ul className="space-y-3">
         {subjects.map((s) => {
           const st = stats.get(s.id) ?? { total: 0, studied: 0 };
@@ -39,6 +58,7 @@ export default async function SubjectsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="badge badge-accent tech" dir="ltr">{s.code}</span>
                     <span className="badge">{s.credits} {t("subjects.credits")}</span>
+                    {l1 && <span className="badge tech" dir="ltr">L1</span>}
                   </div>
                   <p className="font-medium leading-snug" dir="auto">{s.name}</p>
                 </div>
@@ -49,6 +69,5 @@ export default async function SubjectsPage() {
           );
         })}
       </ul>
-    </div>
   );
 }

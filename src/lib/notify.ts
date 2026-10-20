@@ -13,6 +13,17 @@ export function pushLater(target: PushTarget, kind: PushKind, msg: PushMessage) 
 }
 
 const sub = async (id: string | null | undefined) => (id ? await getSubjectById(id) : null);
+
+/** طلاب L2 الذين يتابعون هذه المادة كـ«مادة متبقية»: يصلهم ما يصل طلاب فضاء المادة. */
+export async function followerIds(subjectId: string | null | undefined): Promise<string[]> {
+  if (!subjectId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  const { data, error } = await createAdminClient().from("remaining_subjects").select("student_id").eq("subject_id", subjectId);
+  if (error) {
+    console.error("followerIds failed:", error.code, error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => r.student_id as string);
+}
 export const KIND_LABEL: Record<Locale, Record<string, string>> = {
   ar: { cm: "محاضرة", td: "أعمال موجّهة", tp: "أعمال تطبيقية", resume: "ملخص" },
   fr: { cm: "Cours", td: "TD", tp: "TP", resume: "Résumé" },
@@ -23,7 +34,8 @@ export async function notifyNewLesson(l: { subject_id: string; kind: string; num
   const s = await sub(l.subject_id);
   const name = s?.code ?? "";
   if (!s?.cohort_id) return;
-  pushLater({ cohortId: s.cohort_id }, "new_content", {
+  const followers = await followerIds(l.subject_id);
+  pushLater({ cohortId: s.cohort_id, userIds: followers }, "new_content", {
     ar: { title: `درس جديد · ${name}`, body: `${KIND_LABEL.ar[l.kind] ?? l.kind} ${l.number}: ${l.title}` },
     fr: { title: `Nouveau cours · ${name}`, body: `${KIND_LABEL.fr[l.kind] ?? l.kind} ${l.number} : ${l.title}` },
     en: { title: `New session · ${name}`, body: `${KIND_LABEL.en[l.kind] ?? l.kind} ${l.number}: ${l.title}` },
@@ -48,7 +60,8 @@ export async function notifyNewQuestions(subjectId: string, count: number) {
   const s = await sub(subjectId);
   const name = s?.code ?? "";
   if (!s?.cohort_id) return;
-  pushLater({ cohortId: s.cohort_id }, "new_content", {
+  const followers = await followerIds(subjectId);
+  pushLater({ cohortId: s.cohort_id, userIds: followers }, "new_content", {
     ar: { title: `تمارين جديدة · ${name}`, body: `أُضيف ${count} سؤال للتدرّب` },
     fr: { title: `Nouveaux exercices · ${name}`, body: `${count} question(s) ajoutée(s)` },
     en: { title: `New exercises · ${name}`, body: `${count} question(s) added` },
@@ -90,7 +103,9 @@ export async function notifyScheduleChange(s: {
   const name = subject?.code ?? "";
   const note = s.note ? ` — ${s.note}` : "";
   const cancelled = s.status === "cancelled";
-  pushLater(userIds ? { userIds } : { cohortId: s.cohort_id }, "schedule_change", {
+  // طلاب L2 المتابعون للمادة يصلهم التغيير أيضاً (شارة L1 في جدولهم)
+  const followers = await followerIds(s.subject_id);
+  pushLater(userIds ? { userIds: [...userIds, ...followers] } : { cohortId: s.cohort_id, userIds: followers }, "schedule_change", {
     ar: { title: cancelled ? `أُلغيت حصة ${name}` : `تغيّرت حصة ${name}`, body: `${KIND_LABEL.ar[s.kind] ?? s.kind} · ${s.session_date}${note}` },
     fr: { title: cancelled ? `Séance annulée · ${name}` : `Séance modifiée · ${name}`, body: `${KIND_LABEL.fr[s.kind] ?? s.kind} · ${s.session_date}${note}` },
     en: { title: cancelled ? `Session cancelled · ${name}` : `Session changed · ${name}`, body: `${KIND_LABEL.en[s.kind] ?? s.kind} · ${s.session_date}${note}` },

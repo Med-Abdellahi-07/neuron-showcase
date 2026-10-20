@@ -56,10 +56,18 @@ export async function GET(req: Request) {
       .neq("status", "cancelled");
     if (sessions?.length) {
       const cohorts = [...new Set(sessions.map((s) => s.cohort_id as string))];
-      const { data: people } = await admin.from("profiles").select("id, cohort_id, english_group").in("cohort_id", cohorts);
-      for (const p of people ?? []) {
+      // طلاب L2 المتابعون لمواد L1: يصلهم تذكير حصصها أيضاً
+      const { data: follows } = await admin.from("remaining_subjects").select("student_id, subject_id").in("subject_id", [...new Set(sessions.map((s) => s.subject_id as string))]);
+      const followMap = new Map<string, Set<string>>();
+      for (const f of follows ?? []) followMap.set(f.student_id as string, (followMap.get(f.student_id as string) ?? new Set()).add(f.subject_id as string));
+      const [{ data: inCohorts }, { data: followers }] = await Promise.all([
+        admin.from("profiles").select("id, cohort_id, english_group").in("cohort_id", cohorts),
+        followMap.size ? admin.from("profiles").select("id, cohort_id, english_group").in("id", [...followMap.keys()]) : Promise.resolve({ data: [] }),
+      ]);
+      const people = [...new Map([...(inCohorts ?? []), ...(followers ?? [])].map((p) => [p.id as string, p])).values()];
+      for (const p of people) {
         const mine = sessions
-          .filter((s) => s.cohort_id === p.cohort_id && visibleForGroup({ group_label: s.group_label as string | null }, code.get(s.subject_id as string), { english_group: p.english_group as string | null }))
+          .filter((s) => (s.cohort_id === p.cohort_id || followMap.get(p.id as string)?.has(s.subject_id as string)) && visibleForGroup({ group_label: s.group_label as string | null }, code.get(s.subject_id as string), { english_group: p.english_group as string | null }))
           .sort((a, b) => (a.slot as number) - (b.slot as number));
         if (!mine.length) continue;
         if (!(await once(p.id as string, "lesson_tomorrow", tomorrow))) continue;

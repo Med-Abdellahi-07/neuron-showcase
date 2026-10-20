@@ -2,6 +2,7 @@
 
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireManager } from "@/lib/auth";
 import type { Profile } from "@/lib/types";
@@ -115,4 +116,36 @@ export async function deleteStudent(fd: FormData) {
   if (!(await ownStudent(me, id))) return;
   await createAdminClient().auth.admin.deleteUser(id);
   revalidatePath("/admin/students");
+}
+
+// ───────────── المواد المتبقية من L1 ─────────────
+// الإضافة بعميل المستخدم نفسه: RLS يقصرها على مدير فضاء الطالب، والـ trigger في قاعدة البيانات
+// يرفض أي شيء غير «مادة L1 من نفس تخصص طالب L2».
+
+export async function addRemainingSubject(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireManager();
+  const { t } = await getT();
+  const student = text(fd, "student_id");
+  const subject = text(fd, "subject_id");
+  if (!UUID_RE.test(student) || !UUID_RE.test(subject)) return { error: t("common.error") };
+  const supabase = await createClient();
+  const { error } = await supabase.from("remaining_subjects").insert({ student_id: student, subject_id: subject });
+  if (error) {
+    if (error.code === "23505") return { error: t("rem.err.exists") };
+    if (/subject_not_same_major_l1|student_not_l2|not_a_student|row-level security/.test(error.message)) return { error: t("rem.err.invalid") };
+    console.error("addRemainingSubject failed:", error.code, error.message);
+    return { error: t("common.error") };
+  }
+  revalidatePath("/", "layout");
+  return { message: t("rem.added") };
+}
+
+export async function removeRemainingSubject(fd: FormData) {
+  await requireManager();
+  const student = text(fd, "student_id");
+  const subject = text(fd, "subject_id");
+  if (!UUID_RE.test(student) || !UUID_RE.test(subject)) return;
+  const supabase = await createClient();
+  await supabase.from("remaining_subjects").delete().eq("student_id", student).eq("subject_id", subject);
+  revalidatePath("/", "layout");
 }

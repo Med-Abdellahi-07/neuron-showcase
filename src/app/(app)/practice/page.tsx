@@ -4,7 +4,7 @@ import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { getSpace } from "@/lib/spaces";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentSubjects } from "@/lib/data";
+import { getCurrentSubjects, getRemainingSubjects } from "@/lib/data";
 import { PracticeTabs } from "@/components/practice-tabs";
 import { SubmitButton } from "@/components/submit-button";
 import { startAttempt, startReview } from "@/app/actions/arena";
@@ -29,8 +29,9 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
   const lessonId = UUID_RE.test(one(sp.lesson)) ? one(sp.lesson) : "";
   const err = ERRORS[one(sp.err)] ?? null;
 
-  const [subjects, lessonRes, dueRes] = await Promise.all([
+  const [subjects, remaining, lessonRes, dueRes] = await Promise.all([
     getCurrentSubjects(),
+    getRemainingSubjects(),
     lessonId ? supabase.from("lessons").select("title, number, kind").eq("id", lessonId).maybeSingle() : null,
     supabase
       .from("review_queue")
@@ -116,6 +117,13 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
                   {subjects.map((s) => (
                     <option key={s.id} value={s.code}>{s.code} — {s.name}</option>
                   ))}
+                  {remaining.length > 0 && (
+                    <optgroup label={t("rem.section")}>
+                      {remaining.map((s) => (
+                        <option key={s.id} value={s.code}>{s.code} — {s.name} (L1)</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">

@@ -25,6 +25,12 @@ export async function UniversityDashboard() {
   const { data, error } = await supabase.rpc("admin_overview");
   if (error || !data) return <p className="card text-sm text-warn">{t("stats.runMigration")}</p>;
   const ov = data as unknown as { spaces: SpaceRow[]; supervisors: Sup[] };
+  const { data: su } = await supabase.rpc("storage_usage");
+  const usage = su ? (su as unknown as { total_bytes: number; files: number; by_space: { id: string; name: string; bytes: number; files: number }[] }) : null;
+  const limit = Number(process.env.STORAGE_LIMIT_BYTES) > 0 ? Number(process.env.STORAGE_LIMIT_BYTES) : 1024 ** 3; // 1GB (خطة Supabase المجانية)
+  const pct = usage ? (Number(usage.total_bytes) / limit) * 100 : 0;
+  const tone = pct >= 100 ? "danger" : pct >= 80 ? "warn" : "ok";
+  const mb = (b: number) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1));
 
   const sum = (f: (s: SpaceRow) => number) => ov.spaces.reduce((a, s) => a + f(s), 0);
   const groups = new Map<string, SpaceRow[]>();
@@ -83,6 +89,34 @@ export async function UniversityDashboard() {
           </div>
         </div>
       ))}
+
+      {usage && (
+        <div className="card space-y-3" aria-labelledby="storage-h">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 id="storage-h" className="text-xs font-semibold text-muted">{t("storage.title")}</h3>
+            <span className="tech text-xs" dir="ltr">{mb(Number(usage.total_bytes))} MB / {mb(limit)} MB · {pct.toFixed(1)}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={t("storage.title")}>
+            <div className={`h-full rounded-full ${tone === "danger" ? "bg-danger" : tone === "warn" ? "bg-warn" : "bg-accent"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+          </div>
+          {tone !== "ok" && (
+            <p role="alert" className={`rounded-xl p-3 text-sm ${tone === "danger" ? "bg-urgent-bg text-urgent" : "bg-surface-2 text-warn"}`}>
+              {t(tone === "danger" ? "storage.full" : "storage.warn80")}
+            </p>
+          )}
+          {usage.by_space.length === 0 ? <p className="text-sm text-muted">{t("storage.none")}</p> : (
+            <ul className="space-y-1.5 text-sm">
+              {usage.by_space.map((x) => (
+                <li key={x.id} className="flex items-center justify-between gap-2">
+                  <span className="tech" dir="ltr">{x.name}</span>
+                  <span className="tech text-xs text-muted" dir="ltr">{mb(Number(x.bytes))} MB · {x.files} {t("storage.files")}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-xs text-muted">{t("storage.help").replace("{max}", "15")}</p>
+        </div>
+      )}
 
       <div className="card space-y-2">
         <h3 className="text-xs font-semibold text-muted">{t("dash.supervisorActivity")}</h3>

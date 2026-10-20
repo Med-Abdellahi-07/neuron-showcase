@@ -13,6 +13,33 @@ export const getCurrentSubjects = cache(async (): Promise<Subject[]> => {
   return current ? subjects.filter((s) => s.semester_id === current.id) : [];
 });
 
+/**
+ * المواد المتبقية من L1 للطالب الحالي (يضيفها مشرف فضائه). RLS يعيد صفوفه هو فقط، ومحتواها للقراءة فقط.
+ * غير الطلاب ← قائمة فارغة.
+ */
+export const getRemainingSubjects = cache(async (): Promise<Subject[]> => {
+  const profile = await getProfile();
+  if (!profile || profile.role !== "student") return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("remaining_subjects").select("subjects(*)").eq("student_id", profile.id);
+  if (error) {
+    console.error("remaining_subjects failed:", error.code, error.message);
+    return [];
+  }
+  const rows = (data ?? []) as unknown as { subjects: Subject | Subject[] | null }[];
+  return rows
+    .map((r) => (Array.isArray(r.subjects) ? r.subjects[0] : r.subjects))
+    .filter((s): s is Subject => !!s)
+    .sort((a, b) => a.code.localeCompare(b.code));
+});
+
+/** مواد السداسي الحالي + المتبقية (للجدول والرئيسية: أسماء المواد وألوانها) */
+export const getScheduleSubjects = cache(async (): Promise<Subject[]> => {
+  const [current, remaining] = await Promise.all([getCurrentSubjects(), getRemainingSubjects()]);
+  const have = new Set(current.map((s) => s.id));
+  return [...current, ...remaining.filter((s) => !have.has(s.id))];
+});
+
 /** تاريخ بداية السداسي الحالي (YYYY-MM-DD) أو null — يُقرأ مباشرة (طازجاً) لا من الكتالوج المخزَّن ساعة */
 export const getSemesterStart = cache(async (): Promise<{ id: string; start: string | null } | null> => {
   const supabase = await createClient();
@@ -38,12 +65,12 @@ export const getAllSubjects = cache(async (): Promise<Subject[]> => {
 
 export async function getSubjectById(id: string): Promise<Subject | null> {
   const { subjects } = await getCatalog();
-  return subjects.find((s) => s.id === id) ?? null;
+  return subjects.find((s) => s.id === id) ?? (await getRemainingSubjects()).find((s) => s.id === id) ?? null;
 }
 
 export async function getSubjectByCode(code: string): Promise<Subject | null> {
   const { subjects } = await getCatalog();
-  return subjects.find((s) => s.code === code) ?? null;
+  return subjects.find((s) => s.code === code) ?? (await getRemainingSubjects()).find((s) => s.code === code) ?? null;
 }
 
 /** مجموعة الإنجليزية: لا نُخفي حصة إلا إذا اختار الطالب مجموعة مختلفة عن مجموعة الحصة */
