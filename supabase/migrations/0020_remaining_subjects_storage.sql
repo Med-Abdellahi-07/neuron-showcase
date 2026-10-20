@@ -147,9 +147,10 @@ begin
     where p.proname = 'start_attempt' and p.pronamespace = 'public'::regnamespace;
   if def is null then raise exception 'start_attempt missing: run 0018 first'; end if;
   if def like '%follows_subject%' then return; end if; -- مُطبَّق من قبل
-  def := replace(def,
-    E'        from public.questions q\n        join public.subjects sj on sj.id = q.subject_id and sj.cohort_id = coh\n        left join public.lessons l on l.id = q.lesson_id',
-    E'        from public.questions q\n        join public.subjects sj on sj.id = q.subject_id\n          and (sj.cohort_id = coh or (public.follows_subject(sj.id) and q.type = ''mcq''))\n        left join public.lessons l on l.id = q.lesson_id');
+  -- تعبير نمطي يتسامح مع اختلاف المسافات/نهايات الأسطر (قد يختلف النص المخزَّن عن الملف)
+  def := regexp_replace(def,
+    $q$join\s+public\.subjects\s+sj\s+on\s+sj\.id\s*=\s*q\.subject_id\s+and\s+sj\.cohort_id\s*=\s*coh(\s+left\s+join\s+public\.lessons\s+l\s+on\s+l\.id\s*=\s*q\.lesson_id)$q$,
+    $q$join public.subjects sj on sj.id = q.subject_id and (sj.cohort_id = coh or (public.follows_subject(sj.id) and q.type = 'mcq'))\1$q$);
   if def not like '%follows_subject%' then raise exception 'start_attempt patch did not apply'; end if;
   execute def;
 end $$;
