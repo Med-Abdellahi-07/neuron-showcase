@@ -1,9 +1,8 @@
-export type LlmProvider = "groq" | "openrouter" | "nvidia" | "github" | "gemini" | "mistral";
+export type LlmProvider = "groq" | "openrouter" | "nvidia" | "github" | "gemini";
 
 /**
- * ترتيب المزوّدين. كلهم لا يدرّبون على طلبات الطلاب الشخصية، وGemini احتياط أخير.
- * Mistral (Experiment) قد يدرّب على المدخلات فلا يُستعمل إلا للمحتوى غير الشخصي (personal:false)، وأولاً فيه لتوفير حصص الباقين.
+ * ترتيب المزوّدين (قرار neuron-ai-plan.md). كلهم لا يدرّبون على طلبات الطلاب الشخصية، وGemini آخر احتياط.
+ * Mistral مستبعد نهائياً. المحتوى غير الشخصي (personal:false: أسئلة Duel الدورية، سؤال اليوم) يبدأ بـ Gemini.
  */
 export const PERSONAL_CHAIN: LlmProvider[] = ["groq", "openrouter", "nvidia", "github", "gemini"];
-export const GENERAL_CHAIN: LlmProvider[] = ["mistral", ...PERSONAL_CHAIN];
-
+export const GENERAL_CHAIN: LlmProvider[] = ["gemini", "groq", "openrouter", "nvidia", "github"];

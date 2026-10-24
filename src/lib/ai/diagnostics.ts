@@ -3,7 +3,7 @@ import { geminiEmbed, geminiGenerate, geminiModel, geminiEmbeddingModel } from "
 import { groqGenerate, groqModel, groqVisionModel } from "./groq";
 import { tavilySearch } from "./tavily";
 import { generateText, type LlmProvider } from "./index";
-import { githubModels, mistral, nvidia, openrouter } from "./compat";
+import { githubModels, nvidia, openrouter } from "./compat";
 
 export interface DiagRow {
   id: string;
@@ -99,7 +99,6 @@ export async function runDiagnostics(): Promise<DiagReport> {
     { name: "OPENROUTER_API_KEY", set: present("OPENROUTER_API_KEY") },
     { name: "NVIDIA_API_KEY", set: present("NVIDIA_API_KEY") },
     { name: "GITHUB_MODELS_TOKEN", set: present("GITHUB_MODELS_TOKEN") },
-    { name: "MISTRAL_API_KEY", set: present("MISTRAL_API_KEY") },
     { name: "TAVILY_API_KEY", set: present("TAVILY_API_KEY") },
     { name: "SUPABASE_SERVICE_ROLE_KEY", set: present("SUPABASE_SERVICE_ROLE_KEY") },
     { name: "GEMINI_MODEL", set: present("GEMINI_MODEL"), value: geminiModel() },
@@ -121,11 +120,11 @@ export async function runDiagnostics(): Promise<DiagReport> {
       const r = await groqGenerate(ping);
       return { detail: `رد: «${r.text.trim().slice(0, 60)}»`, model: r.model };
     }),
-    ...[openrouter, nvidia, githubModels, mistral].map((p) =>
-      timed(p.name, `${p.name} — توليد نص (مباشر)${p.name === "mistral" ? " — للمحتوى العام فقط" : ""}`, async () => {
+    ...[openrouter, nvidia, githubModels].map((p) =>
+      timed(p.name, `${p.name} — توليد نص (مباشر)`, async () => {
         if (!p.configured()) return { ok: false, detail: `${p.keyEnv} غير مضبوط (اختياري: يُتخطّى في السلسلة).`, model: p.model() };
         const r = await p.generate(ping);
-        return { detail: `رد: «${r.text.trim().slice(0, 60)}»`, model: r.model };
+        return { detail: `رد: «${r.text.trim().slice(0, 60)}» (القائمة: ${p.models({ system: "", messages: [] }).join(" ← ")})`, model: r.model };
       })
     ),
     timed("tavily", "Tavily — بحث الإنترنت", async () => {

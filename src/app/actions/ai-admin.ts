@@ -54,20 +54,36 @@ export async function reindexAll(): Promise<{ results: ReindexResult[]; remainin
   return { results, remaining: files.length - i };
 }
 
-const FLAG_KEYS = ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools"] as const;
+const FLAG_KEYS = ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools", "ai_exam"] as const;
 
-/** المشرف العام: تفعيل/تعطيل كل ميزة ذكاء اصطناعي لفضاء + حصته اليومية من النقاط (التحقق الفعلي في set_space_ai) */
+/** المشرف العام: تفعيل/تعطيل كل ميزة ذكاء اصطناعي لفضاء (التحقق الفعلي في set_space_ai). لا نقاط ولا حصص للطلاب. */
 export async function setSpaceAi(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireAdmin();
   const { t } = await getT();
   const id = String(fd.get("cohort") ?? "");
-  const points = Number(fd.get("points"));
-  if (!/^[0-9a-f-]{36}$/i.test(id) || !Number.isInteger(points) || points < 0 || points > 1000) return { error: t("aiadm.badPoints") };
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: t("common.error") };
   const flags = Object.fromEntries(FLAG_KEYS.map((k) => [k, fd.get(k) === "on"]));
   const supabase = await createClient();
-  const { error } = await supabase.rpc("set_space_ai", { p_cohort: id, p_flags: flags, p_points: points });
+  const { error } = await supabase.rpc("set_space_ai", { p_cohort: id, p_flags: flags });
   if (error) {
     console.error("setSpaceAi failed:", error.code, error.message);
+    return { error: t("common.error") };
+  }
+  revalidatePath("/admin", "layout");
+  return { message: t("common.saved") };
+}
+
+/** سقف الإساءة الخفي (طلبات/يوم و/دقيقة لكل طالب) */
+export async function setAiLimits(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
+  const { t } = await getT();
+  const daily = Number(fd.get("daily"));
+  const minute = Number(fd.get("minute"));
+  if (!Number.isInteger(daily) || !Number.isInteger(minute) || daily < 10 || daily > 5000 || minute < 1 || minute > 120) return { error: t("aiadm.limits.bad") };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("ai_set_limits", { p_daily: daily, p_minute: minute });
+  if (error) {
+    console.error("setAiLimits failed:", error.code, error.message);
     return { error: t("common.error") };
   }
   revalidatePath("/admin", "layout");

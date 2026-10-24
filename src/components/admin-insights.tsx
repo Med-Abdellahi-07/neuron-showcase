@@ -21,7 +21,7 @@ interface Weak { lesson_id: string; kind: string; number: number; title: string;
 interface Daily { day: string; provider: string; calls: number; failures: number }
 interface Kind { kind: string; today: number; last_30d: number; users_today: number }
 
-const PROVIDERS = ["groq", "openrouter", "nvidia", "github", "gemini", "mistral", "tavily"] as const;
+const PROVIDERS = ["groq", "openrouter", "nvidia", "github", "gemini", "tavily"] as const;
 const num = (v: number | null | undefined) => (v === null || v === undefined ? null : Number(v));
 
 function limitFor(p: (typeof PROVIDERS)[number]): number | null {

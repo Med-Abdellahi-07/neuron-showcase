@@ -13,7 +13,7 @@ export async function updatePressure(): Promise<void> {
   lastRun = Date.now();
   try {
     const admin = createAdminClient();
-    const names = configuredProviders().filter((n) => n !== "mistral");
+    const names = configuredProviders();
     if (!names.length) return;
     const today = new Date().toISOString().slice(0, 10);
     const { data } = await admin.from("ai_provider_daily").select("provider, calls").eq("day", today).in("provider", names);

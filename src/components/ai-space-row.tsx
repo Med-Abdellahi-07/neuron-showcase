@@ -4,14 +4,13 @@ import { ActionForm } from "@/components/action-form";
 import { useT } from "@/lib/i18n/client";
 import { setSpaceAi } from "@/app/actions/ai-admin";
 
-const FLAGS = ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools"] as const;
+const FLAGS = ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools", "ai_exam"] as const;
 
 export interface SpaceAi {
   id: string;
   name: string;
   planAi: boolean;
   flags: Record<(typeof FLAGS)[number], boolean>;
-  points: number;
   today: number;
   week: number;
   usersToday: number;
@@ -25,7 +24,7 @@ export function AiSpaceRow({ s }: { s: SpaceAi }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="tech text-sm font-semibold" dir="ltr">{s.name}</h3>
         <p className="tech text-xs text-muted" dir="ltr">
-          {t("aiadm.today")}: {s.today} · {t("aiadm.week")}: {s.week} · {s.usersToday} {t("aiadm.users")}
+          {t("aiadm.today")}: {s.today} {t("aiadm.requests")} · {t("aiadm.week")}: {s.week} · {s.usersToday} {t("aiadm.users")}
         </p>
       </div>
       {!s.planAi && <p role="status" className="text-xs text-warn">{t("aiadm.planOff")}</p>}
@@ -38,10 +37,6 @@ export function AiSpaceRow({ s }: { s: SpaceAi }) {
             </label>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          {t("aiadm.points")}
-          <input type="number" name="points" min={0} max={1000} step={1} defaultValue={s.points} className="input !h-8 w-24" dir="ltr" />
-        </label>
       </ActionForm>
     </li>
   );

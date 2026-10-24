@@ -1,4 +1,4 @@
-import { githubModels, mistral, nvidia, openrouter } from "./compat";
+import { githubModels, nvidia, openrouter } from "./compat";
 import { AiError, errorInfo, type ErrorInfo, type ProviderName } from "./errors";
 import { GENERAL_CHAIN, PERSONAL_CHAIN } from "./chain-order";
 import { geminiGenerate, geminiModel, geminiStream, type GenOpts } from "./gemini";
@@ -27,11 +27,11 @@ interface Entry {
   stream: (o: GenOpts) => AsyncGenerator<string>;
 }
 
-const compat = (p: typeof openrouter): Entry => ({
+const compat = (p: typeof openrouter, vision = false): Entry => ({
   name: p.name as LlmProvider,
   configured: p.configured,
-  vision: false,
-  model: () => p.model(),
+  vision,
+  model: (o) => p.model(o),
   generate: p.generate,
   stream: p.stream,
 });
@@ -45,7 +45,7 @@ const REGISTRY: Record<LlmProvider, Entry> = {
     generate: groqGenerate,
     stream: groqStream,
   },
-  openrouter: compat(openrouter),
+  openrouter: compat(openrouter, true),
   nvidia: compat(nvidia),
   github: compat(githubModels),
   gemini: {
@@ -56,7 +56,6 @@ const REGISTRY: Record<LlmProvider, Entry> = {
     generate: geminiGenerate,
     stream: geminiStream,
   },
-  mistral: compat(mistral),
 };
 
 export function chainFor(o: GenOpts, skip: LlmProvider[] = []): Entry[] {

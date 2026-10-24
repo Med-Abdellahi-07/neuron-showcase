@@ -1,6 +1,6 @@
-export type LlmName = "groq" | "openrouter" | "nvidia" | "github" | "gemini" | "mistral";
+export type LlmName = "groq" | "openrouter" | "nvidia" | "github" | "gemini";
 
-const DEFAULT_LIMITS: Record<LlmName, number> = { groq: 1000, openrouter: 200, nvidia: 1000, github: 150, gemini: 250, mistral: 500 };
+const DEFAULT_LIMITS: Record<LlmName, number> = { groq: 1000, openrouter: 200, nvidia: 1000, github: 150, gemini: 250 };
 
 export const dailyLimit = (p: LlmName): number => {
   const v = Number(process.env[`AI_LIMIT_${p.toUpperCase()}_DAILY`]);

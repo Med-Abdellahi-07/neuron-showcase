@@ -55,7 +55,6 @@ export function SummaryForm({ subjects, lessons, defaultLang }: { subjects: Pick
   if (!subjects.length) return <p className="card text-sm text-muted">{t("sum.noSubjects")}</p>;
   return (
     <ActionForm action={generateSummary} submitLabel={t("sum.generate")} className="card space-y-4">
-      <p className="text-xs text-muted">{t("sum.cost")}</p>
       <div>
         <label className="label" htmlFor="sum-subject">{t("sum.subject")}</label>
         <select id="sum-subject" className="input" value={subject} onChange={(e) => { setSubject(e.target.value); setPicked([]); }}>
@@ -88,7 +87,6 @@ export function QcmForm({ subjects, lessons, defaultLang }: { subjects: PickSubj
   if (!subjects.length) return <p className="card text-sm text-muted">{t("sum.noSubjects")}</p>;
   return (
     <ActionForm action={generateQcm} submitLabel={t("aiq.generate")} className="card space-y-4">
-      <p className="text-xs text-muted">{t("aiq.cost")}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="q-subject">{t("sum.subject")}</label>

@@ -250,7 +250,7 @@ export function ChatView({
         let code = res.status === 429 ? "busy" : "unavailable";
         try {
           const j = (await res.json()) as { error?: string };
-          if (j.error === "quota" || j.error === "busy" || j.error === "disabled") code = j.error;
+          if (j.error === "break" || j.error === "busy" || j.error === "disabled") code = j.error;
         } catch {
           /* ليس JSON */
         }
@@ -348,8 +348,8 @@ export function ChatView({
   const errText = (code?: string) =>
     code === "busy"
       ? t("chat.busy")
-      : code === "quota"
-        ? t("ai.quotaOut")
+      : code === "break"
+        ? t("ai.break")
         : code === "disabled"
           ? t("ai.disabled")
       : code === "no_material"

@@ -111,9 +111,9 @@ export async function POST(req: Request) {
   });
   if (allowed !== true) return json(429, { error: "busy" });
 
-  // نقاط الطالب اليومية (رسالة = نقطة) وعلم ai_chat لفضائه؛ التكلفة والحد من قاعدة البيانات
+  // علم ai_chat لفضائه + السقف الخفي ضد الإساءة (لا حد ظاهر للطالب)
   const spent = await spendPoints(supabase, "chat");
-  if (!spent.ok) return json(spent.reason === "disabled" ? 403 : 429, { error: spendErrorCode(spent), remaining: spent.remaining ?? 0 });
+  if (!spent.ok) return json(spent.reason === "disabled" ? 403 : 429, { error: spendErrorCode(spent) });
   const ledgerId = spent.ledgerId;
 
   const { data: convRow } = await supabase

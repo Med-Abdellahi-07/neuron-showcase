@@ -90,10 +90,11 @@ const FAMILIES = {
   "plan.": ["full", "basic", "custom"],
   "feat.": ["ai", "arena", "ranking", "duel", "review", "recordings", "qcm_pdf", "written"],
   "arena.mode.": ["free", "ranked", "review"],
-  "ai.err.": ["quota", "busy", "disabled", "unavailable", "noMaterial"],
+  "ai.err.": ["break", "busy", "disabled", "unavailable", "noMaterial"],
   "sum.kind.": ["short", "detailed", "sheet", "flashcards"],
   "sum.kindHelp.": ["short", "detailed", "sheet", "flashcards"],
-  "aiadm.flag.": ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools"],
+  "aiadm.flag.": ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools", "ai_exam"],
+  "aiadm.alertKind.": ["minute", "daily"],
 };
 for (const [prefix, values] of Object.entries(FAMILIES)) for (const v of values) for (const [name, d] of Object.entries(langs)) if (!(`${prefix}${v}` in d)) fail(`[${name}] مفتاح ديناميكي ناقص: ${prefix}${v}`);
 for (const o of ["won", "lost", "draw"]) if (!(`duel.${o}Banner` in en)) fail(`[en] مفتاح ناقص: duel.${o}Banner`);

@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import { logout } from "@/app/actions/auth";
 import { BottomNav, SideNav } from "@/components/app-nav";
 import { Logo } from "@/components/logo";
+import { BackButton } from "@/components/back-button";
 import { SeenPing } from "@/components/seen-ping";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -53,7 +54,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <div className="min-w-0 flex-1 pb-28 md:pb-0">
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-bg px-4 md:px-8">
-          <Link href="/" className="md:invisible" aria-label="Neuron"><Logo size={24} /></Link>
+          <div className="flex items-center gap-2">
+            <BackButton />
+            <Link href="/" className="md:invisible" aria-label="Neuron"><Logo size={24} /></Link>
+          </div>
           <div className="flex items-center gap-2">
           {profile.role === "admin" && space ? (
             <SpaceSwitcher current={space.id} options={options} />
