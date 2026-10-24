@@ -1,3 +1,4 @@
+import { dailyLimit } from "@/lib/ai/pressure-model";
 import Link from "next/link";
 import { Activity, BookX, Bot, GaugeCircle, Users } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
@@ -17,15 +18,18 @@ interface Student {
 }
 interface SubjectStat { subject_id: string; code: string; name: string; students: number; answers: number; accuracy: number | null }
 interface Weak { lesson_id: string; kind: string; number: number; title: string; subject_code: string; students: number; weak_students: number; accuracy: number | null }
-interface Daily { day: string; provider: "gemini" | "groq" | "tavily"; calls: number; failures: number }
+interface Daily { day: string; provider: string; calls: number; failures: number }
 interface Kind { kind: string; today: number; last_30d: number; users_today: number }
 
-const PROVIDERS = ["gemini", "groq", "tavily"] as const;
+const PROVIDERS = ["groq", "openrouter", "nvidia", "github", "gemini", "mistral", "tavily"] as const;
 const num = (v: number | null | undefined) => (v === null || v === undefined ? null : Number(v));
 
 function limitFor(p: (typeof PROVIDERS)[number]): number | null {
-  const v = Number(process.env[`AI_LIMIT_${p.toUpperCase()}_DAILY`]);
-  return Number.isFinite(v) && v > 0 ? v : null;
+  if (p === "tavily") {
+    const v = Number(process.env.AI_LIMIT_TAVILY_DAILY);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  }
+  return dailyLimit(p); // تقدير قابل للضبط (AI_LIMIT_<PROVIDER>_DAILY)
 }
 
 function Bar({ pct, tone = "accent" }: { pct: number; tone?: "accent" | "warn" | "danger" }) {

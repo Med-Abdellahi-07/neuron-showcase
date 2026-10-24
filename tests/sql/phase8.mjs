@@ -197,7 +197,9 @@ ok("الأساسية: مراجعة الأخطاء مرفوضة", has(await err(q
 const fa = (await q(S_SDS, "select public.start_attempt('free', $1, null, null, null, null, 'written', 10, 0) as id", [SUB_SDS]))[0].id;
 const fq = (await db.query("select q.type from public.attempts a join public.questions q on q.id = any(a.question_ids) where a.id=$1", [fa])).rows;
 ok("الأساسية: طلب «مكتوب» يُحوَّل إلى QCM فقط", fq.length > 0 && fq.every((r) => r.type === "mcq"), JSON.stringify(fq));
-const sa = await q(S_SDS, "select public.submit_answer($1,$2,1) as r", [fa, (await one("select question_ids[1] id from public.attempts where id=$1", [fa])).id]);
+const fqid = (await one("select question_ids[1] id from public.attempts where id=$1", [fa])).id;
+const fci = (await one("select correct_index ci from public.questions where id=$1", [fqid])).ci; // لا نفترض موضع الإجابة الصحيحة (اختبار مستقر)
+const sa = await q(S_SDS, "select public.submit_answer($1,$2,$3) as r", [fa, fqid, fci]);
 ok("الأساسية: تمرين QCM حر يعمل (تصحيح وإجابة)", sa[0].r.is_correct === true);
 ok("الأساسية: تنزيل QCM PDF مرفوض", has(await err(q(S_SDS, "select public.qcm_export($1)", [SUB_SDS])), "feature_disabled"));
 ok("الأساسية: Duel مرفوض", has(await err(q(S_SDS, "select public.create_duel($1,$2,'{}',8)", [S_SDS2, SUB_SDS])), "feature_disabled"));

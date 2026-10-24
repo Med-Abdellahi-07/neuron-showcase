@@ -22,6 +22,11 @@ export interface GenOpts {
   json?: boolean;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * هل تحتوي الرسائل على بيانات الطالب (أسئلته، دروسه، أخطاؤه)؟ الافتراضي نعم.
+   * false فقط للمحتوى العام (أسئلة Duel من الدروس): الوحيد المسموح بإرساله إلى Mistral (Experiment) الذي قد يُدرَّب على مدخلاته.
+   */
+  personal?: boolean;
   /** للاختبار فقط: مفتاح بديل (مثلاً مفتاح خاطئ لمحاكاة الفشل) */
   apiKeyOverride?: string;
 }

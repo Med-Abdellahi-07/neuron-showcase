@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Activity, MessageSquare, Trash2 } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { requireAiFlag } from "@/lib/ai/access";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
 import { formatDate } from "@/lib/dates";
@@ -19,6 +20,7 @@ const first = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? 
 
 export default async function AssistantPage({ searchParams }: { searchParams: Promise<{ lesson?: string }> }) {
   const sp = await searchParams;
+  await requireAiFlag("ai_chat");
   const userId = await requireUserId();
   const { t, locale } = await getT();
   const supabase = await createClient();

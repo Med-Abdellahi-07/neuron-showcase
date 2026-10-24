@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { getAllSubjects } from "@/lib/data";
 import { LessonSearchTest } from "@/components/lesson-search-test";
+import { AiControl } from "@/components/ai-control";
 import { AiLastErrors } from "@/components/ai-last-errors";
 import { AiDiagnostics } from "@/components/ai-diagnostics";
 
@@ -15,6 +16,7 @@ export default async function AdminAiPage() {
     <div className="space-y-4">
       <h2 className="tech text-sm font-semibold">{t("admin.aiMenu")}</h2>
       <p className="text-sm text-muted">{t("admin.aiDesc")}</p>
+      <AiControl />
       <AiLastErrors />
       <AiDiagnostics />
       <LessonSearchTest subjects={subjects.map((x) => x.code)} />
