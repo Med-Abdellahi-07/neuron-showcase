@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import { requireAiFlag } from "@/lib/ai/access";
 import { createClient } from "@/lib/supabase/server";
 import { getSubjectById } from "@/lib/data";
 import { ChatView, type ChatMessage, type ChatSource } from "@/components/chat-view";
@@ -10,6 +11,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export default async function ChatPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ start?: string }> }) {
   const { id } = await params;
+  await requireAiFlag("ai_chat");
   const wantsStart = (await searchParams).start === "1";
   if (!UUID_RE.test(id)) notFound();
   await requireUserId();

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getT } from "@/lib/i18n/server";
+import type { FormState } from "@/app/actions/auth";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -50,4 +52,24 @@ export async function reindexAll(): Promise<{ results: ReindexResult[]; remainin
   }
   revalidatePath("/", "layout");
   return { results, remaining: files.length - i };
+}
+
+const FLAG_KEYS = ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools"] as const;
+
+/** المشرف العام: تفعيل/تعطيل كل ميزة ذكاء اصطناعي لفضاء + حصته اليومية من النقاط (التحقق الفعلي في set_space_ai) */
+export async function setSpaceAi(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
+  const { t } = await getT();
+  const id = String(fd.get("cohort") ?? "");
+  const points = Number(fd.get("points"));
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !Number.isInteger(points) || points < 0 || points > 1000) return { error: t("aiadm.badPoints") };
+  const flags = Object.fromEntries(FLAG_KEYS.map((k) => [k, fd.get(k) === "on"]));
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_space_ai", { p_cohort: id, p_flags: flags, p_points: points });
+  if (error) {
+    console.error("setSpaceAi failed:", error.code, error.message);
+    return { error: t("common.error") };
+  }
+  revalidatePath("/admin", "layout");
+  return { message: t("common.saved") };
 }

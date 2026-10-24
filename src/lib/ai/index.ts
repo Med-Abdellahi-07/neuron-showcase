@@ -1,91 +1,143 @@
-import { AiError, errorInfo, type ErrorInfo } from "./errors";
+import { githubModels, mistral, nvidia, openrouter } from "./compat";
+import { AiError, errorInfo, type ErrorInfo, type ProviderName } from "./errors";
+import { GENERAL_CHAIN, PERSONAL_CHAIN } from "./chain-order";
 import { geminiGenerate, geminiModel, geminiStream, type GenOpts } from "./gemini";
 import { groqGenerate, groqModel, groqStream, groqVisionModel } from "./groq";
 
 export type { ChatMsg, GenOpts } from "./gemini";
 export { AiError, errorInfo, type ErrorInfo } from "./errors";
 
+export type { LlmProvider } from "./chain-order";
+import type { LlmProvider } from "./chain-order";
+
 export interface Used {
-  provider: "gemini" | "groq";
+  provider: LlmProvider;
   model: string;
-  /** إن فشل Gemini وانتقلنا إلى Groq: سبب الفشل */
+  /** إن فشل مزوّد قبل أن ينجح هذا: سبب فشل أول مزوّد */
   fellBackFrom?: ErrorInfo;
 }
 
-/**
- * فشل مفتاح/نموذج Gemini (401/403/404) لا يُصلح نفسه خلال ثوانٍ: نتجنّب دفع زمن محاولة فاشلة
- * مع كل رسالة عبر "قاطع دائرة" قصير داخل الذاكرة. الأخطاء المؤقتة (429/5xx) تُعاد محاولتها دوماً.
- */
-let geminiBlockedUntil = 0;
-let geminiBlockedWith: ErrorInfo | null = null;
-
-function geminiSkipped(): ErrorInfo | null {
-  return Date.now() < geminiBlockedUntil ? geminiBlockedWith : null;
+interface Entry {
+  name: LlmProvider;
+  configured: () => boolean;
+  /** يقبل صوراً؟ */
+  vision: boolean;
+  model: (o: GenOpts) => string;
+  generate: (o: GenOpts) => Promise<{ text: string; model: string }>;
+  stream: (o: GenOpts) => AsyncGenerator<string>;
 }
-function noteGeminiFailure(e: unknown): ErrorInfo {
-  const info = errorInfo(e, "gemini");
+
+const compat = (p: typeof openrouter): Entry => ({
+  name: p.name as LlmProvider,
+  configured: p.configured,
+  vision: false,
+  model: () => p.model(),
+  generate: p.generate,
+  stream: p.stream,
+});
+
+const REGISTRY: Record<LlmProvider, Entry> = {
+  groq: {
+    name: "groq",
+    configured: () => !!process.env.GROQ_API_KEY?.trim(),
+    vision: true,
+    model: (o) => (o.messages.some((m) => m.images?.length) ? groqVisionModel() : groqModel()),
+    generate: groqGenerate,
+    stream: groqStream,
+  },
+  openrouter: compat(openrouter),
+  nvidia: compat(nvidia),
+  github: compat(githubModels),
+  gemini: {
+    name: "gemini",
+    configured: () => !!process.env.GEMINI_API_KEY?.trim(),
+    vision: true,
+    model: () => geminiModel(),
+    generate: geminiGenerate,
+    stream: geminiStream,
+  },
+  mistral: compat(mistral),
+};
+
+export function chainFor(o: GenOpts, skip: LlmProvider[] = []): Entry[] {
+  const hasImages = o.messages.some((m) => m.images?.length);
+  return (o.personal === false ? GENERAL_CHAIN : PERSONAL_CHAIN)
+    .filter((n) => !skip.includes(n))
+    .map((n) => REGISTRY[n])
+    .filter((e) => e.configured() && (!hasImages || e.vision));
+}
+
+/** أسماء المزوّدين المضبوطة (للوحة المشرف) */
+export const configuredProviders = (): LlmProvider[] =>
+  (Object.keys(REGISTRY) as LlmProvider[]).filter((n) => REGISTRY[n].configured());
+
+/**
+ * فشل مفتاح/نموذج (401/403/404) لا يُصلح نفسه خلال ثوانٍ، وكذلك 429 بعد استنفاد الحصة: نتجنّب دفع زمن محاولة فاشلة
+ * مع كل رسالة عبر «قاطع دائرة» قصير داخل الذاكرة لكل مزوّد. الأخطاء المؤقتة الأخرى تُعاد محاولتها دوماً.
+ */
+const blocked = new Map<LlmProvider, { until: number; info: ErrorInfo }>();
+const isBlocked = (n: LlmProvider) => {
+  const b = blocked.get(n);
+  return b && Date.now() < b.until ? b.info : null;
+};
+function noteProviderFailure(n: LlmProvider, e: unknown): ErrorInfo {
+  const info = errorInfo(e, n);
   noteFailure(info);
-  if ([401, 403, 404].includes(info.status)) {
-    geminiBlockedUntil = Date.now() + 60_000;
-    geminiBlockedWith = info;
-  }
+  if ([401, 403, 404].includes(info.status)) blocked.set(n, { until: Date.now() + 60_000, info });
+  else if (info.status === 429) blocked.set(n, { until: Date.now() + 20_000, info });
   return info;
 }
-const noteGeminiOk = () => {
-  geminiBlockedUntil = 0;
-  geminiBlockedWith = null;
-};
+const noteProviderOk = (n: LlmProvider) => blocked.delete(n);
 
 /** إخفاقات المزوّدين منذ آخر تفريغ؛ يحفظها مسار الطلب في قاعدة البيانات لتظهر للمدير */
 const failures: ErrorInfo[] = [];
 const noteFailure = (i: ErrorInfo) => {
-  if (failures.length < 10) failures.push(i);
+  if (failures.length < 20) failures.push(i);
 };
-const uses: ("gemini" | "groq" | "tavily")[] = [];
-export const noteUse = (p: "gemini" | "groq" | "tavily") => {
+const uses: ProviderName[] = [];
+export const noteUse = (p: ProviderName) => {
   if (uses.length < 200) uses.push(p);
 };
 export const drainUses = () => uses.splice(0, uses.length);
 export const drainFailures = (): ErrorInfo[] => failures.splice(0, failures.length);
 
-const hasGroq = () => !!process.env.GROQ_API_KEY?.trim();
+function allFailed(errs: ErrorInfo[]): AiError {
+  const last = errs[errs.length - 1];
+  return new AiError(last.provider, last.status, errs.map((e) => `${e.provider}: ${e.status} ${e.message}`).join(" | ").slice(0, 600), last.reason);
+}
+const noProviders = () => new AiError("groq", 0, "لا يوجد مزوّد ذكاء اصطناعي مضبوط (GROQ_API_KEY …)");
 
-function pickErr(a: ErrorInfo, b: unknown): AiError {
-  const bi = errorInfo(b, "groq");
-  return new AiError(
-    bi.provider,
-    bi.status,
-    `Gemini: ${a.status} ${a.message} | Groq: ${bi.status} ${bi.message}`,
-    bi.reason
-  );
+export interface GenControl {
+  /** يتجاوز قاطع الدائرة (الاختبار الشامل) */
+  skipBreaker?: boolean;
+  /** مزوّدون يُستبعدون (اختبار التحويل التلقائي) */
+  skip?: LlmProvider[];
 }
 
-/** توليد نص كامل: Gemini أولاً ثم Groq تلقائياً عند أي فشل. */
-export async function generateText(o: GenOpts, opts: { skipBreaker?: boolean } = {}): Promise<{ text: string } & Used> {
-  let gerr: ErrorInfo | null = (!opts.skipBreaker && geminiSkipped()) || null;
-  if (!gerr) {
+/** توليد نص كامل: يجرّب المزوّدين بالترتيب وينتقل تلقائياً عند أي فشل (429 أو غيره). */
+export async function generateText(o: GenOpts, opts: GenControl = {}): Promise<{ text: string } & Used> {
+  const errs: ErrorInfo[] = [];
+  for (const e of chainFor(o, opts.skip)) {
+    const b = !opts.skipBreaker && isBlocked(e.name);
+    if (b) {
+      errs.push(b);
+      continue;
+    }
     try {
-      const r = await geminiGenerate(o);
-      noteGeminiOk();
-      noteUse("gemini");
-      return { text: r.text, provider: "gemini", model: r.model };
-    } catch (e) {
-      gerr = noteGeminiFailure(e);
+      const r = await e.generate(o);
+      noteProviderOk(e.name);
+      noteUse(e.name);
+      return { text: r.text, provider: e.name, model: r.model, fellBackFrom: errs[0] };
+    } catch (err) {
+      errs.push(noteProviderFailure(e.name, err));
     }
   }
-  if (!hasGroq()) throw new AiError("gemini", gerr.status, gerr.message, gerr.reason);
-  try {
-    const r = await groqGenerate(o);
-    noteUse("groq");
-    return { text: r.text, provider: "groq", model: r.model, fellBackFrom: gerr };
-  } catch (e) {
-    noteFailure(errorInfo(e, "groq"));
-    throw pickErr(gerr, e);
-  }
+  if (!errs.length) throw noProviders();
+  throw allFailed(errs);
 }
 
-export async function generateJson<T>(o: GenOpts): Promise<{ data: T } & Used> {
-  const r = await generateText({ ...o, json: true });
+export async function generateJson<T>(o: GenOpts, opts: GenControl = {}): Promise<{ data: T } & Used> {
+  const r = await generateText({ ...o, json: true }, opts);
   const cleaned = r.text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   try {
     return { data: JSON.parse(cleaned) as T, provider: r.provider, model: r.model, fellBackFrom: r.fellBackFrom };
@@ -97,44 +149,37 @@ export async function generateJson<T>(o: GenOpts): Promise<{ data: T } & Used> {
 export type StreamEvent = { type: "meta"; used: Used } | { type: "delta"; text: string };
 
 /**
- * بثّ الرد. إن فشل Gemini قبل أول جزء ننتقل إلى Groq. إن انقطع بعد بدء الرد نرمي الخطأ
+ * بثّ الرد. إن فشل مزوّد قبل أول جزء ننتقل إلى التالي. إن انقطع بعد بدء الرد نرمي الخطأ
  * (لا نكرر نصاً على الطالب).
  */
 export async function* streamChat(o: GenOpts): AsyncGenerator<StreamEvent> {
-  let gerr: ErrorInfo | null = geminiSkipped();
-  if (!gerr) {
+  const errs: ErrorInfo[] = [];
+  for (const e of chainFor(o)) {
+    const b = isBlocked(e.name);
+    if (b) {
+      errs.push(b);
+      continue;
+    }
     let started = false;
     try {
-      for await (const t of geminiStream(o)) {
+      for await (const t of e.stream(o)) {
         if (!started) {
           started = true;
-          noteGeminiOk();
-          noteUse("gemini");
-          yield { type: "meta", used: { provider: "gemini", model: geminiModel() } };
+          noteProviderOk(e.name);
+          noteUse(e.name);
+          yield { type: "meta", used: { provider: e.name, model: e.model(o), fellBackFrom: errs[0] } };
         }
         yield { type: "delta", text: t };
       }
       return;
-    } catch (e) {
-      if (started) throw e;
-      gerr = noteGeminiFailure(e);
-    }
-  }
-  if (!hasGroq()) throw new AiError("gemini", gerr.status, gerr.message, gerr.reason);
-  const model = o.messages.some((m) => m.images?.length) ? groqVisionModel() : groqModel();
-  let started = false;
-  try {
-    for await (const t of groqStream(o)) {
-      if (!started) {
-        started = true;
-        noteUse("groq");
-        yield { type: "meta", used: { provider: "groq", model, fellBackFrom: gerr } };
+    } catch (err) {
+      if (started) {
+        noteProviderFailure(e.name, err);
+        throw err;
       }
-      yield { type: "delta", text: t };
+      errs.push(noteProviderFailure(e.name, err));
     }
-  } catch (e) {
-    noteFailure(errorInfo(e, "groq"));
-    if (!started) throw pickErr(gerr, e);
-    throw e;
   }
+  if (!errs.length) throw noProviders();
+  throw allFailed(errs);
 }

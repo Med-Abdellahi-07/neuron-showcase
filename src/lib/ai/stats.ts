@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { drainFailures, drainUses } from "./index";
+import { updatePressure } from "./pressure";
+
+const LLM = ["gemini", "groq", "openrouter", "nvidia", "github", "mistral"];
 
 /**
  * يحفظ في قاعدة البيانات ما جمعته هذه النسخة من الخادم: آخر سبب فشل لكل مزوّد، وعدّادات الاستهلاك اليومية.
@@ -11,11 +14,11 @@ export async function flushAiStats(supabase: SupabaseClient): Promise<void> {
     const uses = drainUses();
     const failCount: Record<string, number> = {};
     for (const f of fails) {
-      if (f.provider !== "gemini" && f.provider !== "groq") continue;
+      if (!LLM.includes(f.provider)) continue;
       failCount[f.provider] = (failCount[f.provider] ?? 0) + 1;
     }
     const lastBy = new Map<string, (typeof fails)[number]>();
-    for (const f of fails) if (f.provider === "gemini" || f.provider === "groq") lastBy.set(f.provider, f);
+    for (const f of fails) if (LLM.includes(f.provider)) lastBy.set(f.provider, f);
     const useCount: Record<string, number> = {};
     for (const u of uses) useCount[u] = (useCount[u] ?? 0) + 1;
 
@@ -25,6 +28,7 @@ export async function flushAiStats(supabase: SupabaseClient): Promise<void> {
     for (const [provider, n] of Object.entries(failCount)) jobs.push(supabase.rpc("ai_note_use", { p_provider: provider, p_failed: true, p_n: n }));
     for (const [provider, n] of Object.entries(useCount)) jobs.push(supabase.rpc("ai_note_use", { p_provider: provider, p_failed: false, p_n: n }));
     await Promise.all(jobs);
+    void updatePressure();
   } catch {
     /* الإحصاء لا يوقف العمل */
   }

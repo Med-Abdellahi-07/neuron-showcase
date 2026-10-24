@@ -2,7 +2,8 @@ import { AiError, errorInfo, type ErrorInfo } from "./errors";
 import { geminiEmbed, geminiGenerate, geminiModel, geminiEmbeddingModel } from "./gemini";
 import { groqGenerate, groqModel, groqVisionModel } from "./groq";
 import { tavilySearch } from "./tavily";
-import { generateText } from "./index";
+import { generateText, type LlmProvider } from "./index";
+import { githubModels, mistral, nvidia, openrouter } from "./compat";
 
 export interface DiagRow {
   id: string;
@@ -95,6 +96,10 @@ export async function runDiagnostics(): Promise<DiagReport> {
   const env = [
     { name: "GEMINI_API_KEY", set: present("GEMINI_API_KEY") },
     { name: "GROQ_API_KEY", set: present("GROQ_API_KEY") },
+    { name: "OPENROUTER_API_KEY", set: present("OPENROUTER_API_KEY") },
+    { name: "NVIDIA_API_KEY", set: present("NVIDIA_API_KEY") },
+    { name: "GITHUB_MODELS_TOKEN", set: present("GITHUB_MODELS_TOKEN") },
+    { name: "MISTRAL_API_KEY", set: present("MISTRAL_API_KEY") },
     { name: "TAVILY_API_KEY", set: present("TAVILY_API_KEY") },
     { name: "SUPABASE_SERVICE_ROLE_KEY", set: present("SUPABASE_SERVICE_ROLE_KEY") },
     { name: "GEMINI_MODEL", set: present("GEMINI_MODEL"), value: geminiModel() },
@@ -116,29 +121,33 @@ export async function runDiagnostics(): Promise<DiagReport> {
       const r = await groqGenerate(ping);
       return { detail: `رد: «${r.text.trim().slice(0, 60)}»`, model: r.model };
     }),
+    ...[openrouter, nvidia, githubModels, mistral].map((p) =>
+      timed(p.name, `${p.name} — توليد نص (مباشر)${p.name === "mistral" ? " — للمحتوى العام فقط" : ""}`, async () => {
+        if (!p.configured()) return { ok: false, detail: `${p.keyEnv} غير مضبوط (اختياري: يُتخطّى في السلسلة).`, model: p.model() };
+        const r = await p.generate(ping);
+        return { detail: `رد: «${r.text.trim().slice(0, 60)}»`, model: r.model };
+      })
+    ),
     timed("tavily", "Tavily — بحث الإنترنت", async () => {
       const r = await tavilySearch("Neuron connectivity test", 1);
       return { detail: `${r.length} نتيجة` };
     }),
-    timed("fallback", "المسار الفعلي للتطبيق (Gemini ثم Groq)", async () => {
+    timed("fallback", "المسار الفعلي للتطبيق (Groq ← OpenRouter ← NVIDIA ← GitHub ← Gemini)", async () => {
       const r = await generateText(ping, { skipBreaker: true });
-      if (r.provider === "gemini") return { detail: "أجاب Gemini مباشرة.", model: r.model };
+      if (!r.fellBackFrom) return { detail: `أجاب ${r.provider} مباشرة.`, model: r.model };
       const f = r.fellBackFrom;
       return {
-        detail: `أجاب Groq لأن Gemini فشل (${f?.status ?? "—"}: ${f?.message ?? ""})`.slice(0, 400),
+        detail: `أجاب ${r.provider} لأن ${f.provider} فشل (${f.status || "—"}: ${f.message})`.slice(0, 400),
         model: r.model,
         ok: true,
-        hint: f ? geminiHint(f.status, f.reason) : undefined,
-        alert: f?.status === 401,
+        hint: hintFor(f),
+        alert: f.provider === "gemini" && f.status === 401,
       };
     }),
-    timed("fallback-forced", "اختبار التحويل التلقائي (فشل Gemini مُفتعل بمفتاح خاطئ)", async () => {
-      const r = await generateText({ ...ping, apiKeyOverride: "invalid-key-for-fallback-test" }, { skipBreaker: true });
-      if (r.provider !== "groq") return { ok: false, detail: "لم يحدث تحويل!" , model: r.model };
-      return {
-        detail: `نجح التحويل: Gemini أعاد ${r.fellBackFrom?.status} فأجاب Groq.`,
-        model: r.model,
-      };
+    timed("fallback-forced", "اختبار التحويل التلقائي (Groq مُستبعد عمداً)", async () => {
+      const skip: LlmProvider[] = ["groq"];
+      const r = await generateText(ping, { skipBreaker: true, skip });
+      return { detail: `نجح التحويل: استُبعد Groq فأجاب ${r.provider}.`, model: r.model };
     }),
   ]);
 

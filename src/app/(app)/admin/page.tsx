@@ -4,6 +4,7 @@ import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { AdminInsights } from "@/components/admin-insights";
 import { SpaceDashboard } from "@/components/space-dashboard";
+import { ReportedAiQuestions } from "@/components/reported-ai-questions";
 import { UniversityDashboard } from "@/components/university-dashboard";
 
 async function count(table: string, filter?: [string, string]) {
@@ -60,6 +61,7 @@ export default async function AdminHome() {
     )}
     {isAdmin && <UniversityDashboard />}
     {isManager && <SpaceDashboard />}
+    {isManager && <ReportedAiQuestions />}
     {isAdmin && <AdminInsights />}
     </div>
   );

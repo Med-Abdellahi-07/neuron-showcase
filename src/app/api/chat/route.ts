@@ -25,6 +25,7 @@ import { scrubPII } from "@/lib/ai/privacy";
 import { dictionaries } from "@/lib/i18n/dictionaries";
 import { asSessionLang } from "@/lib/ai/lang";
 import { featureEnabled } from "@/lib/spaces";
+import { refundPoints, spendErrorCode, spendPoints } from "@/lib/ai/points";
 
 /** نصوص الأزرار المحلية (ar/fr) → أوامر محايدة، لتفادي انجرار النموذج إلى لغة الأزرار */
 const LABEL_TO_COMMAND = new Map<string, string>();
@@ -109,6 +110,11 @@ export async function POST(req: Request) {
     p_day_limit: 300,
   });
   if (allowed !== true) return json(429, { error: "busy" });
+
+  // نقاط الطالب اليومية (رسالة = نقطة) وعلم ai_chat لفضائه؛ التكلفة والحد من قاعدة البيانات
+  const spent = await spendPoints(supabase, "chat");
+  if (!spent.ok) return json(spent.reason === "disabled" ? 403 : 429, { error: spendErrorCode(spent), remaining: spent.remaining ?? 0 });
+  const ledgerId = spent.ledgerId;
 
   const { data: convRow } = await supabase
     .from("conversations")
@@ -445,6 +451,7 @@ export async function POST(req: Request) {
       } finally {
         // آخر أسباب فشل المزوّدين وعدّادات الاستهلاك تُحفظ لصفحة المدير
         await flushAiStats(supabase);
+        if (!usedProvider) await refundPoints(ledgerId); // لم يُنتج أي مزوّد ردّاً (فشل أو لا مادة): لا نخصم نقاط الطالب
         controller.close();
       }
     },
