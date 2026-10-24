@@ -30,10 +30,10 @@ test("رقم الدرس غير معروف مع درس واحد فقط يُنسب
   assert.equal(validateGenerated([{ ...good, lesson: 9 }], one)[0].lessonId, "L-a");
   assert.equal(validateGenerated([{ ...good, lesson: 9 }], mat)[0].lessonId, null);
 });
-test("Mistral لا يظهر أبداً في سلسلة المحتوى الشخصي، ويسبق غيره في العام", () => {
-  assert.ok(!PERSONAL_CHAIN.includes("mistral"));
+test("Mistral مستبعد نهائياً، والمحتوى غير الشخصي يبدأ بـ Gemini", () => {
+  assert.ok(!PERSONAL_CHAIN.includes("mistral") && !GENERAL_CHAIN.includes("mistral"));
   assert.deepEqual(PERSONAL_CHAIN, ["groq", "openrouter", "nvidia", "github", "gemini"]);
-  assert.equal(GENERAL_CHAIN[0], "mistral");
+  assert.equal(GENERAL_CHAIN[0], "gemini");
   assert.equal(PERSONAL_CHAIN.at(-1), "gemini"); // احتياط أخير
 });
 test("وضع الضغط: عتبات متدرّجة", () => {

@@ -10,7 +10,7 @@ export async function AiControl() {
   const { t } = await getT();
   const supabase = await createClient();
   const [spaces, usage, bal] = await Promise.all([
-    supabase.from("cohorts").select("id, name, features, ai_features, ai_daily_points, is_active").not("major_id", "is", null).order("name"),
+    supabase.from("cohorts").select("id, name, features, ai_features, is_active").not("major_id", "is", null).order("name"),
     supabase.rpc("ai_space_usage", { p_days: 7 }),
     getAiBalance(),
   ]);
@@ -24,8 +24,7 @@ export async function AiControl() {
       id: c.id as string,
       name: c.name as string,
       planAi: (c.features as Record<string, boolean> | null)?.ai === true,
-      flags: { ai_chat: f.ai_chat === true, ai_summary: f.ai_summary === true, ai_qcm: f.ai_qcm === true, ai_duel: f.ai_duel === true, ai_tools: f.ai_tools === true },
-      points: c.ai_daily_points as number,
+      flags: { ai_chat: f.ai_chat === true, ai_summary: f.ai_summary === true, ai_qcm: f.ai_qcm === true, ai_duel: f.ai_duel === true, ai_tools: f.ai_tools === true, ai_exam: f.ai_exam === true },
       today: Number(mine.find((x) => x.day === today)?.points ?? 0),
       week: mine.reduce((a, x) => a + Number(x.points), 0),
       usersToday: Number(mine.find((x) => x.day === today)?.users ?? 0),

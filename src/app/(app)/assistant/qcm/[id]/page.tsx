@@ -33,7 +33,7 @@ export default async function QcmSetPage({ params }: { params: Promise<{ id: str
       <AiQcmRunner questions={toAiQ((qs ?? []) as Record<string, unknown>[], label)} />
       <details className="card">
         <summary className="cursor-pointer text-sm font-medium">{t("aiq.another")}</summary>
-        <p className="mb-3 mt-2 text-xs text-muted">{t("aiq.cost")}</p>
+        <p className="mb-3 mt-2" />
         <ActionForm action={generateQcm} submitLabel={t("aiq.another")} className="space-y-3">
           <input type="hidden" name="subject" value={set.subject_id as string} />
           <input type="hidden" name="kind" value={(set.kind as string | null) ?? ""} />

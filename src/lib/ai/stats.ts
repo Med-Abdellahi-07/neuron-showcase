@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { drainFailures, drainUses } from "./index";
 import { updatePressure } from "./pressure";
 
-const LLM = ["gemini", "groq", "openrouter", "nvidia", "github", "mistral"];
+const LLM = ["gemini", "groq", "openrouter", "nvidia", "github"];
 
 /**
  * يحفظ في قاعدة البيانات ما جمعته هذه النسخة من الخادم: آخر سبب فشل لكل مزوّد، وعدّادات الاستهلاك اليومية.

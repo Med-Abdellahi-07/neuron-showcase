@@ -47,56 +47,62 @@ const lessI = await mkLesson(subI, SAI), lessS = await mkLesson(subS, SAS);
 const spend = async (u, k) => (await q(u, "select public.ai_spend($1) as r", [k]))[0].r;
 
 // ══════════ الأعلام (الإطلاق التدريجي) ══════════
-const fl = (await one("select ai_features, ai_daily_points from public.cohorts where id=$1", [IAA]));
-ok("IAA L2 مفعّل افتراضياً بكل الأعلام و30 نقطة", fl.ai_features.ai_chat && fl.ai_features.ai_summary && fl.ai_features.ai_qcm && fl.ai_features.ai_duel && fl.ai_features.ai_tools && fl.ai_daily_points === 30);
+const fl = (await one("select ai_features from public.cohorts where id=$1", [IAA]));
+ok("IAA L2 مفعّل افتراضياً بكل الأعلام بما فيها ai_exam", ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools", "ai_exam"].every((k) => fl.ai_features[k] === true), JSON.stringify(fl));
 ok("فضاء آخر (SDS L2) معطّل افتراضياً", (await n("select count(*) c from public.cohorts where id=$1 and ai_features = '{}'::jsonb", [SDS2])) === 1);
 ok("my_ai_flag: طالب IAA نعم، طالب SDS لا", (await q(A, "select public.my_ai_flag('ai_chat') f"))[0].f === true && (await q(S, "select public.my_ai_flag('ai_chat') f"))[0].f === false);
 
-// ══════════ النقاط ══════════
+// ══════════ السقف الخفي ضد الإساءة (لا نقاط ولا رصيد ظاهر) ══════════
 let r = await spend(A, "chat");
-ok("دردشة تكلّف 1 والمتبقي 29", r.ok && r.remaining === 29 && r.limit === 30, JSON.stringify(r));
-r = await spend(A, "summary");
-ok("ملخص يكلّف 5 والمتبقي 24", r.ok && r.remaining === 24);
-r = await spend(A, "qcm");
-ok("QCM يكلّف 3 والمتبقي 21", r.ok && r.remaining === 21);
+ok("طلب عادي مقبول ولا يُرجع رصيداً للطالب", r.ok && r.remaining === undefined && r.limit === undefined, JSON.stringify(r));
+ok("كل الأنواع تُقبل (ملخص/QCM) بلا تكلفة متفاوتة", (await spend(A, "summary")).ok && (await spend(A, "qcm")).ok && (await n("select sum(points) c from public.ai_ledger where user_id=$1", [A])) === 3);
+ok("ai_balance لا يحوي عدّاداً (أعلام وضغط فقط)", (() => null)() === null && Object.keys((await q(A, "select public.ai_balance() b"))[0].b).sort().join() === "flags,pressure");
 r = await spend(S, "chat");
 ok("طالب في فضاء معطّل: refused disabled", !r.ok && r.reason === "disabled");
 ok("نوع مجهول مرفوض", (await spend(A, "bogus")).reason === "unknown");
 ok("بلا تسجيل دخول: auth", (await as(null, "authenticated", async () => (await db.query("select public.ai_spend('chat') r")).rows[0].r)).reason === "auth");
-ok("الطالب لا يستطيع استرجاع نقاط بنفسه", denied(await err(q(A, "select public.ai_refund(1)"))));
-const lid = r.ledger_id ?? (await spend(A, "chat")).ledger_id;
-await svc("select public.ai_refund($1)", [lid]);
-ok("service_role يسترجع النقاط", (await q(A, "select public.ai_balance() b"))[0].b.used === 9);
-for (let i = 0; i < 21; i++) await spend(A, "chat");
+ok("الطالب لا يسترجع بنفسه", denied(await err(q(A, "select public.ai_refund(1)"))));
+await svc("select public.ai_refund($1)", [(await spend(B, "chat")).ledger_id]);
+ok("service_role يسترجع (يعود العدد)", (await n("select count(*) c from public.ai_ledger where user_id=$1", [B])) === 0);
+// سقف الدقيقة (10 افتراضياً)
+for (let i = 0; i < 7; i++) await spend(A, "chat"); // الإجمالي 10 في الدقيقة
 r = await spend(A, "chat");
-ok("بعد الاستنفاد: quota", !r.ok && r.reason === "quota" && r.remaining === 0);
-ok("العدّاد: remaining=0", (await q(A, "select public.ai_balance() b"))[0].b.remaining === 0);
-ok("B لا يتأثر برصيد A", (await spend(B, "chat")).remaining === 29);
-ok("A لا يرى سجل B (ledger)", (await q(A, "select count(*)::int c from public.ai_ledger"))[0].c === (await n("select count(*) c from public.ai_ledger where user_id=$1", [A])));
-// وضع الضغط
-await db.query("update public.ai_settings set pressure = 0.5");
-r = await spend(B, "summary");
-ok("وضع الضغط: الحد الفعلي 15", r.ok && r.limit === 15, JSON.stringify(r));
-for (let i = 0; i < 8; i++) await spend(B, "chat");
-r = await spend(B, "summary");
-ok("وضع الضغط: رفض بسبب busy (لا quota)", !r.ok && r.reason === "busy", JSON.stringify(r));
-ok("الطالب لا يعدّل وضع الضغط", denied(await err(q(B, "update public.ai_settings set pressure = 1"))));
-await db.query("update public.ai_settings set pressure = 1");
-// حد مخصص لفضاء + أعلام
-ok("غير المشرف العام لا يضبط الأعلام", has(await err(q(SAI, "select public.set_space_ai($1,'{}'::jsonb,10)", [IAA])), "forbidden") && has(await err(q(A, "select public.set_space_ai($1,'{}'::jsonb,10)", [IAA])), "forbidden"));
+ok("الطلب الحادي عشر في الدقيقة: break مع alert", !r.ok && r.reason === "break" && r.alert === true, JSON.stringify(r));
+r = await spend(A, "chat");
+ok("التجاوز التالي: break بلا تنبيه مكرر", !r.ok && r.reason === "break" && r.alert === false);
+ok("تنبيه واحد فقط مسجَّل", (await n("select count(*) c from public.ai_alerts where user_id=$1 and kind='minute'", [A])) === 1);
+ok("B لا يتأثر بسقف A", (await spend(B, "chat")).ok);
+// سقف اليوم: نخفّضه لاختبار سريع (الحد الأدنى 10) ونوزّع الطلبات خارج نافذة الدقيقة
+await q(ADM, "select public.ai_set_limits(10, 120)");
+ok("حدّ يومي 10 + دقيقة 120 يُحفظ", JSON.stringify((await q(ADM, "select public.ai_get_limits() l"))[0].l) === '{"daily_cap":10,"minute_cap":120,"pressure":1}' || (await q(ADM, "select public.ai_get_limits() l"))[0].l.daily_cap === 10);
+r = await spend(A, "chat");
+ok("سقف اليوم: break مع alert يومي", !r.ok && r.reason === "break" && r.alert === true && (await n("select count(*) c from public.ai_alerts where user_id=$1 and kind='daily'", [A])) === 1, JSON.stringify(r));
+ok("الطالب لا يقرأ التنبيهات ولا السقوف", denied(await err(q(A, "select * from public.ai_alerts"))) && has(await err(q(A, "select public.ai_get_limits()")), "forbidden") && has(await err(q(SAI, "select * from public.ai_recent_alerts(7)")), "forbidden") && has(await err(q(A, "select * from public.ai_top_users(10)")), "forbidden"));
+ok("المشرف العام يرى التنبيهات وأكثر الحسابات استهلاكاً", (await q(ADM, "select * from public.ai_recent_alerts(7)")).length === 2 && (await q(ADM, "select * from public.ai_top_users(10)"))[0].full_name === "a");
+ok("قيم سقف غير صالحة مرفوضة", has(await err(q(ADM, "select public.ai_set_limits(5, 10)")), "invalid_limits") && has(await err(q(ADM, "select public.ai_set_limits(200, 0)")), "invalid_limits") && has(await err(q(SAI, "select public.ai_set_limits(200, 10)")), "forbidden"));
+await q(ADM, "select public.ai_set_limits(200, 10)");
+// وضع الضغط: يخفّض سقف اليوم الفعلي إلى 50% ← رسالة «مزدحم» لا «استراحة»
+await db.query("update public.ai_settings set pressure = 0.5, daily_cap = 20");
+const C = await mkP("c", "student", IAA);
+await db.query("insert into public.ai_ledger (user_id, cohort_id, kind, points, at) select $1, $2, 'chat', 1, now() - interval '5 minutes' from generate_series(1, 12)", [C, IAA]);
+r = await spend(C, "chat");
+ok("وضع الضغط: 12 طلباً ≥ 10 (نصف 20) فتُرفض بـ busy لا break", !r.ok && r.reason === "busy" && r.alert === false, JSON.stringify(r));
+ok("الطالب لا يعدّل وضع الضغط ولا الإعدادات", denied(await err(q(C, "update public.ai_settings set pressure = 1"))));
+await db.query("update public.ai_settings set pressure = 1, daily_cap = 200, minute_cap = 10");
+// أعلام الفضاء بلا نقاط
+ok("غير المشرف العام لا يضبط الأعلام", has(await err(q(SAI, "select public.set_space_ai($1,'{}'::jsonb)", [IAA])), "forbidden") && has(await err(q(A, "select public.set_space_ai($1,'{}'::jsonb)", [IAA])), "forbidden"));
 await db.query(`update public.cohorts set features = features || '{"ai":true}' where id=$1`, [SDS2]); // ميزة الخطة (المفتاح الرئيسي)
-await q(ADM, "select public.set_space_ai($1, '{\"ai_chat\":true,\"ai_summary\":false}'::jsonb, 5)", [SDS2]);
-const sf = await one("select ai_features, ai_daily_points from public.cohorts where id=$1", [SDS2]);
-ok("المشرف العام يفعّل SDS L2: chat فقط و5 نقاط", sf.ai_features.ai_chat === true && sf.ai_features.ai_summary === false && sf.ai_features.ai_qcm === false && sf.ai_daily_points === 5);
-ok("طالب SDS: دردشة تعمل (ميزة الخطة ai مفعّلة)", (await spend(S, "chat")).ok);
+await q(ADM, "select public.set_space_ai($1, '{\"ai_chat\":true,\"ai_summary\":false,\"ai_exam\":true}'::jsonb)", [SDS2]);
+const sf = await one("select ai_features from public.cohorts where id=$1", [SDS2]);
+ok("المشرف العام يفعّل SDS L2: chat وexam فقط", sf.ai_features.ai_chat === true && sf.ai_features.ai_exam === true && sf.ai_features.ai_summary === false && sf.ai_features.ai_qcm === false);
+ok("طالب SDS: الدردشة تعمل", (await spend(S, "chat")).ok);
 ok("طالب SDS: الملخص معطّل بالعلم", (await spend(S, "summary")).reason === "disabled");
 await db.query(`update public.cohorts set features = features || '{"ai":false}' where id=$1`, [SDS2]);
 ok("تعطيل ميزة الخطة ai يعطّل كل الأعلام", (await spend(S, "chat")).reason === "disabled");
-ok("نقاط خارج النطاق مرفوضة", has(await err(q(ADM, "select public.set_space_ai($1,'{}'::jsonb,5000)", [SDS2])), "invalid_points"));
 const us = await q(ADM, "select * from public.ai_space_usage(7)");
 ok("ai_space_usage للمشرف العام يعرض IAA L2", us.some((x) => x.space_name === "IAA L2" && Number(x.points) > 0));
 ok("ai_space_usage مرفوض لغير المشرف العام", has(await err(q(SAI, "select * from public.ai_space_usage(7)")), "forbidden"));
-ok("عدّاد المزوّدين يقبل openrouter/nvidia/github/mistral", (await err(q(A, "select public.ai_note_use('openrouter'), public.ai_note_use('nvidia'), public.ai_note_use('github'), public.ai_note_use('mistral')"))) === null && (await n("select count(*) c from public.ai_provider_daily where provider in ('openrouter','nvidia','github','mistral')")) === 4);
+ok("عدّاد المزوّدين يقبل openrouter/nvidia/github", (await err(q(A, "select public.ai_note_use('openrouter'), public.ai_note_use('nvidia'), public.ai_note_use('github')"))) === null && (await n("select count(*) c from public.ai_provider_daily where provider in ('openrouter','nvidia','github')")) === 3);
 
 // ══════════ الملخصات الشخصية ══════════
 const sum = (u, coh, lessons, content = "ملخص") => q(u, "insert into public.ai_summaries (user_id, cohort_id, subject_id, lesson_ids, kind, lang, content) values ($1,$2,$3,$4,'short','fr',$5)", [u, coh, subI, lessons, content]);

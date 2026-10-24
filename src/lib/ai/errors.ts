@@ -1,4 +1,4 @@
-export type ProviderName = "gemini" | "groq" | "openrouter" | "nvidia" | "github" | "mistral" | "tavily";
+export type ProviderName = "gemini" | "groq" | "openrouter" | "nvidia" | "github" | "tavily";
 
 /** خطأ من مزوّد خارجي مع رمز HTTP وسبب مفهوم للمدير */
 export class AiError extends Error {

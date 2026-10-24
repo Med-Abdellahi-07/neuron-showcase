@@ -12,7 +12,7 @@ export default async function AssistantLayout({ children }: { children: React.Re
   if (bal?.flags.ai_qcm) tabs.push({ href: "/assistant/qcm", key: "ai.tab.qcm" });
   return (
     <>
-      {bal && tabs.length > 0 && <AiTabs tabs={tabs} remaining={bal.remaining} limit={bal.limit} pressured={bal.pressure < 1} />}
+      {bal && tabs.length > 0 && <AiTabs tabs={tabs} pressured={bal.pressure < 1} />}
       {children}
     </>
   );
