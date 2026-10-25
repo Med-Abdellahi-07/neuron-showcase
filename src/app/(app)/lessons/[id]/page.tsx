@@ -5,6 +5,7 @@ import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { StudiedButton } from "@/components/studied-button";
+import { OfflineButton } from "@/components/offline-button";
 import { RecordingList, type RecordingRow } from "@/components/recording-list";
 import type { Mark } from "@/components/recording-player";
 import { getSpace } from "@/lib/spaces";
@@ -88,6 +89,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       </div>
 
       <StudiedButton lessonId={lesson.id} studied={!!prog} />
+      <OfflineButton lessonId={lesson.id} withQuestions={!!features?.qcm_pdf} />
 
       {recordings.length > 0 && (
         <section className="space-y-3" aria-labelledby="rec-h">

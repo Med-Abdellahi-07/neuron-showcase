@@ -11,7 +11,7 @@ export function Rich({ children }: { children: string }) {
   return (
     <div className="rich text-sm leading-7" dir="auto">
       <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-        {children}
+        {normalizeMath(children)}
       </ReactMarkdown>
     </div>
   );

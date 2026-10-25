@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
 // /api/cron/notify محمي بسرّ CRON_SECRET داخل المسار نفسه (لا جلسة لـ Vercel Cron)
-const PUBLIC_PATHS = ["/login", "/forgot", "/auth", "/api/cron"];
+const PUBLIC_PATHS = ["/login", "/forgot", "/auth", "/api/cron", "/offline"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

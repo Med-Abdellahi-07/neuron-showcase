@@ -18,3 +18,7 @@ test("existing math and code untouched", () => {
   assert.equal(n("```\n\\frac{a}{b}\n```"), "```\n\\frac{a}{b}\n```");
 });
 test("plain text unchanged", () => { assert.equal(n("مرحبا hello 5$ و 6$"), "مرحبا hello 5$ و 6$"); });
+test("complex bare expressions and snake_case", () => {
+  assert.equal(n("loss \\frac{1}{n}\\sum_{i}(y_i-\\hat y_i)^{2} ok"), "loss $\\frac{1}{n}\\sum_{i}(y_i-\\hat y_i)^{2}$ ok");
+  assert.equal(n("use learning_rate here"), "use learning_rate here");
+});
