@@ -2,73 +2,96 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ═════════ نظام التصميم «ناعم ودافئ» — كل الألوان والأشكال هنا فقط ═════════ */
+/* ═════════ نظام التصميم «Neuron Violet» — كل الألوان والأشكال هنا فقط ═════════ */
 :root {
-  /* الألوان — الوضع الفاتح */
-  --bg: #f2f3f7;
+  /* الألوان — الوضع الفاتح (README.md) */
+  --bg: #f4f2fb;
   --surface: #ffffff;
-  --surface-2: #eef0f5;
-  --border: #e3e6ee;
-  --fg: #151a26;
-  --muted: #5e6576;
-  --accent: #2f5bea; /* نص/روابط/تقدّم */
+  --surface-2: #efe9ff; /* بنفسجي ناعم: شارات، مربّعات أيقونات، مسار التقدّم */
+  --border: #e8e3f7;
+  --border-input: #e2ddf2;
+  --input-bg: #f8f6fd;
+  --fg: #17122b;
+  --muted: #6e6a85;
+  --faint: #a19db5;
+  --accent: #6d3bf5; /* نص/روابط/تقدّم */
   --accent-fg: #ffffff;
-  --accent-soft: #e8eeff;
-  --primary: #2f5bea; /* خلفية الأزرار والبطاقة المميّزة */
+  --accent-soft: #efe9ff;
+  --primary: #6d3bf5; /* خلفية الأزرار والبطاقة المميّزة */
   --primary-fg: #ffffff;
-  --featured: #2f5bea;
+  --featured: #6d3bf5;
+  --deep: #2a0e6e; /* رؤوس وبلاطات داكنة */
+  --deep-2: #341583;
+  --deep-3: #3a1a8c;
+  --celebrate: #24097a;
+  --on-dark: #c9bdf5;
+  --on-dark-2: #e2d8ff;
+  --on-dark-3: #d9d0ff;
+  --gold: #ffb547;
+  --pink: #ff6b9a;
+  --pink-soft: #ffe6ef;
   --nav: #ffffff;
-  --announce: #e8eeff;
-  --track: #eef0f5;
-  --urgent: #a35a00;
+  --announce: #efe9ff;
+  --track: #efe9ff;
+  --urgent: #b36b00;
   --urgent-bg: #fff1de;
   --danger: #c62828;
-  --success: #15803d;
-  --warn: #a35a00;
+  --success: #127a55;
+  --success-bg: #e3f6ee;
+  --warn: #b36b00;
 
   /* الأشكال */
-  --r-lg: 26px; /* بطاقات كبيرة */
-  --r-md: 22px; /* بطاقات صغيرة */
-  --r-icon: 14px; /* مربّعات الأيقونات */
+  --r-lg: 24px; /* بطاقات كبيرة */
+  --r-md: 20px; /* بطاقات صغيرة */
+  --r-icon: 16px; /* مربّعات الأيقونات */
   --radius: 14px; /* أزرار وحقول */
+  --r-head: 34px; /* أسفل الرأس الداكن */
+  --r-nav: 26px;
   --r-pill: 999px;
-  --shadow: 0 6px 18px rgba(30, 45, 90, 0.06);
+  --shadow: none;
+  --shadow-float: 0 12px 30px rgba(42, 14, 110, 0.12);
+  --shadow-fab: 0 10px 22px rgba(109, 59, 245, 0.4);
   --pad-card: 1rem;
 
   /* الحركة */
   --t: 180ms;
 }
 
-/* الوضع الداكن: بلا ظلال، التمييز بالدرجات فقط */
+/* الوضع الداكن: لا تصميم له في الملفات المرجعية، فنُبقي نفس الهوية بدرجات داكنة */
 .dark {
-  --bg: #0f1220;
-  --surface: #181c2e;
-  --surface-2: #202540;
-  --border: #2a3050;
-  --fg: #eceef6;
-  --muted: #9aa1b8;
-  --accent: #8fa6ff;
-  --accent-fg: #0f1220;
-  --accent-soft: #24305e;
-  --primary: #3b5bdb;
+  --bg: #120a2e;
+  --surface: #1c1242;
+  --surface-2: #2a1c5e;
+  --border: #33256d;
+  --border-input: #3a2b7a;
+  --input-bg: #160e38;
+  --fg: #f1edff;
+  --muted: #b3aad6;
+  --faint: #8379b3;
+  --accent: #b49cff;
+  --accent-fg: #120a2e;
+  --accent-soft: #2a1c5e;
+  --primary: #6d3bf5;
   --primary-fg: #ffffff;
-  --featured: #3b5bdb;
-  --nav: #1a1f33;
-  --announce: #1c2445;
-  --track: #262b42;
+  --featured: #6d3bf5;
+  --nav: #1c1242;
+  --announce: #2a1c5e;
+  --track: #2a1c5e;
   --urgent: #f5b454;
   --urgent-bg: #3d2e17;
   --danger: #ff8a8a;
   --success: #5fd38d;
+  --success-bg: #12382b;
   --warn: #f5b454;
   --shadow: none;
+  --shadow-float: none;
 }
 
 /* الوضع المدمج: للصفحات المزدحمة (الجدول، الإدارة، المحادثة، قوائم الأسئلة) */
 .compact {
-  --r-lg: 16px;
-  --r-md: 14px;
-  --r-icon: 10px;
+  --r-lg: 18px;
+  --r-md: 16px;
+  --r-icon: 12px;
   --radius: 12px;
   --pad-card: 0.75rem;
 }
@@ -94,6 +117,14 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-warn: var(--warn);
+  --color-faint: var(--faint);
+  --color-deep: var(--deep);
+  --color-deep-2: var(--deep-2);
+  --color-celebrate: var(--celebrate);
+  --color-on-dark: var(--on-dark);
+  --color-gold: var(--gold);
+  --color-pink: var(--pink);
+  --color-success-bg: var(--success-bg);
   --font-sans: var(--f-ar), var(--f-lat), var(--f-lat-ext), Tahoma, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
@@ -144,7 +175,7 @@ body {
     @apply min-h-8 px-3 text-xs;
   }
   .input {
-    @apply min-h-10 w-full rounded-[var(--radius)] border border-border bg-surface px-3 text-sm outline-none transition-[border-color,box-shadow] duration-[var(--t)] placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
+    @apply min-h-10 w-full rounded-[var(--radius)] border border-[var(--border-input)] bg-[var(--input-bg)] px-3 text-sm outline-none transition-[border-color,box-shadow] duration-[var(--t)] placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
   }
   textarea.input {
     @apply py-2;
@@ -467,4 +498,87 @@ body {
   .qcm-md * {
     color: #000 !important;
   }
+}
+
+/* ═════════ حركة Neuron Violet — transform/opacity فقط، منسوخة من ملفات التصميم ═════════ */
+.clay { filter: drop-shadow(0 6px 8px rgba(20, 4, 70, 0.35)); }
+.clays { filter: drop-shadow(0 3px 4px rgba(42, 14, 110, 0.22)); }
+.clay-lg { filter: drop-shadow(0 8px 10px rgba(10, 0, 50, 0.45)); }
+
+/* الرئيسية */
+@keyframes hFloatA { 0%,100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-9px) rotate(-2deg); } }
+@keyframes hFloatB { 0%,100% { transform: translateY(0) rotate(10deg); } 50% { transform: translateY(-7px) rotate(4deg); } }
+@keyframes hFlick { 0%,100% { transform: scale(1,1); } 30% { transform: scale(1.04,.96); } 60% { transform: scale(.97,1.05); } }
+.hfa { animation: hFloatA 4.4s ease-in-out infinite; }
+.hfb { animation: hFloatB 5.2s ease-in-out infinite; }
+.hflk { transform-origin: 50% 90%; animation: hFlick 1.6s ease-in-out infinite; }
+
+/* تقدّمي */
+@keyframes pFloat { 0%,100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-7px) rotate(2deg); } }
+@keyframes pFloat2 { 0%,100% { transform: translateY(0) rotate(8deg); } 50% { transform: translateY(-6px) rotate(0deg); } }
+@keyframes pHand { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.pf { animation: pFloat 4.2s ease-in-out infinite; }
+.pf2 { animation: pFloat2 4.8s ease-in-out infinite; }
+.phand { transform-origin: 40px 40px; animation: pHand 6s linear infinite; }
+
+/* الجدول */
+@keyframes sFloat { 0%,100% { transform: translateY(0) rotate(-7deg); } 50% { transform: translateY(-8px) rotate(-1deg); } }
+@keyframes sRing { 0%,86%,100% { transform: rotate(0deg); } 89% { transform: rotate(-12deg); } 92% { transform: rotate(10deg); } 95% { transform: rotate(-6deg); } }
+.sf { animation: sFloat 4.6s ease-in-out infinite; }
+.sring { transform-origin: 50% 60%; animation: sRing 4s ease-in-out infinite; }
+
+/* المساعد */
+@keyframes aFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes aTwinkle { 0%,100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(.82) rotate(20deg); } }
+@keyframes aOrbit { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.afl { animation: aFloat 3.4s ease-in-out infinite; }
+.atw { transform-box: fill-box; transform-origin: center; animation: aTwinkle 2.4s ease-in-out infinite; }
+.aorb { transform-origin: 45px 45px; animation: aOrbit 7s linear infinite; }
+
+/* الدخول */
+@keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-12px) rotate(4deg); } }
+@keyframes bobSlow { 0%,100% { transform: translateY(0) rotate(6deg); } 50% { transform: translateY(-9px) rotate(-3deg); } }
+@keyframes nSwingF { 0%,100% { transform: rotateY(-28deg) rotateX(10deg); } 50% { transform: rotateY(28deg) rotateX(-6deg); } }
+.bob { animation: bob 4.2s ease-in-out infinite; }
+.bob2 { animation: bobSlow 5.1s ease-in-out infinite; }
+.bob3 { animation: bob 3.6s ease-in-out infinite .4s; }
+.plx { transition: transform .25s ease-out; }
+.nlogo { animation: nSwingF 5s ease-in-out infinite; }
+
+/* شاشة البداية */
+@keyframes vSwing { 0% { transform: rotateY(-32deg) rotateX(12deg); } 50% { transform: rotateY(32deg) rotateX(-8deg); } 100% { transform: rotateY(-32deg) rotateX(12deg); } }
+@keyframes vPulse { 0%,100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.9); opacity: 0; } }
+@keyframes vSignal { 0% { stroke-dashoffset: 140; } 60%,100% { stroke-dashoffset: 0; } }
+@keyframes vFade { 0%,20% { opacity: 0; transform: translateY(12px); } 45%,100% { opacity: 1; transform: none; } }
+@keyframes vBar { 0% { transform: scaleX(0); } 80%,100% { transform: scaleX(1); } }
+@keyframes vGlow { 0%,100% { opacity: .35; transform: scale(1); } 50% { opacity: .6; transform: scale(1.1); } }
+.v-stage { perspective: 700px; }
+.v-logo { animation: vSwing 5s ease-in-out infinite; }
+.v-layer { position: absolute; inset: 0; }
+.v-pulse { transform-box: fill-box; transform-origin: center; animation: vPulse 1.8s ease-out infinite; }
+.v-sig { stroke-dasharray: 140; animation: vSignal 2.6s ease-in-out infinite; }
+.v-s2 { animation-delay: .6s; } .v-s3 { animation-delay: 1.2s; } .v-s4 { animation-delay: 1.8s; }
+.v-fade { animation: vFade 3s ease-out both; }
+.v-bar { transform-origin: left center; animation: vBar 2.6s ease-in-out infinite; }
+.v-glow { animation: vGlow 3s ease-in-out infinite; }
+
+/* الإنجاز */
+@keyframes floatT { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-12px) rotate(3deg); } }
+@keyframes drift { 0% { transform: translateY(-30px) rotate(0deg); } 100% { transform: translateY(860px) rotate(420deg); } }
+@keyframes shine { 0%,100% { opacity: .25; } 50% { opacity: .5; } }
+@keyframes medSway { 0%,100% { transform: rotate(-5deg) translateY(0); } 50% { transform: rotate(5deg) translateY(-4px); } }
+.trophy { animation: floatT 3.6s ease-in-out infinite; }
+.cf2 { position: absolute; top: 0; animation: drift 4.4s linear infinite; }
+.halo { animation: shine 2.8s ease-in-out infinite; }
+.med { transform-origin: 50% 0; animation: medSway 3s ease-in-out infinite; filter: drop-shadow(0 8px 8px rgba(8, 0, 40, 0.45)); }
+
+/* ميل البطاقة */
+.tilt { transition: transform .18s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hfa, .hfb, .hflk, .pf, .pf2, .phand, .sf, .sring, .afl, .atw, .aorb,
+  .bob, .bob2, .bob3, .nlogo, .v-logo, .v-pulse, .v-sig, .v-fade, .v-bar, .v-glow,
+  .trophy, .halo, .med { animation: none; }
+  .cf2 { display: none; }
+  .plx, .tilt { transition: none; }
 }

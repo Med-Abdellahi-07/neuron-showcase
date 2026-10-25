@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, Rows3, X } from "lucide-react";
+import { X } from "lucide-react";
+import { BackButton } from "@/components/back-button";
+import { ScheduleDay } from "@/components/schedule-day";
 import { useT } from "@/lib/i18n/client";
 import { SLOTS, STUDY_DAYS } from "@/lib/constants";
 import { addDays, formatDate } from "@/lib/dates";
@@ -28,6 +30,8 @@ interface Props {
   sessions: GridSession[];
   initialView?: ScheduleView;
   admin?: AdminProps;
+  /** الطالب: تنقّل الأسابيع (يظهر تحت العنوان في الرأس) */
+  weekNav?: React.ReactNode;
 }
 
 interface Sel {
@@ -243,7 +247,7 @@ function AddForm({ admin, date, slot }: { admin: AdminProps; date: string; slot:
   );
 }
 
-export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initialView = "grid", admin }: Props) {
+export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initialView = "day", admin, weekNav }: Props) {
   const { t, locale } = useT();
   const now = useNow(tz, { today, hm: nowHM });
   const [view, setView] = useState<ScheduleView>(mode === "admin" ? "grid" : initialView);
@@ -281,34 +285,29 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
   const selSlot = sel ? SLOTS.find((x) => x.n === sel.slot) : undefined;
   const selWeekday = sel ? weekday(sel.date) : 1;
 
-  const dayList = SLOTS.map((sl) => ({ sl, items: byCell.get(cellKey(days.find((d) => d.n === day)?.date ?? "", sl.n)) ?? [] })).filter((x) => x.items.length);
-
   return (
     <div className="space-y-3">
       {mode === "student" && (
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] leading-tight text-muted sm:hidden">{view === "grid" ? t("schedule.gridHint") : ""}</p>
-          <div className="ms-auto inline-flex rounded-[var(--radius)] border border-border p-0.5" role="group" aria-label={t("schedule.view.label")}>
-            {(
-              [
-                ["grid", LayoutGrid, "schedule.view.grid"],
-                ["day", Rows3, "schedule.view.day"],
-              ] as const
-            ).map(([v, Icon, key]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => changeView(v)}
-                aria-pressed={view === v}
-                className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-[calc(var(--radius)-2px)] px-3 text-xs font-medium transition-colors ${view === v ? "bg-primary text-primary-fg" : "text-muted hover:text-fg"}`}
-              >
-                <Icon size={14} aria-hidden />
-                {t(key)}
-              </button>
-            ))}
+        <header className="flex items-center justify-between">
+          <BackButton />
+          <div className="flex flex-col items-center">
+            <h1 className="m-0 text-lg font-semibold">{t("schedule.title")}</h1>
+            {weekNav}
           </div>
-        </div>
+          <button
+            type="button"
+            onClick={() => changeView(view === "grid" ? "day" : "grid")}
+            aria-label={t(view === "grid" ? "schedule.toDay" : "schedule.toGrid")}
+            aria-pressed={view === "grid"}
+            className="press flex size-[42px] items-center justify-center rounded-[14px] border-0 bg-surface text-fg"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
+              <rect x="4" y="4" width="6" height="6" rx="1.5" /><rect x="14" y="4" width="6" height="6" rx="1.5" /><rect x="4" y="14" width="6" height="6" rx="1.5" /><rect x="14" y="14" width="6" height="6" rx="1.5" />
+            </svg>
+          </button>
+        </header>
       )}
+      {mode === "student" && view === "grid" && <p className="text-[11px] leading-tight text-muted sm:hidden">{t("schedule.gridHint")}</p>}
       {mode === "admin" && <p className="text-xs text-muted">{t("sa.gridHint")}</p>}
 
       {view === "grid" ? (
@@ -393,56 +392,8 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
           </table>
         </div>
       ) : (
-        <div className="space-y-3">
-          <div role="tablist" aria-label={t("schedule.dayPicker")} className="grid grid-cols-6 gap-1">
-            {days.map((d) => {
-              const selected = d.n === day;
-              const has = SLOTS.some((sl) => (byCell.get(cellKey(d.date, sl.n)) ?? []).length > 0);
-              return (
-                <button
-                  key={d.n}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => setDay(d.n)}
-                  className={`relative min-h-12 rounded-[var(--radius)] border px-1 py-1.5 text-center transition-colors ${
-                    selected ? "border-transparent bg-primary text-primary-fg" : d.date === now.today ? "border-accent text-accent" : "border-border text-muted hover:text-fg"
-                  }`}
-                >
-                  <span className="block truncate text-[11px] font-semibold">{locale === "ar" ? t(dayKey(d.n)) : t(dayKey(d.n)).slice(0, 3)}</span>
-                  <span className="tech block text-[10px]" dir="ltr">{formatDate(d.date, locale).split(" ")[0]}</span>
-                  {has && !selected && <span className="absolute end-1 top-1 size-1.5 rounded-full bg-accent" aria-hidden />}
-                </button>
-              );
-            })}
-          </div>
-          <h2 className="tech text-sm font-semibold">
-            {t(dayKey(day))} <span className="text-xs font-normal text-muted" dir="ltr">{formatDate(days.find((d) => d.n === day)?.date ?? monday, locale)}</span>
-            {days.find((d) => d.n === day)?.date === now.today && <span className="badge badge-accent ms-2">{t("schedule.today")}</span>}
-          </h2>
-          {dayList.length === 0 ? (
-            <p className="card text-sm text-muted">{t("schedule.dayEmpty")}</p>
-          ) : (
-            <ul className="space-y-2">
-              {dayList.map(({ sl, items }) => (
-                <li key={sl.n} className="flex gap-3">
-                  <div className="w-14 shrink-0 pt-2 text-center">
-                    <span className={`tech block text-sm font-semibold ${curSlot === sl.n && days.find((d) => d.n === day)?.date === now.today ? "text-accent" : ""}`}>P{sl.n}</span>
-                    <span className="tech block text-[10px] leading-tight text-muted" dir="ltr">
-                      {sl.start}
-                      <br />
-                      {sl.end}
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    {items.map((s) => (
-                      <SessionBlock key={s.id} s={s} now={isNow(s)} large onOpen={() => open(s.date, s.slot, s.id)} />
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="mx-auto w-full max-w-md">
+          <ScheduleDay monday={monday} now={now} day={day} setDay={setDay} byCell={byCell} onOpen={(d, sl, id) => open(d, sl, id)} />
         </div>
       )}
 

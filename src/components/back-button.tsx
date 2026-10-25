@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import { parentPath } from "@/lib/nav";
 
@@ -10,7 +9,7 @@ import { parentPath } from "@/lib/nav";
  * سهم رجوع في رأس كل صفحة داخلية (التطبيق المثبّت بلا أزرار متصفح). يتبع اتجاه اللغة: ← في LTR و→ في RTL.
  * إن تنقّل الطالب داخل التطبيق يرجع للصفحة السابقة فعلاً؛ وإن فتح الصفحة مباشرة (إشعار/رابط) يذهب للصفحة الأم.
  */
-export function BackButton() {
+export function BackButton({ variant = "light" }: { variant?: "light" | "dark" }) {
   const { t } = useT();
   const path = usePathname();
   const router = useRouter();
@@ -28,10 +27,12 @@ export function BackButton() {
       type="button"
       onClick={() => (navs.current > 0 ? router.back() : router.push(parentPath(path)))}
       aria-label={t("nav.back")}
-      className="press flex size-10 items-center justify-center rounded-2xl bg-surface text-fg shadow-[var(--shadow)]"
+      className={`press flex items-center justify-center rounded-[14px] ${variant === "dark" ? "size-10 bg-deep-2 text-white" : "size-[42px] bg-surface text-fg"}`}
     >
-      <ArrowLeft size={18} aria-hidden className="rtl:hidden" />
-      <ArrowRight size={18} aria-hidden className="hidden rtl:block" />
+      {/* المسار منسوخ من ملفات التصميم (يشير يميناً = رجوع في RTL)، ويُقلب في LTR */}
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="ltr:-scale-x-100">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
     </button>
   );
 }

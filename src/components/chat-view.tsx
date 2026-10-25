@@ -172,11 +172,14 @@ export function ChatView({
   initialMessages,
   guided = false,
   autoStart = false,
+  autoQuestion = false,
   initialProgress = { cursor: 0, total: 0, finished: false },
   initialStep = 0,
 }: {
   guided?: boolean;
   autoStart?: boolean;
+  /** سؤال حر جاهز من شريط المساعد (يُرسل بدل بدء الشرح الموجَّه) */
+  autoQuestion?: boolean;
   initialProgress?: { cursor: number; total: number; finished: boolean };
   initialStep?: number;
   conversationId: string;
@@ -305,7 +308,7 @@ export function ChatView({
   // بدء الجلسة الموجّهة تلقائياً: المساعد يبادر دون سؤال من الطالب
   const started = useRef(false);
   useEffect(() => {
-    if (!autoStart || started.current || initialMessages.length > 0) return;
+    if ((!autoStart && !autoQuestion) || started.current || initialMessages.length > 0) return;
     started.current = true;
     let imgs: { mime: string; data: string }[] = [];
     try {
@@ -318,7 +321,17 @@ export function ChatView({
       /* لا شيء */
     }
     window.history.replaceState(null, "", `/assistant/${conversationId}`);
-    void run({ action: "start", text: "", images: imgs });
+    let q = "";
+    if (autoQuestion) {
+      try {
+        q = sessionStorage.getItem(`neuron-q-${conversationId}`) ?? "";
+        sessionStorage.removeItem(`neuron-q-${conversationId}`);
+      } catch {
+        /* لا شيء */
+      }
+    }
+    if (q) void run({ text: q, images: imgs });
+    else void run({ action: "start", text: "", images: imgs });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

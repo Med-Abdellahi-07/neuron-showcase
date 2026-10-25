@@ -7,6 +7,7 @@ import { ENGLISH_CODE, SESSION_KINDS, sessionsFromHours } from "@/lib/constants"
 import { appTimeZone, isValidISO, nowHM, todayISO } from "@/lib/dates";
 import { addDays, defaultWeekMonday, mondayOf } from "@/lib/weeks";
 import { WeekNav } from "@/components/week-nav";
+import { BackButton } from "@/components/back-button";
 import { VIEW_COOKIE, colorMap, toGridSession } from "@/lib/schedule-grid";
 import { ScheduleGrid } from "@/components/schedule-grid";
 import type { ScheduleSession, SessionKind } from "@/lib/types";
@@ -27,7 +28,8 @@ export default async function SchedulePage({
 
   if (!profile.cohort_id) {
     return (
-      <div>
+      <div className="space-y-4">
+        <BackButton />
         <h1 className="page-title">{t("schedule.title")}</h1>
         <p className="card text-sm text-warn">{t("schedule.noCohort")}</p>
       </div>
@@ -53,7 +55,7 @@ export default async function SchedulePage({
   const week = all.filter((s) => s.session_date >= monday && s.session_date <= weekEnd);
   const colors = colorMap(current, remaining);
   const gridSessions = week.map((s) => toGridSession(s, byId.get(s.subject_id), colors.get(s.subject_id) ?? 0, s.cohort_id !== profile.cohort_id));
-  const initialView = (await cookies()).get(VIEW_COOKIE)?.value === "day" ? "day" : "grid";
+  const initialView = (await cookies()).get(VIEW_COOKIE)?.value === "grid" ? "grid" : "day";
   // لم يختر مجموعة الإنجليزية: تظهر كل المجموعات، فننبّهه
   const showGroupHint = !profile.english_group && week.some((s) => byId.get(s.subject_id)?.code === ENGLISH_CODE && s.group_label);
 
@@ -67,17 +69,6 @@ export default async function SchedulePage({
 
   return (
     <div className="wide-page compact space-y-6">
-      <h1 className="page-title !mb-0">{t("schedule.title")}</h1>
-
-      <WeekNav
-        monday={monday}
-        defaultMonday={defaultMonday}
-        semesterStart={sem?.start ?? null}
-        locale={locale}
-        hrefFor={(w) => (w ? `/schedule?w=${w}` : "/schedule")}
-        labels={{ week: t("schedule.week"), prev: t("schedule.prev"), next: t("schedule.next"), thisWeek: t("schedule.thisWeek") }}
-      />
-
       <ScheduleGrid
         key={monday}
         mode="student"
@@ -87,6 +78,17 @@ export default async function SchedulePage({
         tz={appTimeZone()}
         sessions={gridSessions}
         initialView={initialView}
+        weekNav={
+          <WeekNav
+            compact
+            monday={monday}
+            defaultMonday={defaultMonday}
+            semesterStart={sem?.start ?? null}
+            locale={locale}
+            hrefFor={(w) => (w ? `/schedule?w=${w}` : "/schedule")}
+            labels={{ week: t("schedule.week"), prev: t("schedule.prev"), next: t("schedule.next"), thisWeek: t("schedule.thisWeek") }}
+          />
+        }
       />
       {showGroupHint && <p className="text-xs text-warn">{t("schedule.pickGroup")}</p>}
 
