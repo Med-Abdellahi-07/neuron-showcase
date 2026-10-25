@@ -44,8 +44,8 @@ export function SpaceLogin({ directory, initialSpaceId }: { directory: Directory
     else if (step === "major") setStep("institution");
   };
 
-  const tile = "press flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center gap-1 rounded-3xl bg-surface p-4 text-center shadow-[var(--shadow)] transition-colors";
-  const tileOff = "flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center gap-1 rounded-3xl bg-surface-2 p-4 text-center opacity-60";
+  const tile = "press flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center gap-1 rounded-[20px] border border-[var(--border-input)] bg-[var(--input-bg)] p-4 text-center transition-colors";
+  const tileOff = "flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center gap-1 rounded-[20px] bg-surface-2 p-4 text-center opacity-60";
 
   return (
     <div className="space-y-5">
@@ -164,21 +164,21 @@ export function SpaceLogin({ directory, initialSpaceId }: { directory: Directory
       {step === "form" && space && (
         <form action={action} className="space-y-4">
           <input type="hidden" name="space_id" value={space.id} />
-          <div className="rounded-3xl bg-accent-soft p-4 text-center">
+          <div className="rounded-[20px] bg-accent-soft p-4 text-center">
             <p className="text-xs text-muted">{t("login.space")}</p>
             <p className="tech text-2xl font-bold text-accent" dir="ltr">{spaceName}</p>
             {major && <p className="mt-0.5 text-xs text-muted" dir="auto">{pickName(major.name, locale)}</p>}
           </div>
           <div>
-            <label className="label" htmlFor="identifier">{t("login.identifier")}</label>
-            <input id="identifier" name="identifier" className="input" autoComplete="username" inputMode="email" dir="ltr" required />
+            <label className="label !text-[13px]" htmlFor="identifier">{t("login.identifier")}</label>
+            <input id="identifier" name="identifier" className="input !min-h-12 !text-[15px]" autoComplete="username" inputMode="email" dir="ltr" required />
           </div>
           <div>
-            <label className="label" htmlFor="password">{t("login.password")}</label>
-            <input id="password" name="password" type="password" className="input" autoComplete="current-password" dir="ltr" required />
+            <label className="label !text-[13px]" htmlFor="password">{t("login.password")}</label>
+            <input id="password" name="password" type="password" className="input !min-h-12 !text-[15px]" autoComplete="current-password" dir="ltr" required />
           </div>
           {state?.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
-          <SubmitButton className="btn btn-primary w-full">{t("login.submit")}</SubmitButton>
+          <SubmitButton className="btn btn-primary w-full !min-h-[52px] !rounded-2xl !text-base !font-semibold">{t("login.submit")}</SubmitButton>
           <p className="flex items-center justify-between gap-3 text-sm">
             <button type="button" onClick={() => setStep("institution")} className="text-accent hover:underline">{t("login.changeSpace")}</button>
             <Link href="/forgot" className="text-accent hover:underline">{t("login.forgot")}</Link>

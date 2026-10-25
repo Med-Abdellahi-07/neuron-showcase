@@ -13,6 +13,8 @@ export interface AiTab {
 export function AiTabs({ tabs, pressured }: { tabs: AiTab[]; pressured: boolean }) {
   const { t } = useT();
   const path = usePathname();
+  // الصفحة الرئيسية للمساعد وصفحة المحادثة لهما واجهتهما الخاصة (بطاقات الأقسام في الرأس)
+  if (path === "/assistant" || /^\/assistant\/(?!summaries|qcm|analysis)/.test(path)) return null;
   return (
     <div className="mb-4 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">

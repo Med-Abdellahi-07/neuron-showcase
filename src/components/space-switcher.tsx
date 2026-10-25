@@ -22,7 +22,7 @@ export function SpaceSwitcher({ current, options }: { current: string; options: 
         defaultValue={current}
         onChange={() => form.current?.requestSubmit()}
         dir="ltr"
-        className="h-10 max-w-[9rem] rounded-2xl border-0 bg-surface px-3 text-xs font-semibold text-accent shadow-[var(--shadow)] sm:max-w-none"
+        className="h-[42px] max-w-[9rem] rounded-[14px] border-0 bg-deep-2 px-3 text-xs font-semibold text-white sm:max-w-none"
       >
         {options.map((o) => (
           <option key={o.id} value={o.id}>{o.label}</option>

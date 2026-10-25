@@ -9,10 +9,12 @@ import { ChatView, type ChatMessage, type ChatSource } from "@/components/chat-v
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function ChatPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ start?: string }> }) {
+export default async function ChatPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ start?: string; q?: string }> }) {
   const { id } = await params;
   await requireAiFlag("ai_chat");
-  const wantsStart = (await searchParams).start === "1";
+  const sp = await searchParams;
+  const wantsStart = sp.start === "1" || sp.q === "1";
+  const wantsQuestion = sp.q === "1";
   if (!UUID_RE.test(id)) notFound();
   await requireUserId();
   const { t } = await getT();
@@ -60,7 +62,8 @@ export default async function ChatPage({ params, searchParams }: { params: Promi
         scopeLabel={scopeLabel}
         initialMessages={initial}
         guided={!!conv.guided}
-        autoStart={wantsStart && !!conv.guided && initial.length === 0}
+        autoStart={wantsStart && !wantsQuestion && !!conv.guided && initial.length === 0}
+        autoQuestion={wantsQuestion && initial.length === 0}
         initialProgress={{ cursor: conv.cursor as number, total: conv.total as number, finished: (conv.total as number) > 0 && (conv.cursor as number) >= (conv.total as number) }}
         initialStep={conv.step as number}
       />
