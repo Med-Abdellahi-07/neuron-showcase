@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Activity, MessageSquare, Trash2 } from "lucide-react";
+import { requireProfile } from "@/lib/auth";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
-import { requireAiFlag } from "@/lib/ai/access";
+import { getAiBalance, requireAiFlag } from "@/lib/ai/access";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects } from "@/lib/data";
 import { formatDate } from "@/lib/dates";
@@ -22,6 +23,8 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   await requireAiFlag("ai_chat");
   const userId = await requireUserId();
+  const profile = await requireProfile();
+  const bal = await getAiBalance();
   const { t, locale } = await getT();
   const supabase = await createClient();
   const [subjects, convRes, lessonRes] = await Promise.all([
@@ -41,18 +44,21 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
   const convs = (convRes.data ?? []) as unknown as Conv[];
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="page-title !mb-0">{t("assistant.title")}</h1>
-        <Link href="/assistant/analysis" className="btn btn-sm">
-          <Activity size={14} aria-hidden /> {t("chat.analysisLink")}
-        </Link>
-      </div>
-
-      <ChatPicker subjects={subjects.map((x) => ({ code: x.code, name: x.name }))} lessons={lessons} initialLessonId={sp.lesson} />
-
+    <ChatPicker
+      subjects={subjects.map((x) => ({ code: x.code, name: x.name }))}
+      lessons={lessons}
+      initialLessonId={sp.lesson}
+      name={profile.full_name.split(" ")[0]}
+      flags={{ qcm: !!bal?.flags.ai_qcm, summary: !!bal?.flags.ai_summary }}
+      pressured={!!bal && bal.pressure < 1}
+    >
       <section className="space-y-2" aria-labelledby="hist-h">
-        <h2 id="hist-h" className="tech text-sm font-semibold text-muted">{t("chat.history")}</h2>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <h2 id="hist-h" className="text-sm font-semibold">{t("chat.history")}</h2>
+          <Link href="/assistant/analysis" className="btn btn-sm">
+            <Activity size={14} aria-hidden /> {t("chat.analysisLink")}
+          </Link>
+        </div>
         {convs.length === 0 ? (
           <p className="text-sm text-muted">{t("chat.empty")}</p>
         ) : (
@@ -60,7 +66,7 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
             {convs.map((c) => {
               const code = first(c.subjects)?.code;
               return (
-                <li key={c.id} className="card flex items-center justify-between gap-2 !p-3">
+                <li key={c.id} className="flex items-center justify-between gap-2 rounded-[20px] bg-surface p-3">
                   <Link href={`/assistant/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                     <MessageSquare size={18} className="shrink-0 text-accent" aria-hidden />
                     <span className="min-w-0">
@@ -82,6 +88,6 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
           </ul>
         )}
       </section>
-    </div>
+    </ChatPicker>
   );
 }

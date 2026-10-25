@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
-import { Logo } from "@/components/logo";
 import { LangSwitch } from "@/components/lang-switch";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { SPACE_COOKIE, type Directory } from "@/lib/spaces";
+import { LoginShell } from "./login-shell";
 import { LoginForm } from "./login-form";
 import { SpaceLogin } from "./space-login";
 
@@ -17,16 +17,8 @@ export default async function LoginPage() {
   const remembered = (await cookies()).get(SPACE_COOKIE)?.value ?? null;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-5 py-10">
-      <div className="flex items-center justify-between">
-        <Logo />
-        <LangSwitch />
-      </div>
-      <div>
-        <h1 className="page-title !mb-1">{t("login.title")}</h1>
-        <p className="text-sm text-muted">{t("login.subtitle")}</p>
-      </div>
+    <LoginShell lang={<LangSwitch />} title={t("login.title")} subtitle={t("login.subtitle")}>
       {directory && directory.institutions.length > 0 ? <SpaceLogin directory={directory} initialSpaceId={remembered} /> : <LoginForm />}
-    </main>
+    </LoginShell>
   );
 }

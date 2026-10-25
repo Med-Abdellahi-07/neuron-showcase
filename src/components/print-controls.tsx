@@ -45,7 +45,7 @@ export function PrintControls({
       <button type="button" onClick={() => {
           document.title = title;
           window.print();
-        }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-700 px-4 font-medium text-white">
+        }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 font-medium text-white">
         <Printer size={16} strokeWidth={1.9} aria-hidden /> {printLabel}
       </button>
       <a href={backHref} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-neutral-300 px-4">
