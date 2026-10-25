@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Bot, Flag } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { Bot, Flag, Timer } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import { Rich } from "@/components/rich";
 import { answerAiQuestion, reportAiQuestion } from "@/app/actions/ai-qcm";
@@ -21,7 +21,7 @@ export interface AiQ {
 type Res = { selected: number; correctIndex: number; explanation: string };
 
 /** تشغيل أسئلة QCM المولّدة: التصحيح في الخادم (الإجابة الصحيحة لا تصل المتصفح قبل الإجابة) */
-export function AiQcmRunner({ questions }: { questions: AiQ[] }) {
+export function AiQcmRunner({ questions, minutes = 0, setId = "" }: { questions: AiQ[]; minutes?: number; setId?: string }) {
   const { t } = useT();
   const [res, setRes] = useState<Record<string, Res>>(() =>
     Object.fromEntries(questions.filter((q) => q.selected !== null && q.correctIndex !== null).map((q) => [q.id, { selected: q.selected!, correctIndex: q.correctIndex!, explanation: q.explanation ?? "" }]))
@@ -32,11 +32,31 @@ export function AiQcmRunner({ questions }: { questions: AiQ[] }) {
   const [pending, start] = useTransition();
   const q = questions[i];
   const r = q ? res[q.id] : undefined;
-  const done = questions.every((x) => res[x.id]);
+  const allAnswered = questions.every((x) => res[x.id]);
+
+  // مؤقت اختياري: تُحفظ نهاية الوقت في sessionStorage كي لا يُعاد ضبطه بإعادة تحميل الصفحة
+  const timed = minutes > 0 && !!setId && !questions.every((x) => x.selected !== null);
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!timed) return;
+    const key = `neuron-aiq-end-${setId}`;
+    let end = 0;
+    try { end = Number(sessionStorage.getItem(key)) || 0; } catch { /* خاص */ }
+    if (!end) {
+      end = Date.now() + minutes * 60_000;
+      try { sessionStorage.setItem(key, String(end)); } catch { /* خاص */ }
+    }
+    const tick = () => setLeft(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [timed, minutes, setId]);
+  const expired = timed && left === 0 && !allAnswered;
+  const done = allAnswered || expired;
   const score = questions.filter((x) => res[x.id] && res[x.id].selected === res[x.id].correctIndex).length;
 
   function pick(idx: number) {
-    if (!q || r || pending) return;
+    if (!q || r || pending || expired) return;
     setErr("");
     start(async () => {
       const a = await answerAiQuestion(q.id, idx);
@@ -48,6 +68,19 @@ export function AiQcmRunner({ questions }: { questions: AiQ[] }) {
   if (!q) return <p className="text-sm text-muted">{t("aiq.dueEmpty")}</p>;
   return (
     <div className="space-y-3">
+      {timed && left !== null && !allAnswered && (
+        <p role="timer" aria-live="off" className={`tech flex items-center justify-center gap-2 rounded-xl py-2 text-lg font-semibold ${left <= 60 ? "bg-urgent-bg text-urgent" : "bg-accent-soft text-accent"}`} dir="ltr">
+          <Timer size={18} aria-hidden /> {String(Math.floor(left / 60)).padStart(2, "0")}:{String(left % 60).padStart(2, "0")}
+        </p>
+      )}
+      {expired && <p role="status" className="card text-center text-sm font-semibold text-urgent">{t("aiq.timeUp")}</p>}
+      {done && (
+        <section className="card space-y-1 text-center" aria-label={t("aiq.result")}>
+          <p className="text-xs text-muted">{t("aiq.result")}</p>
+          <p className="tech text-3xl font-bold text-accent" dir="ltr">{score} / {questions.length}</p>
+          <p className="tech text-sm text-muted" dir="ltr">{questions.length ? Math.round((score / questions.length) * 100) : 0}% · {Object.keys(res).length} {t("aiq.answered")}</p>
+        </section>
+      )}
       <div className="flex items-center justify-between text-xs text-muted">
         <span className="tech" dir="ltr">{i + 1} / {questions.length}</span>
         <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5"><Bot size={12} aria-hidden /> {t("aiq.badge")}</span>

@@ -10,6 +10,8 @@ import { QcmForm, type PickLesson } from "@/components/ai-forms";
 import { deleteQcmSet } from "@/app/actions/ai-qcm";
 import { ConfirmButton } from "@/components/confirm-button";
 
+export const maxDuration = 60;
+
 export default async function AiQcmPage() {
   await requireAiFlag("ai_qcm");
   const userId = await requireUserId();

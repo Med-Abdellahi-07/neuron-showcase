@@ -11,8 +11,12 @@ import { generateQcm } from "@/app/actions/ai-qcm";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function QcmSetPage({ params }: { params: Promise<{ id: string }> }) {
+export const maxDuration = 60;
+
+export default async function QcmSetPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> }) {
   const { id } = await params;
+  const tm = parseInt((await searchParams).t ?? "", 10);
+  const minutes = [5, 10, 15, 20, 30, 45, 60].includes(tm) ? tm : 0;
   if (!UUID_RE.test(id)) notFound();
   await requireAiFlag("ai_qcm");
   const userId = await requireUserId();
@@ -30,7 +34,7 @@ export default async function QcmSetPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-4">
       <Link href="/assistant/qcm" className="text-sm text-accent">← {t("aiq.title")}</Link>
-      <AiQcmRunner questions={toAiQ((qs ?? []) as Record<string, unknown>[], label)} />
+      <AiQcmRunner questions={toAiQ((qs ?? []) as Record<string, unknown>[], label)} minutes={minutes} setId={id} />
       <details className="card">
         <summary className="cursor-pointer text-sm font-medium">{t("aiq.another")}</summary>
         <p className="mb-3 mt-2" />
@@ -41,6 +45,7 @@ export default async function QcmSetPage({ params }: { params: Promise<{ id: str
           <input type="hidden" name="count" value={set.question_count as number} />
           <input type="hidden" name="difficulty" value={set.difficulty as string} />
           <input type="hidden" name="lang" value={locale} />
+          {minutes > 0 && <input type="hidden" name="minutes" value={minutes} />}
         </ActionForm>
       </details>
     </div>

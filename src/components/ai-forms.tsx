@@ -9,19 +9,24 @@ import { generateQcm } from "@/app/actions/ai-qcm";
 export interface PickSubject { id: string; code: string; name: string }
 export interface PickLesson { id: string; subject_id: string; kind: string; number: number; title: string }
 const MAX = 6;
+const QCM_MAX_LESSONS = 10;
 
-function LessonChecks({ lessons, picked, setPicked }: { lessons: PickLesson[]; picked: string[]; setPicked: (v: string[]) => void }) {
+function LessonChecks({ lessons, picked, setPicked, max = MAX }: { lessons: PickLesson[]; picked: string[]; setPicked: (v: string[]) => void; max?: number }) {
   const { t } = useT();
   if (!lessons.length) return <p className="text-sm text-muted">{t("sum.noLessons")}</p>;
   return (
     <fieldset className="space-y-1.5">
-      <legend className="label">{t("sum.lessons")} <span className="text-xs text-muted">({picked.length}/{MAX})</span></legend>
+      <legend className="label">{t("sum.lessons")} <span className="text-xs text-muted">({picked.length}/{max})</span></legend>
+      <div className="flex gap-2">
+        <button type="button" className="btn btn-sm" onClick={() => setPicked(lessons.slice(0, max).map((l) => l.id))}>{t("aiq.selectAll")}</button>
+        <button type="button" className="btn btn-sm" onClick={() => setPicked([])} disabled={!picked.length}>{t("aiq.clear")}</button>
+      </div>
       <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-line p-2">
         {lessons.map((l) => {
           const on = picked.includes(l.id);
           return (
             <label key={l.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2">
-              <input type="checkbox" name="lesson" value={l.id} checked={on} disabled={!on && picked.length >= MAX}
+              <input type="checkbox" name="lesson" value={l.id} checked={on} disabled={!on && picked.length >= max}
                 onChange={(e) => setPicked(e.target.checked ? [...picked, l.id] : picked.filter((x) => x !== l.id))} />
               <span className="tech text-xs text-muted" dir="ltr">{l.kind.toUpperCase()} {l.number}</span>
               <span dir="auto">{l.title}</span>
@@ -82,6 +87,7 @@ export function QcmForm({ subjects, lessons, defaultLang }: { subjects: PickSubj
   const { t } = useT();
   const [subject, setSubject] = useState(subjects[0]?.id ?? "");
   const [kind, setKind] = useState("");
+  const [count, setCount] = useState("10");
   const [picked, setPicked] = useState<string[]>([]);
   const list = useMemo(() => lessons.filter((l) => l.subject_id === subject && (!kind || l.kind === kind)), [lessons, subject, kind]);
   if (!subjects.length) return <p className="card text-sm text-muted">{t("sum.noSubjects")}</p>;
@@ -102,13 +108,26 @@ export function QcmForm({ subjects, lessons, defaultLang }: { subjects: PickSubj
           </select>
         </div>
       </div>
-      <LessonChecks lessons={list} picked={picked} setPicked={setPicked} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <LessonChecks lessons={list} picked={picked} setPicked={setPicked} max={QCM_MAX_LESSONS} />
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label" htmlFor="q-count">{t("aiq.count")}</label>
-          <select id="q-count" name="count" className="input" defaultValue="10">
-            <option value="5">5</option><option value="10">10</option><option value="20">20</option>
+          <label className="label" htmlFor="q-count">{t("aiq.count")} <span className="text-xs text-muted">(1–50)</span></label>
+          <input id="q-count" name="count" type="number" inputMode="numeric" min={1} max={50} step={1} required value={count} dir="ltr"
+            onChange={(e) => setCount(e.target.value)} className="input" />
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {[5, 10, 20, 30, 50].map((n) => (
+              <button key={n} type="button" onClick={() => setCount(String(n))} aria-pressed={count === String(n)}
+                className={`btn btn-sm !min-h-8 !px-3 ${count === String(n) ? "btn-primary" : ""}`}>{n}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="label" htmlFor="q-min">{t("aiq.duration")}</label>
+          <select id="q-min" name="minutes" className="input" defaultValue="0" dir="ltr">
+            <option value="0">{t("aiq.noLimit")}</option>
+            {[5, 10, 15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{m} {t("aiq.min")}</option>)}
           </select>
+          <p className="mt-1 text-xs text-muted">{t("aiq.durationHelp")}</p>
         </div>
         <div>
           <label className="label" htmlFor="q-diff">{t("aiq.difficulty")}</label>
@@ -118,6 +137,7 @@ export function QcmForm({ subjects, lessons, defaultLang }: { subjects: PickSubj
         </div>
         <LangSelect def={defaultLang} />
       </div>
+      <p className="text-xs text-muted">{t("aiq.timeHint")}</p>
     </ActionForm>
   );
 }

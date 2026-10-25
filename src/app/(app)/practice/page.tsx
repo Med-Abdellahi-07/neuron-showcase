@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { FileDown, Repeat, Trophy, X } from "lucide-react";
+import { Bot, FileDown, Repeat, Trophy, X } from "lucide-react";
 import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { getSpace } from "@/lib/spaces";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSubjects, getRemainingSubjects } from "@/lib/data";
+import { getAiBalance } from "@/lib/ai/access";
 import { PracticeTabs } from "@/components/practice-tabs";
 import { SubmitButton } from "@/components/submit-button";
 import { startAttempt, startReview } from "@/app/actions/arena";
@@ -24,6 +25,7 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const { t } = await getT();
   const features = (await getSpace())?.features;
+  const aiQcm = (await getAiBalance())?.flags.ai_qcm === true;
   const supabase = await createClient();
 
   const lessonId = UUID_RE.test(one(sp.lesson)) ? one(sp.lesson) : "";
@@ -54,6 +56,17 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
         <p role="alert" className="card text-sm text-warn">
           {t(err)}
         </p>
+      )}
+
+      {aiQcm && !lessonId && (
+        <Link href="/assistant/qcm" className="card flex items-center gap-3 !p-4 transition-colors hover:bg-surface-2">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent"><Bot size={22} aria-hidden /></span>
+          <span className="min-w-0 grow">
+            <span className="block text-sm font-semibold">{t("aiq.entryTitle")}</span>
+            <span className="block text-xs text-muted">{t("aiq.entryDesc")}</span>
+          </span>
+          <span className="text-[13px] font-semibold text-accent">{t("home.start")}</span>
+        </Link>
       )}
 
       {features?.review && dueCount > 0 && (

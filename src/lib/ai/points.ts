@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
 import { after } from "next/server";
 
-export type SpendKind = "chat" | "qcm" | "summary" | "errors" | "exam" | "plan" | "flashcards";
+export type SpendKind = "chat" | "duel" | "qcm" | "summary" | "errors" | "exam" | "plan" | "flashcards";
 export type SpendResult =
   | { ok: true; ledgerId: number }
   | { ok: false; reason: "disabled" | "break" | "busy" | "auth" | "unknown" };
