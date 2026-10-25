@@ -9,6 +9,7 @@ import { DuelCreate, type DuelLesson } from "@/components/duel-create";
 import { hoursLeft, type DuelItem } from "@/lib/duel";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 import { requireFeature } from "@/lib/spaces";
+import { getAiBalance } from "@/lib/ai/access";
 
 interface RecordRow {
   user_id: string;
@@ -24,8 +25,16 @@ const ERR: Record<string, DictKey> = {
   too_many: "duel.err.tooMany",
   not_enough_questions: "duel.err.notEnough",
   bad_opponent: "duel.err.generic",
+  bad_subject: "duel.err.generic",
   generic: "duel.err.generic",
+  ai_busy: "ai.err.busy",
+  ai_break: "ai.err.break",
+  ai_disabled: "ai.err.disabled",
+  ai_unavailable: "ai.err.unavailable",
+  ai_noMaterial: "ai.err.noMaterial",
 };
+
+export const maxDuration = 60;
 
 export default async function DuelPage({ searchParams }: { searchParams: Promise<{ err?: string }> }) {
   await requireUserId();
@@ -34,6 +43,7 @@ export default async function DuelPage({ searchParams }: { searchParams: Promise
   const { t } = await getT();
   const supabase = await createClient();
   const subjects = await getCurrentSubjects();
+  const aiDuel = (await getAiBalance())?.flags.ai_duel === true;
 
   const [duelsRes, recordRes, matesRes, lessonsRes] = await Promise.all([
     supabase.rpc("my_duels"),
@@ -91,7 +101,7 @@ export default async function DuelPage({ searchParams }: { searchParams: Promise
         </section>
       )}
 
-      <DuelCreate mates={mates} subjects={subjects.map((s) => ({ id: s.id, code: s.code, name: s.name }))} lessons={lessons} />
+      <DuelCreate mates={mates} subjects={subjects.map((s) => ({ id: s.id, code: s.code, name: s.name }))} lessons={lessons} aiEnabled={aiDuel} />
 
       {waiting.length > 0 && (
         <section className="space-y-2" aria-labelledby="dw-h">

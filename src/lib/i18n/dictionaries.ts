@@ -976,6 +976,24 @@ export const ar = {
   "sc.rate": "أرسلت رسائل كثيرة بسرعة، انتظر قليلًا.",
   "sc.err": "تعذّر الإرسال، حاول مجددًا.",
   "sc.offline": "لا يوجد اتصال، ستتحدّث الرسائل عند عودته.",
+
+  "aiq.selectAll": "تحديد الكل",
+  "aiq.clear": "مسح التحديد",
+  "aiq.duration": "مدة الاختبار",
+  "aiq.noLimit": "بلا مدة",
+  "aiq.min": "دقيقة",
+  "aiq.durationHelp": "يظهر مؤقت تنازلي وينتهي الاختبار تلقائيًا عند انتهاء الوقت.",
+  "aiq.timeHint": "يولّد الذكاء الاصطناعي الأسئلة من نص الحصص التي تختارها. كلما زاد العدد طال التوليد (حتى دقيقة).",
+  "aiq.timeUp": "انتهى الوقت!",
+  "aiq.result": "نتيجتك",
+  "aiq.answered": "مُجاب عنها",
+  "aiq.entryTitle": "اختبر نفسك بالذكاء الاصطناعي",
+  "aiq.entryDesc": "اختر المادة والحصص والعدد والمدة ويولّد لك QCM فورًا",
+  "duel.source": "مصدر الأسئلة",
+  "duel.source.bank": "بنك الأسئلة",
+  "duel.source.ai": "ذكاء اصطناعي",
+  "duel.source.aiHelp": "يولّد الذكاء الاصطناعي أسئلة جديدة من الحصص (جميعها إن لم تحدد). قد يستغرق ذلك حتى دقيقة.",
+  "duel.startAi": "ابدأ التحدي بأسئلة جديدة",
 } as const;
 
 import { en } from "./en";
@@ -1960,6 +1978,24 @@ export const fr: Record<DictKey, string> = {
   "sc.rate": "Trop de messages, patientez un peu.",
   "sc.err": "Échec de l'envoi, réessayez.",
   "sc.offline": "Hors ligne, mise à jour au retour du réseau.",
+
+  "aiq.selectAll": "Tout sélectionner",
+  "aiq.clear": "Effacer",
+  "aiq.duration": "Durée du test",
+  "aiq.noLimit": "Sans limite",
+  "aiq.min": "min",
+  "aiq.durationHelp": "Un compte à rebours s'affiche et le test se termine automatiquement.",
+  "aiq.timeHint": "Les questions sont générées à partir des séances choisies. Plus il y en a, plus c'est long (jusqu'à une minute).",
+  "aiq.timeUp": "Temps écoulé !",
+  "aiq.result": "Votre résultat",
+  "aiq.answered": "répondues",
+  "aiq.entryTitle": "Testez-vous avec l'IA",
+  "aiq.entryDesc": "Choisissez matière, séances, nombre et durée : QCM instantané",
+  "duel.source": "Source des questions",
+  "duel.source.bank": "Banque de questions",
+  "duel.source.ai": "Intelligence artificielle",
+  "duel.source.aiHelp": "L'IA crée de nouvelles questions à partir des séances (toutes si aucune choisie). Jusqu'à une minute.",
+  "duel.startAi": "Lancer avec de nouvelles questions",
 };
 
 export const dictionaries = { ar, fr, en } as const;

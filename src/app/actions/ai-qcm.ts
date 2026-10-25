@@ -5,23 +5,17 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
-import { generateJson } from "@/lib/ai";
 import { flushAiStats } from "@/lib/ai/stats";
-import { asSessionLang, LANG_NAME } from "@/lib/ai/lang";
+import { asSessionLang } from "@/lib/ai/lang";
 import { loadMaterial } from "@/lib/ai/material";
 import { refundPoints, spendErrorCode, spendPoints } from "@/lib/ai/points";
-import { validateGenerated, type GenQuestion, type RawQuestion } from "@/lib/ai/qcm-validate";
+import { DIFFS, generateQuestions, parseCount, recentStatements, type Difficulty } from "@/lib/ai/qcm-gen";
 import type { FormState } from "@/app/actions/auth";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const COUNTS = [5, 10, 20];
-const DIFFS = ["easy", "medium", "hard"];
 const KINDS = ["cm", "td", "tp"];
-const DIFF_RULE: Record<string, string> = {
-  easy: "EASY: direct recall of definitions and basic facts.",
-  medium: "MEDIUM: understanding and simple application; plausible distractors.",
-  hard: "HARD: multi-step reasoning, subtle distinctions, close distractors.",
-};
+const MINUTES = [0, 5, 10, 15, 20, 30, 45, 60];
+const MAX_QCM_LESSONS = 10;
 
 /**
  * QCM شخصي: أسئلة جديدة تُولَّد من نص الدروس المختارة للطالب وحده (3 نقاط)، بلا أي أثر على الترتيب المصنّف.
@@ -34,12 +28,13 @@ export async function generateQcm(_prev: FormState, fd: FormData): Promise<FormS
   const subjectId = String(fd.get("subject") ?? "");
   const kind = String(fd.get("kind") ?? "");
   const lessonIds = [...new Set(fd.getAll("lesson").map(String).filter((x) => UUID_RE.test(x)))];
-  const count = Number(fd.get("count"));
-  const difficulty = String(fd.get("difficulty") ?? "");
+  const count = parseCount(fd.get("count"), 1, 50);
+  const difficulty = String(fd.get("difficulty") ?? "") as Difficulty;
+  const minutes = Number(fd.get("minutes") ?? 0);
   const lang = asSessionLang(fd.get("lang"));
-  if (!UUID_RE.test(subjectId) || !COUNTS.includes(count) || !DIFFS.includes(difficulty) || (kind && !KINDS.includes(kind)))
+  if (!UUID_RE.test(subjectId) || count === null || !DIFFS.includes(difficulty) || !MINUTES.includes(minutes) || (kind && !KINDS.includes(kind)))
     return { error: t("common.error") };
-  if (!lessonIds.length || lessonIds.length > 6) return { error: lessonIds.length ? t("sum.tooMany").replace("{max}", "6") : t("sum.pickLessons") };
+  if (!lessonIds.length || lessonIds.length > MAX_QCM_LESSONS) return { error: lessonIds.length ? t("sum.tooMany").replace("{max}", String(MAX_QCM_LESSONS)) : t("sum.pickLessons") };
 
   const supabase = await createClient();
   // الدروس يجب أن تكون من المادة المختارة (ومن النوع إن حُدّد) وأن يقرأها الطالب (RLS)
@@ -52,42 +47,18 @@ export async function generateQcm(_prev: FormState, fd: FormData): Promise<FormS
 
   let setId: string | null = null;
   try {
-    const mat = await loadMaterial(supabase, lessonIds, 22_000);
+    const mat = await loadMaterial(supabase, lessonIds, 24_000);
     if (!mat?.text) { await refundPoints(spent.ledgerId); return { error: t("ai.err.noMaterial") }; }
 
     // لا نكرر ما سبق أن ولّدناه له في المادة نفسها
-    const { data: prev } = await supabase.from("ai_questions").select("statement").eq("subject_id", subjectId).order("created_at", { ascending: false }).limit(25);
-    const avoid = (prev ?? []).map((p) => `- ${String(p.statement).slice(0, 120)}`).join("\n");
-
-    const system = [
-      "You are Neuron. Write multiple-choice questions (QCM) ONLY from the COURSE EXTRACTS below; each must be answerable from them.",
-      `LANGUAGE: write the questions in ${LANG_NAME[lang]}. Technical terms stay in French as in the course. Math in LaTeX ($...$).`,
-      DIFF_RULE[difficulty],
-      `Return ONLY JSON: {"questions":[{"statement":"...","options":["A","B","C","D"],"correct_index":0,"explanation":"why the answer is right, 1-3 sentences","lesson":1,"page":3}]}`,
-      "Rules: exactly 4 options, exactly ONE correct (correct_index 0-3, vary its position), no 'all of the above', explanation required, 'lesson' = the [L#] number and 'page' = a page number that appears in the extract tags for that lesson.",
-      avoid ? `Do NOT repeat these earlier questions:\n${avoid}` : "",
-      "COURSE EXTRACTS:\n" + mat.text,
-    ].filter(Boolean).join("\n\n");
-
-    let good: GenQuestion[] = [];
-    for (let attempt = 0; attempt < 2 && good.length < Math.ceil(count * 0.8); attempt++) {
-      const need = count - good.length;
-      const { data } = await generateJson<{ questions?: RawQuestion[] }>({
-        system,
-        messages: [{ role: "user", text: `Write ${need} questions.` }],
-        maxTokens: Math.min(6000, 600 + need * 330),
-        temperature: 0.6,
-      }).catch(() => ({ data: { questions: [] } as { questions?: RawQuestion[] } }));
-      const seen = new Set(good.map((g) => g.statement.toLowerCase()));
-      for (const g of validateGenerated(data.questions ?? [], mat)) if (!seen.has(g.statement.toLowerCase())) good.push(g);
-    }
-    good = good.slice(0, count);
-    if (good.length < Math.min(3, count)) throw new Error("too_few_valid");
+    const good = await generateQuestions({ mat, count, difficulty, lang, avoid: await recentStatements(supabase, subjectId) });
+    // نقبل أقل قليلًا من المطلوب (80%) لكن لا أقل من سؤال، ونحفظ العدد الفعلي
+    if (good.length < Math.max(1, Math.ceil(count * 0.8))) throw new Error("too_few_valid");
 
     const { data: coh } = await supabase.from("profiles").select("cohort_id").eq("id", userId).maybeSingle();
     const { data: set, error } = await supabase
       .from("ai_qcm_sets")
-      .insert({ user_id: userId, cohort_id: coh?.cohort_id, subject_id: subjectId, kind: kind || null, lesson_ids: lessonIds, question_count: count, difficulty })
+      .insert({ user_id: userId, cohort_id: coh?.cohort_id, subject_id: subjectId, kind: kind || null, lesson_ids: lessonIds, question_count: good.length, difficulty })
       .select("id").single();
     if (error || !set) throw new Error(error?.message ?? "set_failed");
     setId = set.id as string;
@@ -106,7 +77,7 @@ export async function generateQcm(_prev: FormState, fd: FormData): Promise<FormS
   }
   await flushAiStats(supabase);
   revalidatePath("/assistant/qcm");
-  redirect(`/assistant/qcm/${setId}`);
+  redirect(`/assistant/qcm/${setId}${minutes ? `?t=${minutes}` : ""}`);
 }
 
 export async function answerAiQuestion(questionId: string, selected: number): Promise<{ ok: boolean; correct?: boolean; correctIndex?: number; explanation?: string }> {
