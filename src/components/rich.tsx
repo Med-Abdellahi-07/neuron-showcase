@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { normalizeMath } from "@/lib/math";
 
 /** يعرض Markdown مع معادلات KaTeX وأكواد. المحتوى الدراسي بالفرنسية، لذا dir=auto. */
 export function Rich({ children }: { children: string }) {

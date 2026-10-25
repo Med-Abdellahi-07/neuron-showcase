@@ -10,6 +10,7 @@ import { Camera, Check, Copy, ImagePlus, Send, Square, X } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 import "katex/dist/katex.min.css";
+import { normalizeMath } from "@/lib/math";
 
 export interface ChatSource {
   id: string;
@@ -146,7 +147,7 @@ function Markdown({ text, sources }: { text: string; sources: ChatSource[] }) {
           },
         }}
       >
-        {withCitations(text)}
+        {withCitations(normalizeMath(text))}
       </ReactMarkdown>
     </div>
   );
