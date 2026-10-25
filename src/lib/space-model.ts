@@ -4,11 +4,11 @@ import type { Locale } from "@/lib/i18n/dictionaries";
  * «الفضاء» = تخصص × مستوى (صف في جدول cohorts). ميزاته (الخطة) علامات منفصلة يغيّرها المشرف العام:
  *   ai          المساعد الذكي والتحليل وكل ما يستدعي الذكاء الاصطناعي
  *   arena       الاختبار المصنّف          ranking  الترتيب          duel  Duel
- *   review      مراجعة الأخطاء            recordings التسجيلات     qcm_pdf تنزيل QCM كملف PDF
+ *   review      مراجعة الأخطاء            recordings التسجيلات     qcm_pdf تنزيل QCM كملف PDF   chat الدردشة الجماعية
  *   written     التمارين المكتوبة
  * الفرض الحقيقي في قاعدة البيانات (0018)؛ هنا نخفي الواجهة ونرفض في الخادم قبل الوصول إليها.
  */
-export const FEATURES = ["ai", "arena", "ranking", "duel", "review", "recordings", "qcm_pdf", "written"] as const;
+export const FEATURES = ["ai", "arena", "ranking", "duel", "review", "recordings", "qcm_pdf", "written", "chat"] as const;
 export type Feature = (typeof FEATURES)[number];
 export type FeatureMap = Record<Feature, boolean>;
 export type PlanCode = "full" | "basic" | "custom";

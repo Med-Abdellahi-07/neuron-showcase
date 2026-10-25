@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Megaphone, Pin } from "lucide-react";
+import { Megaphone, MessagesSquare, Pin } from "lucide-react";
 import { ProgressRing } from "@/components/progress-ring";
 import { ClayBolt, ClayBook, ClayCalendar, ClayCap, ClayCheck, ClayFlame } from "@/components/clay";
 import { Tilt } from "@/components/tilt";
@@ -245,6 +245,17 @@ export default async function HomePage() {
                 {soonest && <span className="tech text-xs text-muted" dir="ltr">{hoursLeft(soonest.expires_at)}h</span>}
               </span>
               <span className="text-[13px] font-semibold text-accent">{t("home.start")}</span>
+            </Link>
+          )}
+
+          {features?.chat && (
+            <Link href="/chat" className="press flex items-center gap-3 rounded-[22px] bg-surface p-3.5">
+              <span className="flex size-[42px] items-center justify-center rounded-[14px] bg-accent-soft text-accent"><MessagesSquare size={20} aria-hidden /></span>
+              <span className="flex grow flex-col">
+                <span className="text-sm font-semibold">{t("sc.title")}</span>
+                <span className="text-xs text-muted">{t("sc.homeHint")}</span>
+              </span>
+              <span className="text-[13px] font-semibold text-accent">{t("sc.open")}</span>
             </Link>
           )}
 
