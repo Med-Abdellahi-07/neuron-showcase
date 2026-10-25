@@ -3,11 +3,14 @@
  * حتى يعرضها KaTeX دائمًا بدل نص خام مثل {}^* أو \frac{a}{b}.
  * الأكواد (``` و `...`) لا تُمَسّ.
  */
-const TOKEN = String.raw`(?:\\[a-zA-Z]+(?:\{[^{}]*\})*|[\^_]\{[^{}]*\}|\{\}[\^_]\S?)`;
-const BARE = new RegExp(String.raw`(?:[A-Za-z0-9=+\-*/<>()]*${TOKEN})+(?:[A-Za-z0-9=+\-*/<>()]*[A-Za-z0-9)])?`, "g");
+// وحدات الصيغة: أمر LaTeX (مع وسيط حرف مفرد اختياري مثل \hat y)، أس/دليل، أو حرف رياضي ملاصق
+const ATOM = String.raw`\\[a-zA-Z]+(?:\{[^{}]*\})*(?: ?[A-Za-z0-9])?|[\^_](?:\{[^{}]*\}|[A-Za-z0-9])|\{\}(?:[\^_](?:\{[^{}]*\}|[A-Za-z0-9*+\-']))?|[A-Za-z0-9()+\-*/=<>|]`;
+const RUN = new RegExp(`(?:${ATOM})+`, "g");
+// لا نلفّ إلا إن وُجد أمر LaTeX أو أس/دليل بأقواس، حتى لا تتحول snake_case العادية إلى معادلات
+const STRONG = /\\[a-zA-Z]|[\^_]\{|\{\}/;
 
 function bare(text: string): string {
-  return text.replace(BARE, (m) => `$${m}$`);
+  return text.replace(RUN, (m) => (STRONG.test(m) ? `$${m}$` : m));
 }
 
 function plain(text: string): string {

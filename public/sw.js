@@ -1,12 +1,13 @@
 // Service worker بسيط: يجعل التطبيق قابلاً للتثبيت ويخزّن الأصول الثابتة فقط.
-// لا يخزّن صفحات أو بيانات (كلها خاصة بالمستخدم).
-const CACHE = "neuron-static-v1";
+// الصفحات الخاصة لا تُخزَّن؛ الاستثناء الوحيد /offline (قشرة بلا بيانات، المحتوى في IndexedDB).
+const CACHE = "neuron-static-v2";
+const PAGES = "neuron-offline-page-v1";
 
 self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== PAGES).map((k) => caches.delete(k)))).then(() => self.clients.claim())
   );
 });
 
@@ -15,6 +16,35 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // صفحة /offline فقط (بلا بيانات خاصة): الشبكة أولًا ثم الكاش. وأي تنقّل يفشل بلا نت يعرض /offline.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (url.pathname === "/offline" && res.ok) {
+            const copy = res.clone();
+            caches.open(PAGES).then((c) => c.put("/offline", copy));
+          }
+          return res;
+        })
+        .catch(() => caches.open(PAGES).then((c) => c.match("/offline")).then((r) => r || Response.error()))
+    );
+    return;
+  }
+  if (url.pathname === "/offline") {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(PAGES).then((c) => c.put("/offline", copy));
+          }
+          return res;
+        })
+        .catch(() => caches.open(PAGES).then((c) => c.match("/offline")).then((r) => r || Response.error()))
+    );
+    return;
+  }
   if (!url.pathname.startsWith("/_next/static/") && !url.pathname.startsWith("/icons/")) return;
   event.respondWith(
     caches.open(CACHE).then(async (cache) => {
