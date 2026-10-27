@@ -1,12 +1,11 @@
-import { OfflineLibrary } from "@/components/offline-library";
+import { OfflineApp } from "@/components/offline-app";
 
-export const metadata = { title: "Offline" };
+export const metadata = { title: { absolute: "Neuron" } };
 
-/** صفحة المحفوظات: لا بيانات خاصة في HTML (كل شيء يُقرأ من الجهاز) فيصح تخزينها في كاش الـservice worker */
+/**
+ * التطبيق المحلي: لا بيانات خاصة في HTML (كل شيء يُقرأ من IndexedDB)، فيصح تخزينه في كاش الـservice worker
+ * ويُقدَّم عند تشغيل التطبيق بلا إنترنت (start_url).
+ */
 export default function OfflinePage() {
-  return (
-    <main className="mx-auto w-full max-w-2xl space-y-5 px-4 py-6">
-      <OfflineLibrary />
-    </main>
-  );
+  return <OfflineApp />;
 }

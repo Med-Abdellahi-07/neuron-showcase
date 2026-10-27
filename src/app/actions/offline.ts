@@ -64,6 +64,7 @@ export async function prepareOfflinePack(lessonId: string, withQuestions: boolea
       kind: lesson.kind as string,
       number: lesson.number as number,
       subject: subject?.name ?? "",
+      subjectCode: subject?.code ?? undefined,
       pdfs,
       questions,
       summaries,

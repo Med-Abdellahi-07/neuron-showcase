@@ -5,7 +5,6 @@ import Link from "next/link";
 import { CloudDownload, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { prepareOfflinePack } from "@/app/actions/offline";
 import { getPack, removePack, savePack } from "@/lib/offline/db";
-import { primeOfflineShell } from "@/lib/offline/prime";
 import { useT } from "@/lib/i18n/client";
 
 type State = "idle" | "busy" | "saved" | "error";
@@ -41,7 +40,6 @@ export function OfflineButton({ lessonId, withQuestions }: { lessonId: string; w
         return;
       }
       await savePack({ ...res.pack, pdfs, savedAt: Date.now() });
-      await primeOfflineShell().catch(() => {});
       try { await navigator.storage?.persist?.(); } catch { /* اختياري */ }
       if (res.qNote) setNote(t(res.qNote === "limit" ? "off.qLimit" : res.qNote === "none" || res.qNote === "off" ? "off.qNone" : "off.qErr"));
       setState("saved");

@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/actions/auth";
+import { LogoutForm } from "@/components/logout-button";
 import { LangSwitch } from "@/components/lang-switch";
 import { ENGLISH_CODE } from "@/lib/constants";
 import { getSubjectByCode } from "@/lib/data";
@@ -87,9 +88,7 @@ export default async function ProfilePage() {
         <PasswordForm />
       </section>
 
-      <form action={logout}>
-        <button className="btn btn-danger w-full">{t("profile.logout")}</button>
-      </form>
+      <LogoutForm action={logout} label={t("profile.logout")} />
     </div>
   );
 }

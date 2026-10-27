@@ -7,10 +7,13 @@ import { OfflineBanner } from "@/components/offline-banner";
 import type { Locale } from "@/lib/i18n/dictionaries";
 
 export function Providers({ locale, children }: { locale: Locale; children: ReactNode }) {
+  // يُسجَّل من أول تحميل لأي صفحة (حتى /login): أول زيارة تُثبّت قشرة التطبيق المحلية في الخلفية
   useEffect(() => {
-    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    if (!("serviceWorker" in navigator) || process.env.NODE_ENV !== "production") return;
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
+      .then((reg) => reg.update().catch(() => {})) // كل فتح للتطبيق يفحص وجود نسخة جديدة
+      .catch(() => {});
   }, []);
 
   return (

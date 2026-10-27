@@ -32,6 +32,8 @@ interface Props {
   admin?: AdminProps;
   /** الطالب: تنقّل الأسابيع (يظهر تحت العنوان في الرأس) */
   weekNav?: React.ReactNode;
+  /** النسخة المحلية بلا إنترنت: بلا روابط لصفحات الخادم، والرجوع يُدار من الأب */
+  offline?: { onBack: () => void; backLabel: string };
 }
 
 interface Sel {
@@ -138,7 +140,7 @@ function SessionBlock({
 }
 
 /** تفاصيل حصة واحدة داخل النافذة */
-function SessionDetails({ s, mode }: { s: GridSession; mode: "student" | "admin" }) {
+function SessionDetails({ s, mode, offline }: { s: GridSession; mode: "student" | "admin"; offline?: boolean }) {
   const { t, locale } = useT();
   const slot = SLOTS.find((x) => x.n === s.slot);
   const cancelled = s.status === "cancelled";
@@ -175,7 +177,7 @@ function SessionDetails({ s, mode }: { s: GridSession; mode: "student" | "admin"
           {s.note}
         </p>
       )}
-      {mode === "student" && s.subjectCode && (
+      {mode === "student" && !offline && s.subjectCode && (
         <Link href={`/subjects/${s.subjectCode}`} className="btn btn-sm btn-primary w-full">
           {t("schedule.subjectPage")}
         </Link>
@@ -247,7 +249,7 @@ function AddForm({ admin, date, slot }: { admin: AdminProps; date: string; slot:
   );
 }
 
-export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initialView = "day", admin, weekNav }: Props) {
+export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initialView = "day", admin, weekNav, offline }: Props) {
   const { t, locale } = useT();
   const now = useNow(tz, { today, hm: nowHM });
   const [view, setView] = useState<ScheduleView>(mode === "admin" ? "grid" : initialView);
@@ -289,7 +291,13 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
     <div className="space-y-3">
       {mode === "student" && (
         <header className="flex items-center justify-between">
-          <BackButton />
+          {offline ? (
+            <button type="button" onClick={offline.onBack} aria-label={offline.backLabel} className="press flex size-[42px] items-center justify-center rounded-[14px] bg-surface text-fg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="ltr:-scale-x-100"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+          ) : (
+            <BackButton />
+          )}
           <div className="flex flex-col items-center">
             <h1 className="m-0 text-lg font-semibold">{t("schedule.title")}</h1>
             {weekNav}
@@ -426,7 +434,7 @@ export function ScheduleGrid({ mode, monday, today, nowHM, tz, sessions, initial
               <div className="space-y-3">
                 {mode === "admin" && <h3 className="text-xs font-semibold text-muted">{t("sa.cellSessions")}</h3>}
                 {selSessions.map((s) => (
-                  <SessionDetails key={s.id} s={s} mode={mode} />
+                  <SessionDetails key={s.id} s={s} mode={mode} offline={!!offline} />
                 ))}
               </div>
             )}

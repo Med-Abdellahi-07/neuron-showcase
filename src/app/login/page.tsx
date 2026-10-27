@@ -6,6 +6,7 @@ import { SPACE_COOKIE, type Directory } from "@/lib/spaces";
 import { LoginShell } from "./login-shell";
 import { LoginForm } from "./login-form";
 import { SpaceLogin } from "./space-login";
+import { OfflineLoginGuard } from "@/components/offline-login-guard";
 
 export default async function LoginPage() {
   const { t } = await getT();
@@ -19,6 +20,7 @@ export default async function LoginPage() {
   return (
     <LoginShell lang={<LangSwitch />} title={t("login.title")} subtitle={t("login.subtitle")}>
       {directory && directory.institutions.length > 0 ? <SpaceLogin directory={directory} initialSpaceId={remembered} /> : <LoginForm />}
+      <OfflineLoginGuard />
     </LoginShell>
   );
 }
