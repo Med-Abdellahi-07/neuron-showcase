@@ -5,6 +5,7 @@ import { requireUserId } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { StudiedButton } from "@/components/studied-button";
+import { LessonVisit } from "@/components/lesson-visit";
 import { OfflineButton } from "@/components/offline-button";
 import { RecordingList, type RecordingRow } from "@/components/recording-list";
 import type { Mark } from "@/components/recording-player";
@@ -88,6 +89,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
         {lesson.status !== "published" && <span className="badge mt-2">{t(`status.${lesson.status}`)}</span>}
       </div>
 
+      <LessonVisit id={lesson.id} title={lesson.title} kind={lesson.kind} number={lesson.number} subject={subject.name} />
       <StudiedButton lessonId={lesson.id} studied={!!prog} />
       <OfflineButton lessonId={lesson.id} withQuestions={!!features?.qcm_pdf} />
 

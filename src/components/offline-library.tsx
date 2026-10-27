@@ -1,92 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, CloudOff, ExternalLink, FileText, ListChecks, NotebookText, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ExternalLink, FileText, ListChecks, NotebookText } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
-import { addScore, listPacks, listScores, removePack, storageEstimate } from "@/lib/offline/db";
 import { gradeLocal } from "@/lib/offline/grade";
 import type { OfflinePack, OfflineQuestion, OfflineScore } from "@/lib/offline/types";
 import { Rich } from "@/components/rich";
 import { Flashcards } from "@/components/flashcards";
 
-const mb = (n: number) => `${(n / 1048576).toFixed(n > 10485760 ? 0 : 1)} MB`;
-const packSize = (p: OfflinePack) => p.pdfs.reduce((a, f) => a + f.blob.size, 0);
-
-export function OfflineLibrary() {
-  const { t } = useT();
-  const [packs, setPacks] = useState<OfflinePack[] | null>(null);
-  const [scores, setScores] = useState<OfflineScore[]>([]);
-  const [open, setOpen] = useState<string | null>(null);
-  const [est, setEst] = useState<{ used: number; quota: number } | null>(null);
-  const [online, setOnline] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
-      setPacks((await listPacks()).sort((a, b) => b.savedAt - a.savedAt));
-      setScores(await listScores());
-    } catch {
-      setPacks([]);
-    }
-    setEst(await storageEstimate());
-  }, []);
-
-  useEffect(() => {
-    // قراءة IndexedDB (نظام خارجي) ثم ضبط الحالة
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-    const up = () => setOnline(navigator.onLine);
-    up();
-    window.addEventListener("online", up);
-    window.addEventListener("offline", up);
-    return () => { window.removeEventListener("online", up); window.removeEventListener("offline", up); };
-  }, [load]);
-
-  const pack = packs?.find((p) => p.id === open) ?? null;
-
-  if (pack)
-    return (
-      <PackView
-        pack={pack}
-        scores={scores.filter((s) => s.lessonId === pack.id)}
-        onBack={() => setOpen(null)}
-        onScore={async (s) => { await addScore(s); setScores(await listScores()); }}
-      />
-    );
-
-  return (
-    <>
-      <header className="space-y-1">
-        <h1 className="page-title !mb-0 flex items-center gap-2"><CloudOff size={22} aria-hidden /> {t("off.title")}</h1>
-        <p className="text-sm text-muted">{online ? t("off.onlineHint") : t("off.offlineHint")}</p>
-        {est && est.quota > 0 && <p className="tech text-xs text-muted" dir="ltr">{mb(est.used)} / {mb(est.quota)}</p>}
-      </header>
-
-      {packs === null && <p className="text-sm text-muted">…</p>}
-      {packs?.length === 0 && <p className="card text-sm text-muted">{t("off.empty")}</p>}
-      <ul className="space-y-2">
-        {packs?.map((p) => (
-          <li key={p.id} className="card flex items-center gap-3 !p-3">
-            <button type="button" onClick={() => setOpen(p.id)} className="min-w-0 flex-1 text-start">
-              <span className="block truncate text-sm font-semibold" dir="auto">{p.kind.toUpperCase()} {p.number} — {p.title}</span>
-              <span className="block truncate text-xs text-muted" dir="auto">
-                {p.subject} · {p.pdfs.length} PDF · {p.questions.length} QCM · {p.summaries.length} {t("off.summaries")} · {mb(packSize(p))}
-              </span>
-            </button>
-            <button type="button" className="btn btn-sm !px-2" aria-label={t("off.remove")} onClick={async () => { await removePack(p.id); load(); }}>
-              <Trash2 size={14} aria-hidden />
-            </button>
-          </li>
-        ))}
-      </ul>
-      {online && <Link href="/" className="btn w-full"><ArrowLeft size={16} className="rtl:rotate-180" aria-hidden /> {t("off.backApp")}</Link>}
-    </>
-  );
-}
+export const mb = (n: number) => `${(n / 1048576).toFixed(n > 10485760 ? 0 : 1)} MB`;
+export const packSize = (p: OfflinePack) => p.pdfs.reduce((a, f) => a + f.blob.size, 0);
 
 type Tab = "pdf" | "qcm" | "sum";
 
-function PackView({ pack, scores, onBack, onScore }: { pack: OfflinePack; scores: OfflineScore[]; onBack: () => void; onScore: (s: OfflineScore) => Promise<void> }) {
+export function PackView({ pack, scores, onBack, onScore }: { pack: OfflinePack; scores: OfflineScore[]; onBack: () => void; onScore: (s: OfflineScore) => Promise<void> }) {
   const { t } = useT();
   const first: Tab = pack.pdfs.length ? "pdf" : pack.questions.length ? "qcm" : "sum";
   const [tab, setTab] = useState<Tab>(first);
@@ -97,7 +24,7 @@ function PackView({ pack, scores, onBack, onScore }: { pack: OfflinePack; scores
   ];
   return (
     <>
-      <button type="button" onClick={onBack} className="text-sm text-accent">← {t("off.title")}</button>
+      <button type="button" onClick={onBack} className="text-sm text-accent">← {t("off.myLessons")}</button>
       <h1 className="page-title !mb-0" dir="auto">{pack.kind.toUpperCase()} {pack.number} — {pack.title}</h1>
       <div role="tablist" className="flex gap-2">
         {tabs.map((x) => (

@@ -30,6 +30,9 @@ function dismiss() {
   listeners.forEach((l) => l());
 }
 
+/** التطبيق المحلي يُخفي الشاشة فورًا: لا ننتظر 2.5 ثانية لرؤية الجدول بلا إنترنت */
+export const dismissSplash = dismiss;
+
 export function Splash() {
   const { t } = useT();
   const show = useSyncExternalStore(subscribe, snapshot, () => false);

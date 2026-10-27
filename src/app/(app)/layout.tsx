@@ -5,6 +5,8 @@ import { getSpaceOptions } from "@/lib/space-options";
 import { SpaceSwitcher } from "@/components/space-switcher";
 import { getT } from "@/lib/i18n/server";
 import { logout } from "@/app/actions/auth";
+import { LogoutForm } from "@/components/logout-button";
+import { OfflineSync } from "@/components/offline-sync";
 import { BottomNav, SideNav } from "@/components/app-nav";
 import { Logo } from "@/components/logo";
 import { BackButton } from "@/components/back-button";
@@ -21,9 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 px-5 text-center">
         <Logo />
         <p className="text-sm text-muted">{t("common.error")}</p>
-        <form action={logout}>
-          <button className="btn w-full">{t("profile.logout")}</button>
-        </form>
+        <LogoutForm action={logout} label={t("profile.logout")} />
       </main>
     );
   }
@@ -71,6 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <BottomNav ai={ai} />
       <SeenPing />
+      <OfflineSync />
     </div>
   );
 }
