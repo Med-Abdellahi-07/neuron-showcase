@@ -7,10 +7,6 @@ import { createClient } from "@/lib/supabase/browser";
 import { registerFile } from "@/app/actions/content";
 import { useT } from "@/lib/i18n/client";
 
-/** يطابق حد قاعدة البيانات ودلو التخزين (0020): 15MB لأي ملف */
-export const MAX_FILE_MB = 15;
-const MAX_BYTES = MAX_FILE_MB * 1024 * 1024;
-
 function safeName(name: string) {
   return name.replace(/[^\w.\-]+/g, "_").slice(-120) || "file";
 }
@@ -28,8 +24,6 @@ export function FileUploader({ lessonId }: { lessonId: string }) {
     const file = inputRef.current?.files?.[0];
     if (!file) return;
     setError("");
-    if (file.size > MAX_BYTES)
-      return setError(t("content.fileTooBig").replace("{max}", String(MAX_FILE_MB)).replace("{size}", (file.size / 1048576).toFixed(1)));
     if (kind === "pdf" && !/\.pdf$/i.test(file.name)) return setError(t("content.pdfOnly"));
 
     setBusy(true);
@@ -40,8 +34,9 @@ export function FileUploader({ lessonId }: { lessonId: string }) {
     });
     if (upErr) {
       setBusy(false);
+      // لا حد من التطبيق؛ قد يرفض الخادم حجمًا يتجاوز حد مشروع التخزين العام
       const tooBig = /exceeded|too large|413|maximum allowed/i.test(`${upErr.message} ${(upErr as { statusCode?: string }).statusCode ?? ""}`);
-      return setError(tooBig ? t("content.fileTooBig").replace("{max}", String(MAX_FILE_MB)).replace("{size}", (file.size / 1048576).toFixed(1)) : t("common.error"));
+      return setError(tooBig ? t("content.fileTooBig").replace("{size}", (file.size / 1048576).toFixed(1)) : t("common.error"));
     }
     const res = await registerFile({ lessonId, kind, name: file.name, path, size: file.size });
     setBusy(false);
