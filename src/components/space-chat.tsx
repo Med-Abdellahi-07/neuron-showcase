@@ -254,7 +254,7 @@ function ChatText({ text }: { text: string }) {
         if (!/[\\^_{}=<>+\-*/]/.test(tex) && tex.trim().length > 2) return p; // «$5 و $6» نص عادي لا معادلة
         try {
           const html = katex.renderToString(tex, { displayMode: display, throwOnError: true, trust: false, strict: "ignore", maxExpand: 200 });
-          return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+          return <span key={i} dir="ltr" style={{ unicodeBidi: "isolate", display: display ? "block" : "inline-block" }} dangerouslySetInnerHTML={{ __html: html }} />;
         } catch {
           return p;
         }

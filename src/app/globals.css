@@ -213,8 +213,14 @@ body {
 }
 
 /* KaTeX داخل النص RTL */
-.katex {
+.katex,
+.katex-display {
   direction: ltr;
+  unicode-bidi: isolate;
+}
+.katex {
+  display: inline-block; /* كتلة سطرية واحدة: لا تتشظّى عند التفاف السطر في RTL */
+  white-space: nowrap;
 }
 .rich p {
   margin-block: 0.5rem;
@@ -581,4 +587,9 @@ body {
   .trophy, .halo, .med { animation: none; }
   .cf2 { display: none; }
   .plx, .tilt { transition: none; }
+}
+
+/* شريط «لا اتصال» لا يظهر داخل تطبيق /offline المحلي (يُخدَم من الـSW على مسار "/" فلا يكفي فحص المسار) */
+body:has([data-offline-app]) .offline-banner {
+  display: none;
 }

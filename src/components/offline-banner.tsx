@@ -19,7 +19,7 @@ export function OfflineBanner() {
   const path = usePathname();
   if (online || path.startsWith("/offline")) return null;
   return (
-    <Link href="/offline" className="fixed inset-x-3 bottom-24 z-50 flex items-center gap-2 rounded-2xl bg-[var(--deep)] px-4 py-3 text-sm font-medium text-white shadow-lg" role="status">
+    <Link href="/offline" className="offline-banner fixed inset-x-3 bottom-24 z-50 flex items-center gap-2 rounded-2xl bg-[var(--deep)] px-4 py-3 text-sm font-medium text-white shadow-lg" role="status">
       <WifiOff size={16} aria-hidden /> {t("off.banner")}
     </Link>
   );
