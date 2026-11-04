@@ -1,5 +1,6 @@
 "use server";
 
+import { partPath } from "@/lib/big-file";
 import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 import { getSubjectById } from "@/lib/data";
@@ -21,16 +22,24 @@ export async function prepareOfflinePack(lessonId: string, withQuestions: boolea
   if (!lesson) return { ok: false, error: "not_found" };
 
   const [{ data: files }, subject, { data: sums }] = await Promise.all([
-    supabase.from("lesson_files").select("name, storage_path, kind").eq("lesson_id", lessonId).eq("kind", "pdf").order("created_at"),
+    supabase.from("lesson_files").select("name, storage_path, kind, part_count, part_sha256").eq("lesson_id", lessonId).eq("kind", "pdf").order("created_at"),
     getSubjectById(lesson.subject_id as string),
     supabase.from("ai_summaries").select("id, title, kind, content, cards").eq("user_id", userId).contains("lesson_ids", [lessonId]),
   ]);
 
   const list = files ?? [];
-  const signed = list.length ? await supabase.storage.from("lesson-files").createSignedUrls(list.map((f) => f.storage_path as string), 600) : null;
-  const pdfs = list.flatMap((f, i) => {
-    const url = signed?.data?.[i]?.signedUrl;
-    return url ? [{ name: f.name as string, url }] : [];
+  // الملف المجزّأ: نوقّع كل جزء؛ المتصفح يجلبها ويضمّها في Blob واحد
+  const paths = list.flatMap((f) => ((f.part_count as number) > 1 ? Array.from({ length: f.part_count as number }, (_, i) => partPath(f.storage_path as string, i)) : [f.storage_path as string]));
+  const signed = list.length ? await supabase.storage.from("lesson-files").createSignedUrls(paths, 3600) : null;
+  let k = 0;
+  const pdfs = list.flatMap((f) => {
+    const n = (f.part_count as number) > 1 ? (f.part_count as number) : 1;
+    const urls = (signed?.data ?? []).slice(k, k + n).map((s) => s.signedUrl ?? "");
+    k += n;
+    if (urls.length !== n || !urls.every(Boolean)) return [];
+    return n > 1
+      ? [{ name: f.name as string, url: urls[0], parts: urls, hashes: (f.part_sha256 as string[] | null) ?? undefined }]
+      : [{ name: f.name as string, url: urls[0] }];
   });
 
   let questions: OfflineQuestion[] = [];

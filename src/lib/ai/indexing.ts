@@ -36,12 +36,44 @@ export function chunkText(text: string): string[] {
   return out;
 }
 
+type Admin = ReturnType<typeof createAdminClient>;
+
+/** يضمّن مقاطع النص ويحفظها (بلا حذف سابق). فشل التضمين لا يمنع الحفظ (يعمل البحث النصي) ويُعاد سببه. */
+export async function embedAndStore(
+  admin: Admin,
+  ctx: { fileId: string; lessonId: string; subjectId: string },
+  items: { page: number; index: number; text: string }[]
+): Promise<{ vectors: boolean; embedError?: string } | { fatal: string }> {
+  let vectors: number[][] | null = null;
+  let embedError: string | undefined;
+  try {
+    vectors = await geminiEmbed(items.map((i) => i.text), "RETRIEVAL_DOCUMENT");
+  } catch (e) {
+    const info = errorInfo(e, "gemini");
+    embedError = `التضمين فشل (${info.status}): ${info.message}`.slice(0, 400);
+  }
+  for (let i = 0; i < items.length; i += 100) {
+    const rows = items.slice(i, i + 100).map((it, k) => ({
+      lesson_id: ctx.lessonId,
+      file_id: ctx.fileId,
+      subject_id: ctx.subjectId,
+      page: it.page,
+      chunk_index: it.index,
+      content: it.text,
+      embedding: vectors ? `[${vectors[i + k].join(",")}]` : null,
+    }));
+    const { error } = await admin.from("lesson_chunks").insert(rows);
+    if (error) return { fatal: `تعذّر حفظ المقاطع: ${error.message}` };
+  }
+  return { vectors: !!vectors, embedError };
+}
+
 /** يستخرج نص PDF (صفحة بصفحة) ويقسمه ويضمّنه ويخزنه. يعمل بصلاحية service role، فيُستدعى بعد التحقق من الصلاحية. */
 export async function indexFile(fileId: string): Promise<IndexResult> {
   const admin = createAdminClient();
   const { data: file } = await admin
     .from("lesson_files")
-    .select("id, lesson_id, kind, storage_path, lessons(subject_id)")
+    .select("id, lesson_id, kind, storage_path, part_count, lessons(subject_id)")
     .eq("id", fileId)
     .maybeSingle();
   if (!file || file.kind !== "pdf") return { pages: 0, chunks: 0, embedded: false, error: "ليس ملف PDF" };
@@ -54,6 +86,7 @@ export async function indexFile(fileId: string): Promise<IndexResult> {
     return { pages: 0, chunks: 0, embedded: false, error: message };
   };
 
+  if ((file.part_count as number) > 1) return fail("ملف مجزّأ: تتم فهرسته من المتصفح أثناء الرفع");
   const dl = await admin.storage.from("lesson-files").download(file.storage_path as string);
   if (dl.error || !dl.data) return fail(`تعذّر تنزيل الملف: ${dl.error?.message ?? ""}`);
 
@@ -72,33 +105,13 @@ export async function indexFile(fileId: string): Promise<IndexResult> {
     return fail("لا نص قابل للاستخراج في الملف (قد يكون صورة ممسوحة ضوئياً). أعد رفعه بنسخة نصية.");
   }
 
-  // التضمين: إن فشل نحفظ المقاطع بلا متجهات (يعمل البحث النصي) ونسجّل السبب
-  let vectors: number[][] | null = null;
-  let embedError: string | undefined;
-  try {
-    vectors = await geminiEmbed(items.map((i) => i.text), "RETRIEVAL_DOCUMENT");
-  } catch (e) {
-    const info = errorInfo(e, "gemini");
-    embedError = `التضمين فشل (${info.status}): ${info.message}`.slice(0, 400);
-  }
-
   await admin.from("lesson_chunks").delete().eq("file_id", fileId);
-  for (let i = 0; i < items.length; i += 100) {
-    const rows = items.slice(i, i + 100).map((it, k) => ({
-      lesson_id: file.lesson_id,
-      file_id: fileId,
-      subject_id: subjectId,
-      page: it.page,
-      chunk_index: it.index,
-      content: it.text,
-      embedding: vectors ? `[${vectors[i + k].join(",")}]` : null,
-    }));
-    const { error } = await admin.from("lesson_chunks").insert(rows);
-    if (error) return fail(`تعذّر حفظ المقاطع: ${error.message}`);
-  }
+  const stored = await embedAndStore(admin, { fileId, lessonId: file.lesson_id as string, subjectId }, items);
+  if ("fatal" in stored) return fail(stored.fatal);
+  const { vectors, embedError } = stored;
   await admin
     .from("lesson_files")
     .update({ indexed_at: new Date().toISOString(), index_error: embedError ?? null })
     .eq("id", fileId);
-  return { pages: pages.length, chunks: items.length, embedded: !!vectors, error: embedError };
+  return { pages: pages.length, chunks: items.length, embedded: vectors, error: embedError };
 }

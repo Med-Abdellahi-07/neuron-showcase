@@ -1,3 +1,5 @@
+import { partPath } from "@/lib/big-file";
+import { BigFileViewer } from "@/components/big-file-viewer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Bot, Download, Dumbbell, FileDown, ExternalLink, FileText, NotebookPen, Video } from "lucide-react";
@@ -41,6 +43,8 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
   const recFilter = lesson.lesson_date
     ? `lesson_id.eq.${lesson.id},and(subject_id.eq.${lesson.subject_id},kind.eq.${lesson.kind},rec_date.eq.${lesson.lesson_date})`
     : `lesson_id.eq.${lesson.id}`;
+  // الملف المجزّأ: يُوقَّع كل جزء (part-001…) بدل المسار الأساسي
+  const signPaths = files.flatMap((f) => (f.part_count > 1 ? Array.from({ length: f.part_count }, (_, i) => partPath(f.storage_path, i)) : [f.storage_path]));
   const [{ data: resumeRow }, signed, subject, { data: recRows }] = await Promise.all([
     lesson.kind === "resume"
       ? Promise.resolve({ data: null })
@@ -53,7 +57,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
           .eq("status", "published")
           .maybeSingle(),
     files.length
-      ? supabase.storage.from("lesson-files").createSignedUrls(files.map((f) => f.storage_path), 3600)
+      ? supabase.storage.from("lesson-files").createSignedUrls(signPaths, 3600)
       : Promise.resolve(null),
     getSubjectById(lesson.subject_id),
     lesson.kind === "resume"
@@ -70,9 +74,18 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
 
   // روابط موقّعة لمدة ساعة
   const urls = new Map<string, string>();
-  signed?.data?.forEach((s, i) => {
-    if (s.signedUrl) urls.set(files[i].id, s.signedUrl);
-  });
+  const partUrls = new Map<string, string[]>();
+  {
+    let k = 0;
+    for (const f of files) {
+      const n = f.part_count > 1 ? f.part_count : 1;
+      const list = (signed?.data ?? []).slice(k, k + n).map((s) => s.signedUrl ?? "");
+      k += n;
+      if (f.part_count > 1) {
+        if (list.length === n && list.every(Boolean)) partUrls.set(f.id, list);
+      } else if (list[0]) urls.set(f.id, list[0]);
+    }
+  }
   const pdfs = files.filter((f) => f.kind === "pdf");
   const others = files.filter((f) => f.kind !== "pdf");
 
@@ -108,6 +121,10 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
         </h2>
         {pdfs.length === 0 && <p className="card text-sm text-muted">{t("lesson.noPdf")}</p>}
         {pdfs.map((f) => {
+          if (f.part_count > 1) {
+            const pu = partUrls.get(f.id);
+            return pu ? <BigFileViewer key={f.id} name={f.name} urls={pu} hashes={f.part_sha256} size={f.size_bytes ?? 0} kind="pdf" /> : null;
+          }
           const url = urls.get(f.id);
           const viewUrl = url && pdfHash && f.id === pdfs[0].id ? url + pdfHash : url;
           return (
@@ -144,7 +161,11 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
             )}
           </div>
           <ul className="space-y-2">
-            {others.map((f) => (
+            {others.filter((f) => f.part_count > 1).map((f) => {
+              const pu = partUrls.get(f.id);
+              return pu ? <li key={f.id}><BigFileViewer name={f.name} urls={pu} hashes={f.part_sha256} size={f.size_bytes ?? 0} kind="other" /></li> : null;
+            })}
+            {others.filter((f) => f.part_count <= 1).map((f) => (
               <li key={f.id} className="card flex items-center justify-between gap-2 !p-3">
                 <span className="tech truncate text-sm" dir="ltr">{f.name}</span>
                 {urls.get(f.id) && (

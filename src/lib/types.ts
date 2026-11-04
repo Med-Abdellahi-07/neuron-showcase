@@ -51,6 +51,9 @@ export interface LessonFile {
   name: string;
   storage_path: string;
   size_bytes: number | null;
+  /** 1 = كائن واحد؛ >1 = ملف مجزّأ (storage_path هو مجلد الأجزاء part-001…) */
+  part_count: number;
+  part_sha256: string[] | null;
 }
 
 export interface Question {
