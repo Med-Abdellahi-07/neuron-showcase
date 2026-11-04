@@ -41,6 +41,8 @@ export async function UniversityDashboard() {
 
   return (
     <section className="space-y-5" aria-labelledby="uni-h">
+      {MULTI_SPACE && (
+        <>
       <h2 id="uni-h" className="tech text-sm font-semibold">{MULTI_SPACE ? t("dash.university") : SINGLE_SPACE_NAME}</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t("dash.students")} value={sum((s) => s.students)} />
@@ -48,6 +50,8 @@ export async function UniversityDashboard() {
         <Tile label={t("dash.lessons")} value={sum((s) => s.lessons)} />
         <Tile label={t("dash.questions")} value={sum((s) => s.questions)} />
       </div>
+        </>
+      )}
       {MULTI_SPACE && <p className="text-xs text-muted">
         {t("dash.activeSpaces")}: <span className="tech font-semibold text-fg" dir="ltr">{ov.spaces.filter((s) => s.is_active).length}/{ov.spaces.length}</span>
       </p>}
