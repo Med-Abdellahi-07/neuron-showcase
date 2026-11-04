@@ -103,6 +103,7 @@ export function OfflineApp() {
 
   return (
     <I18nProvider locale={locale}>
+      <span data-offline-app hidden />
       {data ? <Inner data={data} reload={load} /> : <div className="min-h-dvh" aria-busy="true" />}
     </I18nProvider>
   );

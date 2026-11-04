@@ -10,6 +10,7 @@ import { Camera, Check, Copy, ImagePlus, Send, Square, X } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 import "katex/dist/katex.min.css";
+import { MathSpan } from "@/components/math-span";
 import { normalizeMath } from "@/lib/math";
 
 export interface ChatSource {
@@ -122,6 +123,7 @@ function Markdown({ text, sources }: { text: string; sources: ChatSource[] }) {
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
+          span: MathSpan,
           a({ href, children }) {
             if (href?.startsWith("#cite-")) {
               const src = byId.get(href.slice(6));
