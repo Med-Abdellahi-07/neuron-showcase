@@ -23,12 +23,12 @@ const TABS: { href: string; key: DictKey; level: Level; feature?: Feature }[] = 
   { href: "/admin/spaces", key: "admin.spacesMenu", level: "admin" },
 ];
 
-export function AdminTabs({ role, features }: { role: "moderator" | "space_admin" | "admin"; features: Partial<Record<Feature, boolean>> }) {
+export function AdminTabs({ role, features, multiSpace = false }: { role: "moderator" | "space_admin" | "admin"; features: Partial<Record<Feature, boolean>>; multiSpace?: boolean }) {
   const { t } = useT();
   const pathname = usePathname();
   const rank = role === "admin" ? 3 : role === "space_admin" ? 2 : 1;
   const need: Record<Level, number> = { staff: 1, manager: 2, admin: 3 };
-  const tabs = TABS.filter((x) => rank >= need[x.level] && (!x.feature || features[x.feature]));
+  const tabs = TABS.filter((x) => rank >= need[x.level] && (multiSpace || x.href !== "/admin/spaces") && (!x.feature || features[x.feature]));
   return (
     <nav aria-label="Admin" className="-mx-4 mb-5 overflow-x-auto px-4 md:mx-0 md:px-0">
       <ul className="flex w-max gap-1.5">

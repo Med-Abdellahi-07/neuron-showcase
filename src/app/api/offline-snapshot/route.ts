@@ -1,3 +1,4 @@
+import { MULTI_SPACE, SINGLE_SPACE_NAME } from "@/lib/flags";
 import { getProfile } from "@/lib/auth";
 import { getLocale } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -49,7 +50,7 @@ export async function GET() {
   const snap: OfflineSnapshot = {
     userId: profile.id,
     name: profile.full_name,
-    space: space?.name ?? "",
+    space: MULTI_SPACE ? (space?.name ?? "") : SINGLE_SPACE_NAME,
     locale,
     tz: appTimeZone(),
     savedAt: Date.now(),

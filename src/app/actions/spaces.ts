@@ -1,5 +1,6 @@
 "use server";
 
+import { MULTI_SPACE } from "@/lib/flags";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
@@ -11,6 +12,7 @@ const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 
 /** المشرف العام: «يدخل» فضاءً (يصير فضاؤه الحالي ويملك فيه صلاحيات مشرفه). */
 export async function switchSpace(fd: FormData) {
+  if (!MULTI_SPACE) return;
   const me = await requireAdmin();
   const id = text(fd, "cohort_id");
   if (!UUID_RE.test(id)) return;
@@ -24,6 +26,7 @@ export async function switchSpace(fd: FormData) {
 
 /** المشرف العام: تفعيل/تعطيل فضاء */
 export async function setSpaceActive(fd: FormData) {
+  if (!MULTI_SPACE) return;
   await requireAdmin();
   const id = text(fd, "id");
   if (!UUID_RE.test(id)) return;
@@ -33,6 +36,7 @@ export async function setSpaceActive(fd: FormData) {
 
 /** المشرف العام: تغيير الخطة (تنسخ علامات القالب) */
 export async function setSpacePlan(fd: FormData) {
+  if (!MULTI_SPACE) return;
   await requireAdmin();
   const id = text(fd, "id");
   const plan = text(fd, "plan");
@@ -46,6 +50,7 @@ export async function setSpacePlan(fd: FormData) {
 
 /** المشرف العام: تشغيل/إيقاف ميزة واحدة لفضاء (تصير الخطة «custom») */
 export async function setSpaceFeature(fd: FormData) {
+  if (!MULTI_SPACE) return;
   await requireAdmin();
   const id = text(fd, "id");
   const feature = text(fd, "feature");

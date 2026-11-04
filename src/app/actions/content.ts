@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireManager, requireStaff } from "@/lib/auth";
 import { getSpace } from "@/lib/spaces";
 import { getT } from "@/lib/i18n/server";
+import { INDEX_IN_BROWSER_OVER, partPath } from "@/lib/big-file";
 import { LESSON_KINDS } from "@/lib/constants";
 import { notifyNewLesson, notifyNewQuestions } from "@/lib/notify";
 import { parseQuestionInput, type ImportError, type ImportQuestion } from "@/lib/question-import";
@@ -24,6 +25,8 @@ const isUrl = (v: string | null) => {
     return false;
   }
 };
+/** كل كائنات الملف في Storage: الملف العادي مسار واحد، والمجزّأ part-001…part-N */
+const objectPaths = (path: string, parts: number) => (parts > 1 ? Array.from({ length: parts }, (_, i) => partPath(path, i)) : [path]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function lessonFields(fd: FormData) {
@@ -93,41 +96,67 @@ export async function deleteLesson(fd: FormData) {
   const id = text(fd, "id");
   if (!UUID_RE.test(id)) return;
   const supabase = await createClient();
-  const { data: files } = await supabase.from("lesson_files").select("storage_path").eq("lesson_id", id);
-  if (files?.length) await supabase.storage.from("lesson-files").remove(files.map((f) => f.storage_path as string));
+  const { data: files } = await supabase.from("lesson_files").select("storage_path, part_count").eq("lesson_id", id);
+  if (files?.length) await supabase.storage.from("lesson-files").remove(files.flatMap((f) => objectPaths(f.storage_path as string, f.part_count as number)));
   const { error } = await supabase.from("lessons").delete().eq("id", id);
   if (error) return;
   revalidatePath("/", "layout");
   redirect("/admin/content");
 }
 
-/** تُستدعى من المتصفح بعد رفع الملف مباشرة إلى Storage. */
+/** تُستدعى من المتصفح بعد رفع الملف (أو كل أجزائه) مباشرة إلى Storage. */
 export async function registerFile(input: {
+  id?: string;
   lessonId: string;
   kind: "pdf" | "code" | "data";
   name: string;
   path: string;
   size: number;
-}): Promise<{ ok: boolean }> {
+  partCount?: number;
+  sha256?: string;
+  partSha256?: string[];
+}): Promise<{ ok: boolean; id?: string; indexInBrowser?: boolean }> {
   await requireStaff();
   if (!UUID_RE.test(input.lessonId) || !["pdf", "code", "data"].includes(input.kind)) return { ok: false };
   // المسار يجب أن يقع تحت مجلد الحصة نفسها
   if (!input.path.startsWith(`${input.lessonId}/`) || input.path.includes("..")) return { ok: false };
+  const parts = Math.trunc(input.partCount ?? 1);
+  if (parts < 1 || parts > 2000 || (input.id && !UUID_RE.test(input.id))) return { ok: false };
+  if (parts > 1 && (!/^[0-9a-f]{64}$/.test(input.sha256 ?? "") || input.partSha256?.length !== parts || !input.partSha256.every((h) => /^[0-9a-f]{64}$/.test(h)))) return { ok: false };
   const supabase = await createClient();
+
+  // المجزّأ: تأكد أن كل الأجزاء موجودة وأن مجموع أحجامها = الحجم المعلن
+  if (parts > 1) {
+    const { data: objs } = await supabase.storage.from("lesson-files").list(input.path, { limit: parts + 5 });
+    const sizes = new Map((objs ?? []).map((o) => [o.name, Number((o.metadata as { size?: number } | null)?.size ?? 0)]));
+    let total = 0;
+    for (let i = 0; i < parts; i++) {
+      const n = partPath("", i).slice(1);
+      if (!sizes.has(n)) return { ok: false };
+      total += sizes.get(n) ?? 0;
+    }
+    if (total !== input.size) return { ok: false };
+  }
+
   const { data: inserted, error } = await supabase
     .from("lesson_files")
     .insert({
+      ...(input.id ? { id: input.id } : {}),
       lesson_id: input.lessonId,
       kind: input.kind,
       name: input.name.slice(0, 200),
       storage_path: input.path,
       size_bytes: input.size,
+      part_count: parts,
+      sha256: parts > 1 ? input.sha256 : null,
+      part_sha256: parts > 1 ? input.partSha256 : null,
     })
     .select("id")
     .single();
   // الفهرسة للمساعد الذكي فقط: الفضاء الأساسي لا يستدعي الذكاء الاصطناعي إطلاقاً
   const aiOn = (await getSpace())?.features.ai === true;
-  if (!error && inserted && aiOn && input.kind === "pdf" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const big = parts > 1 || input.size > INDEX_IN_BROWSER_OVER;
+  if (!error && inserted && aiOn && input.kind === "pdf" && process.env.SUPABASE_SERVICE_ROLE_KEY && !big) {
     // الفهرسة (استخراج النص + التضمين) بعد إرسال الرد، فلا ينتظر المشرف
     after(async () => {
       try {
@@ -138,11 +167,12 @@ export async function registerFile(input: {
     });
   }
   if (error) {
-    await supabase.storage.from("lesson-files").remove([input.path]);
+    await supabase.storage.from("lesson-files").remove(objectPaths(input.path, parts));
     return { ok: false };
   }
   revalidatePath("/", "layout");
-  return { ok: true };
+  // الكبير: العميل يستخرج النص بـ pdf.js ويرسله دفعات (لا تجاوز لمهلة الخادم)
+  return { ok: true, id: inserted.id as string, indexInBrowser: aiOn && input.kind === "pdf" && big && !!process.env.SUPABASE_SERVICE_ROLE_KEY };
 }
 
 export async function deleteFile(fd: FormData) {
@@ -150,9 +180,9 @@ export async function deleteFile(fd: FormData) {
   const id = text(fd, "id");
   if (!UUID_RE.test(id)) return;
   const supabase = await createClient();
-  const { data: file } = await supabase.from("lesson_files").select("storage_path").eq("id", id).maybeSingle();
+  const { data: file } = await supabase.from("lesson_files").select("storage_path, part_count").eq("id", id).maybeSingle();
   if (!file) return;
-  await supabase.storage.from("lesson-files").remove([file.storage_path as string]);
+  await supabase.storage.from("lesson-files").remove(objectPaths(file.storage_path as string, file.part_count as number));
   await supabase.from("lesson_files").delete().eq("id", id);
   revalidatePath("/", "layout");
 }

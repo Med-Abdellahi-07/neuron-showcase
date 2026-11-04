@@ -110,7 +110,7 @@ ok("انتقال الطالب لفضاء آخر يُسقط مواده المتب
 ok("لا حد لحجم الملف في الجدول (PDF 200MB مقبول)", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','big.pdf',$2,209715200)", [lessonB, `${lessonB}/big.pdf`]))));
 await db.query("delete from public.lesson_files where name='big.pdf'");
 ok("PDF بحجم 15MB مقبول", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','ok.pdf',$2,15728640)", [lessonB, `${lessonB}/ok.pdf`]))));
-ok("الدلو بلا حد حجم", (await one("select file_size_limit from storage.buckets where id='lesson-files'")).file_size_limit === null);
+ok("حد الدلو 50MB (أقصى حد للكائن الواحد؛ الملفات الأكبر تُجزَّأ)", Number((await one("select file_size_limit from storage.buckets where id='lesson-files'")).file_size_limit) === 52428800);
 const su = (await q(ADM, "select public.storage_usage() as d"))[0].d;
 const sds1 = su.by_space.find((s) => s.name === "SDS L1");
 ok("استهلاك التخزين: الإجمالي = مجموع الأحجام", Number(su.total_bytes) === 5000000 + 15728640 && su.files === 2, JSON.stringify(su));

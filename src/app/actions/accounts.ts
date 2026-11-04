@@ -1,4 +1,5 @@
 "use server";
+import { MULTI_SPACE } from "@/lib/flags";
 
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -125,6 +126,7 @@ export async function deleteStudent(fd: FormData) {
 export async function addRemainingSubject(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireManager();
   const { t } = await getT();
+  if (!MULTI_SPACE) return { error: t("common.error") };
   const student = text(fd, "student_id");
   const subject = text(fd, "subject_id");
   if (!UUID_RE.test(student) || !UUID_RE.test(subject)) return { error: t("common.error") };
@@ -142,6 +144,7 @@ export async function addRemainingSubject(_prev: FormState, fd: FormData): Promi
 
 export async function removeRemainingSubject(fd: FormData) {
   await requireManager();
+  if (!MULTI_SPACE) return;
   const student = text(fd, "student_id");
   const subject = text(fd, "subject_id");
   if (!UUID_RE.test(student) || !UUID_RE.test(subject)) return;

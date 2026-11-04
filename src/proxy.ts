@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
+import { MULTI_SPACE } from "@/lib/flags";
 
 // /api/cron/notify محمي بسرّ CRON_SECRET داخل المسار نفسه (لا جلسة لـ Vercel Cron)
 const PUBLIC_PATHS = ["/login", "/forgot", "/auth", "/api/cron", "/offline"];
@@ -25,6 +26,11 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+
+  // فضاء واحد: صفحات تعدد الفضاءات غير موجودة (404 حقيقي بحالة 404، لا صفحة فارغة بحالة 200)
+  if (!MULTI_SPACE && (path === "/admin/spaces" || path.startsWith("/admin/spaces/"))) {
+    return NextResponse.rewrite(new URL("/not-found-multi-space-off", request.url), { status: 404 });
+  }
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

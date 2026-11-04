@@ -1,3 +1,4 @@
+import { MULTI_SPACE } from "@/lib/flags";
 import { requireManager } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -33,7 +34,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const total = count ?? people.length;
 
   // المواد المتبقية: لفضاءات L2 فقط، من L1 لنفس التخصص (القيد الحقيقي في قاعدة البيانات)
-  const isL2 = space?.level_code === "L2";
+  const isL2 = MULTI_SPACE && space?.level_code === "L2";
   type RemRow = { student_id: string; subject_id: string };
   let l1Subjects: { id: string; code: string; name: string }[] = [];
   let rem: RemRow[] = [];
@@ -53,13 +54,13 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const subjName = new Map(l1Subjects.map((x) => [x.id, x]));
 
   // مشرف L1: متابعو مواد فضائه من L2 (قراءة فقط، أسماء بلا بيانات اتصال)
-  const { data: fol } = await supabase.rpc("l1_followers");
+  const { data: fol } = MULTI_SPACE ? await supabase.rpc("l1_followers") : { data: [] };
   const followers = (fol ?? []) as { student_name: string; student_space: string | null; subject_code: string; subject_name: string }[];
 
   return (
     <div className="space-y-8">
       <p className="text-sm text-muted">
-        {t("dash.space")}: <span className="tech font-semibold text-fg" dir="ltr">{space?.name ?? "—"}</span>
+        IAA L2
       </p>
 
       <section className="card">

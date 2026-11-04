@@ -40,7 +40,7 @@ export interface PackManifest {
   number: number;
   subject: string;
   subjectCode?: string;
-  pdfs: { name: string; url: string }[];
+  pdfs: { name: string; url: string; parts?: string[]; hashes?: string[] }[];
   questions: OfflineQuestion[];
   summaries: OfflineSummary[];
 }

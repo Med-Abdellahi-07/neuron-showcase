@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getProfile, isStaffRole } from "@/lib/auth";
 import { getSpace } from "@/lib/spaces";
 import { getSpaceOptions } from "@/lib/space-options";
+import { MULTI_SPACE, SINGLE_SPACE_NAME } from "@/lib/flags";
 import { SpaceSwitcher } from "@/components/space-switcher";
 import { getT } from "@/lib/i18n/server";
 import { logout } from "@/app/actions/auth";
@@ -32,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const space = await getSpace();
   const ai = space?.features.ai === true;
   // المشرف العام: قائمة الفضاءات للتبديل السريع
-  const options = profile.role === "admin" ? await getSpaceOptions() : [];
+  const options = MULTI_SPACE && profile.role === "admin" ? await getSpaceOptions() : [];
   const initial = profile.full_name.trim().charAt(0).toUpperCase() || "?";
 
   return (
@@ -40,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-60 md:shrink-0 md:flex-col md:gap-6 md:p-4">
         <Link href="/" aria-label="Neuron"><Logo /></Link>
         {space && (
-          <p className="px-3 text-xs font-semibold text-muted" dir="ltr">{space.name}</p>
+          <p className="px-3 text-xs font-semibold text-muted" dir="ltr">{MULTI_SPACE ? space.name : SINGLE_SPACE_NAME}</p>
         )}
         <SideNav isStaff={isStaff} ai={ai} />
       </aside>
@@ -52,10 +53,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/" className="md:invisible" aria-label="Neuron"><Logo size={24} /></Link>
           </div>
           <div className="flex items-center gap-2">
-            {profile.role === "admin" && space ? (
+            {MULTI_SPACE && profile.role === "admin" && space ? (
               <SpaceSwitcher current={space.id} options={options} />
             ) : space ? (
-              <span dir="ltr" className="rounded-[14px] bg-deep-2 px-3 py-2.5 text-xs font-semibold text-white">{space.name}</span>
+              <span dir="ltr" className="rounded-[14px] bg-deep-2 px-3 py-2.5 text-xs font-semibold text-white">{MULTI_SPACE ? space.name : SINGLE_SPACE_NAME}</span>
             ) : null}
             <Link
               href="/profile"

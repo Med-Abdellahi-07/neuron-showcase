@@ -1,3 +1,4 @@
+import { MULTI_SPACE, SINGLE_SPACE_NAME } from "@/lib/flags";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { Tile, relativeSeen } from "@/components/dashboard-bits";
@@ -25,6 +26,8 @@ export async function UniversityDashboard() {
   const { data, error } = await supabase.rpc("admin_overview");
   if (error || !data) return <p className="card text-sm text-warn">{t("stats.runMigration")}</p>;
   const ov = data as unknown as { spaces: SpaceRow[]; supervisors: Sup[] };
+  // فضاء واحد: إحصاءات IAA L2 فقط (بقية الفضاءات مخفية)
+  if (!MULTI_SPACE) ov.spaces = ov.spaces.filter((s) => s.name === SINGLE_SPACE_NAME);
   const { data: su } = await supabase.rpc("storage_usage");
   const usage = su ? (su as unknown as { total_bytes: number; files: number; by_space: { id: string; name: string; bytes: number; files: number }[] }) : null;
   const limit = Number(process.env.STORAGE_LIMIT_BYTES) > 0 ? Number(process.env.STORAGE_LIMIT_BYTES) : 1024 ** 3; // 1GB (خطة Supabase المجانية)
@@ -38,18 +41,22 @@ export async function UniversityDashboard() {
 
   return (
     <section className="space-y-5" aria-labelledby="uni-h">
-      <h2 id="uni-h" className="tech text-sm font-semibold">{t("dash.university")}</h2>
+      {MULTI_SPACE && (
+        <>
+      <h2 id="uni-h" className="tech text-sm font-semibold">{MULTI_SPACE ? t("dash.university") : SINGLE_SPACE_NAME}</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t("dash.students")} value={sum((s) => s.students)} />
         <Tile label={t("dash.active7")} value={sum((s) => s.active_7d)} />
         <Tile label={t("dash.lessons")} value={sum((s) => s.lessons)} />
         <Tile label={t("dash.questions")} value={sum((s) => s.questions)} />
       </div>
-      <p className="text-xs text-muted">
+        </>
+      )}
+      {MULTI_SPACE && <p className="text-xs text-muted">
         {t("dash.activeSpaces")}: <span className="tech font-semibold text-fg" dir="ltr">{ov.spaces.filter((s) => s.is_active).length}/{ov.spaces.length}</span>
-      </p>
+      </p>}
 
-      {[...groups.entries()].map(([inst, list]) => (
+      {MULTI_SPACE && [...groups.entries()].map(([inst, list]) => (
         <div key={inst} className="card !p-0 overflow-hidden">
           <h3 className="tech border-b border-border px-4 py-2 text-xs font-semibold" dir="ltr">
             {inst}
@@ -104,7 +111,7 @@ export async function UniversityDashboard() {
               {t(tone === "danger" ? "storage.full" : "storage.warn80")}
             </p>
           )}
-          {usage.by_space.length === 0 ? <p className="text-sm text-muted">{t("storage.none")}</p> : (
+          {!MULTI_SPACE ? null : usage.by_space.length === 0 ? <p className="text-sm text-muted">{t("storage.none")}</p> : (
             <ul className="space-y-1.5 text-sm">
               {usage.by_space.map((x) => (
                 <li key={x.id} className="flex items-center justify-between gap-2">
@@ -114,7 +121,7 @@ export async function UniversityDashboard() {
               ))}
             </ul>
           )}
-          <p className="text-xs text-muted">{t("storage.help").replace("{max}", "15")}</p>
+          <p className="text-xs text-muted">{t("storage.help")}</p>
         </div>
       )}
 
@@ -122,7 +129,7 @@ export async function UniversityDashboard() {
         <h3 className="text-xs font-semibold text-muted">{t("dash.supervisorActivity")}</h3>
         {ov.supervisors.length === 0 ? <p className="text-sm text-muted">{t("dash.noSupervisors")}</p> : (
           <ul className="space-y-2 text-sm">
-            {ov.supervisors.map((s) => (
+            {ov.supervisors.filter((s) => MULTI_SPACE || s.role !== "space_admin").map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
                 <span className="min-w-0 truncate" dir="auto">
                   {s.full_name} <span className="badge">{t(`role.${s.role}` as DictKey)}</span>{" "}

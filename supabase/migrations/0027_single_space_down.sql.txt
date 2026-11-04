@@ -1,0 +1,7 @@
+-- تراجع عن 0027 (يدوي، لا يُنفَّذ تلقائياً). يعيد حالة الفضاءات وفضاء المشرفين من النسخة الاحتياطية.
+update public.cohorts c set is_active = b.is_active, plan = b.plan, features = b.features
+  from public.single_space_backup b where b.kind = 'cohort' and b.id = c.id;
+update public.profiles p set cohort_id = b.cohort_id
+  from public.single_space_backup b where b.kind = 'admin_profile' and b.id = p.id;
+-- ثم يمكن حذف النسخة: drop table public.single_space_backup;
+-- وتفعيل MULTI_SPACE_ENABLED=true في بيئة النشر.

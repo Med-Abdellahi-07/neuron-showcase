@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CloudDownload, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { prepareOfflinePack } from "@/app/actions/offline";
 import { getPack, removePack, savePack } from "@/lib/offline/db";
+import { fetchJoined } from "@/lib/big-file";
 import { useT } from "@/lib/i18n/client";
 
 type State = "idle" | "busy" | "saved" | "error";
@@ -29,6 +30,7 @@ export function OfflineButton({ lessonId, withQuestions }: { lessonId: string; w
       if (!res.ok) throw new Error(res.error);
       const pdfs = await Promise.all(
         res.pack.pdfs.map(async (f) => {
+          if (f.parts) return { name: f.name, blob: await fetchJoined(f.parts, { hashes: f.hashes }) }; // مجزّأ: ضمّ الأجزاء
           const r = await fetch(f.url);
           if (!r.ok) throw new Error("pdf");
           return { name: f.name, blob: await r.blob() };

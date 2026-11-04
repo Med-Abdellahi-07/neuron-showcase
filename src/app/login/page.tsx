@@ -3,6 +3,7 @@ import { LangSwitch } from "@/components/lang-switch";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { SPACE_COOKIE, type Directory } from "@/lib/spaces";
+import { MULTI_SPACE } from "@/lib/flags";
 import { LoginShell } from "./login-shell";
 import { LoginForm } from "./login-form";
 import { SpaceLogin } from "./space-login";
@@ -10,6 +11,14 @@ import { OfflineLoginGuard } from "@/components/offline-login-guard";
 
 export default async function LoginPage() {
   const { t } = await getT();
+  if (!MULTI_SPACE) {
+    return (
+      <LoginShell lang={<LangSwitch />} title={t("login.title")} subtitle={t("login.subtitle")}>
+        <LoginForm />
+        <OfflineLoginGuard />
+      </LoginShell>
+    );
+  }
   const supabase = await createClient();
   // دليل المؤسسات/التخصصات/المستويات عام (بلا بيانات خاصة) ويُقرأ بصلاحية الزائر
   const { data, error } = await supabase.rpc("public_directory");

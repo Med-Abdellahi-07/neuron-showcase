@@ -1,3 +1,4 @@
+import { MULTI_SPACE, SINGLE_SPACE_NAME } from "@/lib/flags";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSpace } from "@/lib/spaces";
@@ -31,7 +32,7 @@ export async function SpaceDashboard() {
 
   return (
     <section className="space-y-4" aria-labelledby="space-dash-h">
-      <h2 id="space-dash-h" className="tech text-sm font-semibold" dir="ltr">{space?.name ?? ""} <span className="text-muted" dir="auto">· {t("dash.space")}</span></h2>
+      <h2 id="space-dash-h" className="tech text-sm font-semibold" dir="ltr">{MULTI_SPACE ? (space?.name ?? "") : SINGLE_SPACE_NAME}{MULTI_SPACE && <span className="text-muted" dir="auto"> · {t("dash.space")}</span>}</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Tile label={t("dash.students")} value={d.students} />
         <Tile label={t("dash.active7")} value={d.active_7d} />
