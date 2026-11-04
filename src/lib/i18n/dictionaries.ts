@@ -734,7 +734,7 @@ export const ar = {
   "dash.lastSeen": "آخر دخول",
   "dash.lastUpload": "آخر رفع",
 
-  "content.fileTooBig": "حجم الملف {size}MB يتجاوز الحد المسموح ({max}MB). اضغطه أو قسّمه ثم أعد الرفع.",
+  "content.fileTooBig": "حجم الملف {size}MB يتجاوز الحد الأقصى للتخزين في المشروع. اضغطه أو قسّمه ثم أعد الرفع.",
   "content.pdfOnly": "اختر ملف PDF فقط",
   "rem.section": "مواد متبقية من L1",
   "rem.sectionHelp": "مواد من L1 أضافها لك مشرفك: دروسها وتمارين QCM الخاصة بها وحصصها في جدولك.",
@@ -1761,7 +1761,7 @@ export const fr: Record<DictKey, string> = {
   "dash.lastSeen": "Dernière connexion",
   "dash.lastUpload": "Dernier ajout",
 
-  "content.fileTooBig": "Le fichier ({size} Mo) dépasse la limite autorisée ({max} Mo). Compressez-le ou découpez-le, puis réessayez.",
+  "content.fileTooBig": "Le fichier ({size} Mo) dépasse la limite de stockage du projet. Compressez-le ou découpez-le, puis réessayez.",
   "content.pdfOnly": "Choisissez uniquement un fichier PDF",
   "rem.section": "Matières restantes de L1",
   "rem.sectionHelp": "Matières de L1 ajoutées par votre responsable : cours, exercices QCM et séances dans votre emploi du temps.",

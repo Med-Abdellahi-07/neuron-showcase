@@ -107,10 +107,10 @@ await db.query("update public.profiles set cohort_id=$1 where id=$2", [IAA, S2a]
 ok("انتقال الطالب لفضاء آخر يُسقط مواده المتبقية", (await n("select count(*) c from public.remaining_subjects where student_id=$1", [S2a])) === 0);
 
 // ══════════ حد PDF والتخزين ══════════
-ok("PDF أكبر من 15MB مرفوض في الجدول", has(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','big.pdf',$2,15728641)", [lessonB, `${lessonB}/big.pdf`])), "file_too_large"));
-ok("PDF بحجم 15MB بالضبط مقبول", (await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','ok.pdf',$2,15728640)", [lessonB, `${lessonB}/ok.pdf`]))) === null);
-ok("الحد يسري على أي نوع ملف (zip 40MB مرفوض)", has(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'code','x.zip',$2,40000000)", [lessonB, `${lessonB}/x.zip`])), "file_too_large"));
-ok("حد الدلو 15MB", Number((await one("select file_size_limit from storage.buckets where id='lesson-files'")).file_size_limit) === 15728640);
+ok("لا حد لحجم الملف في الجدول (PDF 200MB مقبول)", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','big.pdf',$2,209715200)", [lessonB, `${lessonB}/big.pdf`]))));
+await db.query("delete from public.lesson_files where name='big.pdf'");
+ok("PDF بحجم 15MB مقبول", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','ok.pdf',$2,15728640)", [lessonB, `${lessonB}/ok.pdf`]))));
+ok("الدلو بلا حد حجم", (await one("select file_size_limit from storage.buckets where id='lesson-files'")).file_size_limit === null);
 const su = (await q(ADM, "select public.storage_usage() as d"))[0].d;
 const sds1 = su.by_space.find((s) => s.name === "SDS L1");
 ok("استهلاك التخزين: الإجمالي = مجموع الأحجام", Number(su.total_bytes) === 5000000 + 15728640 && su.files === 2, JSON.stringify(su));

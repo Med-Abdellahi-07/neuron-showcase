@@ -722,7 +722,7 @@ export const en: Record<DictKey, string> = {
   "dash.lastSeen": "Last seen",
   "dash.lastUpload": "Last upload",
 
-  "content.fileTooBig": "The file ({size} MB) exceeds the allowed limit ({max} MB). Compress or split it, then try again.",
+  "content.fileTooBig": "The file ({size} MB) exceeds the project's storage limit. Compress or split it, then try again.",
   "content.pdfOnly": "Choose a PDF file only",
   "rem.section": "Remaining L1 subjects",
   "rem.sectionHelp": "L1 subjects added by your supervisor: their lessons, MCQ exercises and sessions in your schedule.",
