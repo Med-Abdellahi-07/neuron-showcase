@@ -2,6 +2,7 @@ import { cache } from "react";
 import { getCatalog } from "@/lib/catalog";
 import { ENGLISH_CODE, SLOTS } from "@/lib/constants";
 import { nowHM } from "@/lib/dates";
+import { MULTI_SPACE } from "@/lib/flags";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, ScheduleSession, Subject } from "@/lib/types";
@@ -19,7 +20,7 @@ export const getCurrentSubjects = cache(async (): Promise<Subject[]> => {
  */
 export const getRemainingSubjects = cache(async (): Promise<Subject[]> => {
   const profile = await getProfile();
-  if (!profile || profile.role !== "student") return [];
+  if (!MULTI_SPACE || !profile || profile.role !== "student") return [];
   const supabase = await createClient();
   const { data, error } = await supabase.from("remaining_subjects").select("subjects(*)").eq("student_id", profile.id);
   if (error) {

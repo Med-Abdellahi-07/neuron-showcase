@@ -743,7 +743,8 @@ export const en: Record<DictKey, string> = {
   "storage.full": "Storage is full: new uploads will fail. Delete files or upgrade the plan now.",
   "storage.none": "No files uploaded yet.",
   "storage.files": "file(s)",
-  "storage.help": "Computed from the sizes of registered lesson files. Maximum {max} MB per file.",
+  "storage.help": "Computed from the sizes of registered lesson files. There is no per-file limit; the only limit is total storage.",
+  "login.iaaOnly": "The platform is currently available to IAA L2 students only",
 
   "ai.tab.chat": "Chat",
   "ai.tab.summaries": "My summaries",

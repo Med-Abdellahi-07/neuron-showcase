@@ -1,3 +1,4 @@
+import { MULTI_SPACE } from "@/lib/flags";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSubjectById } from "@/lib/data";
@@ -16,7 +17,7 @@ const sub = async (id: string | null | undefined) => (id ? await getSubjectById(
 
 /** طلاب L2 الذين يتابعون هذه المادة كـ«مادة متبقية»: يصلهم ما يصل طلاب فضاء المادة. */
 export async function followerIds(subjectId: string | null | undefined): Promise<string[]> {
-  if (!subjectId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  if (!MULTI_SPACE || !subjectId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
   const { data, error } = await createAdminClient().from("remaining_subjects").select("student_id").eq("subject_id", subjectId);
   if (error) {
     console.error("followerIds failed:", error.code, error.message);

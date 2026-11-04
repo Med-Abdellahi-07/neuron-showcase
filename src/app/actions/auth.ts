@@ -9,6 +9,7 @@ import { parseIdentifier } from "@/lib/identifier";
 import { getT } from "@/lib/i18n/server";
 import { getUserId } from "@/lib/auth";
 import { SPACE_COOKIE } from "@/lib/spaces";
+import { MULTI_SPACE } from "@/lib/flags";
 import { LOCALES, LOCALE_COOKIE, type Locale } from "@/lib/i18n/dictionaries";
 
 export type FormState = { error?: string; message?: string } | null;
@@ -49,7 +50,26 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("locale, role, cohort_id").eq("id", user.id).maybeSingle();
 
-    if (spaceId) {
+    // فضاء واحد: غير المشرف العام يجب أن يكون في IAA L2 وإلا يُمنع (الحساب لا يُحذف)
+    if (!MULTI_SPACE && profile?.role !== "admin") {
+      let ok = false;
+      if (profile?.cohort_id) {
+        const { data: c } = await supabase
+          .from("cohorts")
+          .select("level_code, majors(code)")
+          .eq("id", profile.cohort_id)
+          .maybeSingle();
+        const major = (c as unknown as { majors: { code: string } | { code: string }[] | null } | null)?.majors;
+        const code = Array.isArray(major) ? major[0]?.code : major?.code;
+        ok = c?.level_code === "L2" && code === "IAA";
+      }
+      if (!ok) {
+        await supabase.auth.signOut();
+        return { error: t("login.iaaOnly") };
+      }
+    }
+
+    if (MULTI_SPACE && spaceId) {
       const { data: space } = await supabase.from("cohorts").select("id, name, is_active").eq("id", spaceId).maybeSingle();
       if (profile?.role === "admin") {
         // المشرف العام يدخل أي فضاء: يصير هو «فضاءه الحالي»

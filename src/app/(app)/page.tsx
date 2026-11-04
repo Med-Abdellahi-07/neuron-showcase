@@ -3,6 +3,7 @@ import { Megaphone, MessagesSquare, Pin } from "lucide-react";
 import { ProgressRing } from "@/components/progress-ring";
 import { ClayBolt, ClayBook, ClayCalendar, ClayCap, ClayCheck, ClayFlame } from "@/components/clay";
 import { Tilt } from "@/components/tilt";
+import { MULTI_SPACE } from "@/lib/flags";
 import { SpaceSwitcher } from "@/components/space-switcher";
 import { getSpaceOptions } from "@/lib/space-options";
 import { Achievement } from "@/components/achievement";
@@ -157,7 +158,7 @@ export default async function HomePage() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            {profile.role === "admin" && space && <SpaceSwitcher current={space.id} options={options} />}
+            {MULTI_SPACE && profile.role === "admin" && space && <SpaceSwitcher current={space.id} options={options} />}
             <Link href="/profile#notif-h" aria-label={t("home.notifications")} className="press relative flex size-[42px] items-center justify-center rounded-[14px] border border-[#4A2BA6] bg-deep-2 text-white">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>
               {dueCount + myTurn.length > 0 && <span className="absolute right-[9px] top-2 size-2 rounded-full bg-pink" />}

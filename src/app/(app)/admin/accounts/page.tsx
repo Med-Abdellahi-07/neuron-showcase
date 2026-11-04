@@ -1,3 +1,4 @@
+import { MULTI_SPACE, SINGLE_SPACE_NAME } from "@/lib/flags";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -16,7 +17,7 @@ export default async function AccountsPage() {
     supabase.from("cohorts").select("id, name").order("name"),
     supabase.from("profiles").select("id, full_name, email, phone, role, can_publish_direct, cohort_id").order("full_name"),
   ]);
-  const cohortList = (cohorts ?? []) as { id: string; name: string }[];
+  const cohortList = ((cohorts ?? []) as { id: string; name: string }[]).filter((c) => MULTI_SPACE || c.name === SINGLE_SPACE_NAME);
   const cohortName = new Map(cohortList.map((c) => [c.id, c.name]));
   const people = (profiles ?? []) as Profile[];
 
@@ -43,7 +44,7 @@ export default async function AccountsPage() {
               <select id="role" name="role" className="input" defaultValue="student">
                 <option value="student">{t("role.student")}</option>
                 <option value="moderator">{t("role.moderator")}</option>
-                <option value="space_admin">{t("role.space_admin")}</option>
+                {MULTI_SPACE && <option value="space_admin">{t("role.space_admin")}</option>}
                 <option value="admin">{t("role.admin")}</option>
               </select>
             </div>
@@ -92,7 +93,7 @@ export default async function AccountsPage() {
                         <select id={`r-${p.id}`} name="role" className="input" defaultValue={p.role}>
                           <option value="student">{t("role.student")}</option>
                           <option value="moderator">{t("role.moderator")}</option>
-                          <option value="space_admin">{t("role.space_admin")}</option>
+                          {MULTI_SPACE && <option value="space_admin">{t("role.space_admin")}</option>}
                           <option value="admin">{t("role.admin")}</option>
                         </select>
                       </div>

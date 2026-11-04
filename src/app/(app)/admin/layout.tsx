@@ -1,6 +1,7 @@
 import { requireStaff } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { getSpace } from "@/lib/spaces";
+import { MULTI_SPACE } from "@/lib/flags";
 import { AdminTabs } from "@/components/admin-tabs";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -10,7 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="compact">
       <h1 className="page-title !mb-3">{t("admin.title")}</h1>
-      <AdminTabs role={profile.role as "moderator" | "space_admin" | "admin"} features={space?.features ?? {}} />
+      <AdminTabs role={profile.role as "moderator" | "space_admin" | "admin"} features={space?.features ?? {}} multiSpace={MULTI_SPACE} />
       {children}
     </div>
   );

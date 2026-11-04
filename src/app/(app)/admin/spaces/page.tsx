@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+import { MULTI_SPACE } from "@/lib/flags";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
@@ -6,6 +8,7 @@ import { setSpaceActive, setSpaceFeature, setSpacePlan, switchSpace } from "@/ap
 import type { DictKey } from "@/lib/i18n/dictionaries";
 
 export default async function SpacesAdminPage() {
+  if (!MULTI_SPACE) notFound();
   const me = await requireAdmin();
   const { t, locale } = await getT();
   const supabase = await createClient();

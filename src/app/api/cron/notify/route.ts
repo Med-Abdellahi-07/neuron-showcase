@@ -1,3 +1,4 @@
+import { MULTI_SPACE } from "@/lib/flags";
 import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAllSpacesCatalog } from "@/lib/catalog";
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
     if (sessions?.length) {
       const cohorts = [...new Set(sessions.map((s) => s.cohort_id as string))];
       // طلاب L2 المتابعون لمواد L1: يصلهم تذكير حصصها أيضاً
-      const { data: follows } = await admin.from("remaining_subjects").select("student_id, subject_id").in("subject_id", [...new Set(sessions.map((s) => s.subject_id as string))]);
+      const { data: follows } = !MULTI_SPACE ? { data: [] } : await admin.from("remaining_subjects").select("student_id, subject_id").in("subject_id", [...new Set(sessions.map((s) => s.subject_id as string))]);
       const followMap = new Map<string, Set<string>>();
       for (const f of follows ?? []) followMap.set(f.student_id as string, (followMap.get(f.student_id as string) ?? new Set()).add(f.subject_id as string));
       const [{ data: inCohorts }, { data: followers }] = await Promise.all([

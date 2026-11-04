@@ -755,7 +755,8 @@ export const ar = {
   "storage.full": "امتلأ التخزين: سيفشل الرفع الجديد. احذف ملفات أو ارتقِ بالخطة الآن.",
   "storage.none": "لا ملفات مرفوعة بعد.",
   "storage.files": "ملف",
-  "storage.help": "يُحسب من أحجام ملفات الدروس المسجّلة. الحد الأقصى للملف الواحد {max}MB.",
+  "storage.help": "يُحسب من أحجام ملفات الدروس المسجّلة. لا حد لحجم الملف الواحد؛ الحد الوحيد هو سعة التخزين الكلية.",
+  "login.iaaOnly": "المنصة متاحة حالياً لطلاب IAA L2 فقط",
 
   "ai.tab.chat": "الدردشة",
   "ai.tab.summaries": "ملخصاتي",
@@ -1782,7 +1783,8 @@ export const fr: Record<DictKey, string> = {
   "storage.full": "Stockage plein : les nouveaux envois échoueront. Supprimez des fichiers ou changez de plan maintenant.",
   "storage.none": "Aucun fichier envoyé.",
   "storage.files": "fichier(s)",
-  "storage.help": "Calculé à partir de la taille des fichiers de cours enregistrés. Maximum {max} Mo par fichier.",
+  "storage.help": "Calculé à partir de la taille des fichiers de cours enregistrés. Aucune limite par fichier ; seule la capacité totale de stockage compte.",
+  "login.iaaOnly": "La plateforme est actuellement réservée aux étudiants IAA L2",
 
   "ai.tab.chat": "Discussion",
   "ai.tab.summaries": "Mes résumés",
