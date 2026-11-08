@@ -4,6 +4,7 @@ import { groqGenerate, groqModel, groqVisionModel } from "./groq";
 import { tavilySearch } from "./tavily";
 import { generateText, type LlmProvider } from "./index";
 import { githubModels, nvidia, openrouter } from "./compat";
+import { getAdminT, type AdminT } from "@/lib/i18n/admin-t";
 
 export interface DiagRow {
   id: string;
@@ -24,48 +25,42 @@ export interface DiagReport {
   rows: DiagRow[];
 }
 
-function geminiHint(status: number, reason?: string): string | undefined {
+function geminiHint(status: number, t: AdminT, reason?: string): string | undefined {
   switch (status) {
     case 0:
-      return "المفتاح غير مضبوط أو تعذّر الاتصال. تأكد من GEMINI_API_KEY في Vercel ثم أعد النشر (Redeploy).";
+      return t("diag.gemini.noKey");
     case 401:
-      return (
-        "Gemini رفض المفتاح (401). تحقق من: (1) نسخ المفتاح كاملاً بلا مسافات أو علامات اقتباس؛ " +
-        "(2) أنه أُنشئ في Google AI Studio ولم يُحذف؛ (3) أن النموذج GEMINI_MODEL ما زال متاحاً " +
-        "(ظهر 401 مضلِّل مع نماذج قديمة مثل gemini-2.5-flash، جرّب gemini-3.6-flash)؛ " +
-        "(4) أنك أعدت النشر بعد تعديل المتغير." +
-        (reason ? ` السبب المعلن: ${reason}.` : "")
-      );
+      return t("diag.gemini.401") + (reason ? ` ${t("diag.gemini.reason", { reason })}` : "");
     case 403:
-      return "المفتاح معروف لكنه غير مصرّح له: قد تكون الخدمة معطّلة للمشروع أو للمفتاح قيود (IP/تطبيق).";
+      return t("diag.gemini.403");
     case 404:
-      return `النموذج غير موجود أو أُوقف (${geminiModel()}). غيّر GEMINI_MODEL إلى نموذج Flash متاح.`;
+      return t("diag.gemini.404", { model: geminiModel() });
     case 429:
-      return "تجاوزت حدّ الطلبات المجانية مؤقتاً. سيحوّل النظام تلقائياً إلى Groq.";
+      return t("diag.gemini.429");
     case 502:
-      return "ردّ Gemini بلا نص. انظر finishReason: MAX_TOKENS = استهلك التفكير الحد؛ SAFETY/PROHIBITED = حظر سلامة؛ STOP مع thoughtsTokens كبير = راجع GEMINI_MODEL. يحوّل النظام تلقائياً إلى Groq.";
+      return t("diag.gemini.502");
     default:
-      return status >= 500 ? "عطل مؤقت عند Google. سيحوّل النظام تلقائياً إلى Groq." : undefined;
+      return status >= 500 ? t("diag.gemini.5xx") : undefined;
   }
 }
 
-function hintFor(info: ErrorInfo): string | undefined {
-  if (info.provider === "gemini") return geminiHint(info.status, info.reason);
+function hintFor(info: ErrorInfo, t: AdminT): string | undefined {
+  if (info.provider === "gemini") return geminiHint(info.status, t, info.reason);
   if (info.provider === "groq") {
-    if (info.status === 0) return "GROQ_API_KEY غير مضبوط في Vercel.";
-    if (info.status === 401) return "Groq رفض المفتاح (401): تحقق من GROQ_API_KEY.";
-    if (info.status === 404)
-      return `النموذج غير موجود أو أُوقف (${groqModel()} / رؤية: ${groqVisionModel()}). أوقفت Groq بعض النماذج (مثل llama-3.3-70b-versatile في 16/08/2026). غيّر GROQ_MODEL إلى openai/gpt-oss-120b وGROQ_VISION_MODEL إلى qwen/qwen3.8-27b في Vercel ثم أعد النشر.`;
-    if (info.status === 400) return "طلب مرفوض: تحقق من اسم النموذج GROQ_MODEL / GROQ_VISION_MODEL وأنه يدعم الميزة المطلوبة.";
+    if (info.status === 0) return t("diag.groq.noKey");
+    if (info.status === 401) return t("diag.groq.401");
+    if (info.status === 404) return t("diag.groq.404", { model: groqModel(), vision: groqVisionModel() });
+    if (info.status === 400) return t("diag.groq.400");
   }
   if (info.provider === "tavily") {
-    if (info.status === 0) return "TAVILY_API_KEY غير مضبوط.";
-    if (info.status === 401) return "Tavily رفض المفتاح (401): تحقق من TAVILY_API_KEY.";
+    if (info.status === 0) return t("diag.tavily.noKey");
+    if (info.status === 401) return t("diag.tavily.401");
   }
   return undefined;
 }
 
 async function timed(
+  t: AdminT,
   id: string,
   label: string,
   fn: () => Promise<{ detail: string; model?: string; ok?: boolean; hint?: string; alert?: boolean }>
@@ -83,7 +78,7 @@ async function timed(
       status: e instanceof AiError ? info.status : null,
       ms: Date.now() - t0,
       detail: `${info.status || "—"} ${info.message}`.slice(0, 1600),
-      hint: hintFor(info),
+      hint: hintFor(info, t),
       alert: info.provider === "gemini" && info.status === 401,
     };
   }
@@ -92,6 +87,7 @@ async function timed(
 const ping = { system: "You are a connectivity probe. Reply with exactly: OK", messages: [{ role: "user" as const, text: "ping" }], maxTokens: 64, temperature: 0 };
 
 export async function runDiagnostics(): Promise<DiagReport> {
+  const t = await getAdminT();
   const present = (n: string) => !!process.env[n]?.trim();
   const env = [
     { name: "GEMINI_API_KEY", set: present("GEMINI_API_KEY") },
@@ -108,45 +104,45 @@ export async function runDiagnostics(): Promise<DiagReport> {
   ];
 
   const rows = await Promise.all([
-    timed("gemini", "Gemini — توليد نص (مباشر، بلا احتياطي)", async () => {
+    timed(t, "gemini", t("diag.row.gemini"), async () => {
       const r = await geminiGenerate(ping);
-      return { detail: `رد: «${r.text.trim().slice(0, 60)}»`, model: r.model };
+      return { detail: t("diag.detail.reply", { text: r.text.trim().slice(0, 60) }), model: r.model };
     }),
-    timed("gemini-embed", "Gemini — التضمين (للبحث في الدروس)", async () => {
+    timed(t, "gemini-embed", t("diag.row.geminiEmbed"), async () => {
       const v = await geminiEmbed(["test"], "RETRIEVAL_QUERY");
-      return { detail: `بُعد المتجه ${v[0].length}`, model: geminiEmbeddingModel() };
+      return { detail: t("diag.detail.vectorDim", { n: v[0].length }), model: geminiEmbeddingModel() };
     }),
-    timed("groq", "Groq — توليد نص (مباشر)", async () => {
+    timed(t, "groq", t("diag.row.groq"), async () => {
       const r = await groqGenerate(ping);
-      return { detail: `رد: «${r.text.trim().slice(0, 60)}»`, model: r.model };
+      return { detail: t("diag.detail.reply", { text: r.text.trim().slice(0, 60) }), model: r.model };
     }),
     ...[openrouter, nvidia, githubModels].map((p) =>
-      timed(p.name, `${p.name} — توليد نص (مباشر)`, async () => {
-        if (!p.configured()) return { ok: false, detail: `${p.keyEnv} غير مضبوط (اختياري: يُتخطّى في السلسلة).`, model: p.model() };
+      timed(t, p.name, t("diag.row.provider", { name: p.name }), async () => {
+        if (!p.configured()) return { ok: false, detail: t("diag.detail.noKeyOptional", { env: p.keyEnv }), model: p.model() };
         const r = await p.generate(ping);
-        return { detail: `رد: «${r.text.trim().slice(0, 60)}» (القائمة: ${p.models({ system: "", messages: [] }).join(" ← ")})`, model: r.model };
+        return { detail: t("diag.detail.replyList", { text: r.text.trim().slice(0, 60), list: p.models({ system: "", messages: [] }).join(" -> ") }), model: r.model };
       })
     ),
-    timed("tavily", "Tavily — بحث الإنترنت", async () => {
+    timed(t, "tavily", t("diag.row.tavily"), async () => {
       const r = await tavilySearch("Neuron connectivity test", 1);
-      return { detail: `${r.length} نتيجة` };
+      return { detail: t("diag.detail.results", { n: r.length }) };
     }),
-    timed("fallback", "المسار الفعلي للتطبيق (Groq ← OpenRouter ← NVIDIA ← GitHub ← Gemini)", async () => {
+    timed(t, "fallback", t("diag.row.fallback"), async () => {
       const r = await generateText(ping, { skipBreaker: true });
-      if (!r.fellBackFrom) return { detail: `أجاب ${r.provider} مباشرة.`, model: r.model };
+      if (!r.fellBackFrom) return { detail: t("diag.detail.answeredDirect", { provider: r.provider }), model: r.model };
       const f = r.fellBackFrom;
       return {
-        detail: `أجاب ${r.provider} لأن ${f.provider} فشل (${f.status || "—"}: ${f.message})`.slice(0, 400),
+        detail: t("diag.detail.fellBack", { provider: r.provider, from: f.provider, status: f.status || "—", message: f.message }).slice(0, 400),
         model: r.model,
         ok: true,
-        hint: hintFor(f),
+        hint: hintFor(f, t),
         alert: f.provider === "gemini" && f.status === 401,
       };
     }),
-    timed("fallback-forced", "اختبار التحويل التلقائي (Groq مُستبعد عمداً)", async () => {
+    timed(t, "fallback-forced", t("diag.row.fallbackForced"), async () => {
       const skip: LlmProvider[] = ["groq"];
       const r = await generateText(ping, { skipBreaker: true, skip });
-      return { detail: `نجح التحويل: استُبعد Groq فأجاب ${r.provider}.`, model: r.model };
+      return { detail: t("diag.detail.forcedOk", { provider: r.provider }), model: r.model };
     }),
   ]);
 

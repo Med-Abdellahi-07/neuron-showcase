@@ -2,6 +2,7 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { errorInfo } from "./errors";
 import { geminiEmbed } from "./gemini";
+import { getAdminT } from "@/lib/i18n/admin-t";
 
 export interface IndexResult {
   pages: number;
@@ -44,13 +45,14 @@ export async function embedAndStore(
   ctx: { fileId: string; lessonId: string; subjectId: string },
   items: { page: number; index: number; text: string }[]
 ): Promise<{ vectors: boolean; embedError?: string } | { fatal: string }> {
+  const t = await getAdminT();
   let vectors: number[][] | null = null;
   let embedError: string | undefined;
   try {
     vectors = await geminiEmbed(items.map((i) => i.text), "RETRIEVAL_DOCUMENT");
   } catch (e) {
     const info = errorInfo(e, "gemini");
-    embedError = `التضمين فشل (${info.status}): ${info.message}`.slice(0, 400);
+    embedError = t("indexing.embedFailed", { status: info.status, message: info.message }).slice(0, 400);
   }
   for (let i = 0; i < items.length; i += 100) {
     const rows = items.slice(i, i + 100).map((it, k) => ({
@@ -63,32 +65,33 @@ export async function embedAndStore(
       embedding: vectors ? `[${vectors[i + k].join(",")}]` : null,
     }));
     const { error } = await admin.from("lesson_chunks").insert(rows);
-    if (error) return { fatal: `تعذّر حفظ المقاطع: ${error.message}` };
+    if (error) return { fatal: t("indexing.storeFailed", { error: error.message }) };
   }
   return { vectors: !!vectors, embedError };
 }
 
 /** Extracts PDF text (page by page), chunks it, embeds and stores it. Runs with the service role, so it is called after the permission check. */
 export async function indexFile(fileId: string): Promise<IndexResult> {
+  const t = await getAdminT();
   const admin = createAdminClient();
   const { data: file } = await admin
     .from("lesson_files")
     .select("id, lesson_id, kind, storage_path, part_count, lessons(subject_id)")
     .eq("id", fileId)
     .maybeSingle();
-  if (!file || file.kind !== "pdf") return { pages: 0, chunks: 0, embedded: false, error: "ليس ملف PDF" };
+  if (!file || file.kind !== "pdf") return { pages: 0, chunks: 0, embedded: false, error: t("indexing.notPdf") };
   const lessonRel = file.lessons as { subject_id: string } | { subject_id: string }[] | null;
   const subjectId = (Array.isArray(lessonRel) ? lessonRel[0] : lessonRel)?.subject_id;
-  if (!subjectId) return { pages: 0, chunks: 0, embedded: false, error: "الحصة غير موجودة" };
+  if (!subjectId) return { pages: 0, chunks: 0, embedded: false, error: t("indexing.lessonMissing") };
 
   const fail = async (message: string): Promise<IndexResult> => {
     await admin.from("lesson_files").update({ index_error: message.slice(0, 500), indexed_at: null }).eq("id", fileId);
     return { pages: 0, chunks: 0, embedded: false, error: message };
   };
 
-  if ((file.part_count as number) > 1) return fail("ملف مجزّأ: تتم فهرسته من المتصفح أثناء الرفع");
+  if ((file.part_count as number) > 1) return fail(t("indexing.multipart"));
   const dl = await admin.storage.from("lesson-files").download(file.storage_path as string);
-  if (dl.error || !dl.data) return fail(`تعذّر تنزيل الملف: ${dl.error?.message ?? ""}`);
+  if (dl.error || !dl.data) return fail(t("indexing.downloadFailed", { error: dl.error?.message ?? "" }));
 
   let pages: string[];
   try {
@@ -96,13 +99,13 @@ export async function indexFile(fileId: string): Promise<IndexResult> {
     const res = await extractText(pdf, { mergePages: false });
     pages = res.text as string[];
   } catch (e) {
-    return fail(`تعذّر قراءة PDF: ${e instanceof Error ? e.message : e}`);
+    return fail(t("indexing.readFailed", { error: e instanceof Error ? e.message : String(e) }));
   }
 
   const items: { page: number; index: number; text: string }[] = [];
-  pages.forEach((t, p) => chunkText(t).forEach((c, i) => items.push({ page: p + 1, index: i, text: c })));
+  pages.forEach((pageText, p) => chunkText(pageText).forEach((c, i) => items.push({ page: p + 1, index: i, text: c })));
   if (items.length === 0) {
-    return fail("لا نص قابل للاستخراج في الملف (قد يكون صورة ممسوحة ضوئياً). أعد رفعه بنسخة نصية.");
+    return fail(t("indexing.noText"));
   }
 
   await admin.from("lesson_chunks").delete().eq("file_id", fileId);

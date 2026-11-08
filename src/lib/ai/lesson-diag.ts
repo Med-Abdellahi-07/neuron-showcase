@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { errorInfo } from "./errors";
 import { geminiEmbed } from "./gemini";
 import { searchBoth, type Row } from "./rag";
+import { getAdminT } from "@/lib/i18n/admin-t";
 
 export interface LessonSearchReport {
   serviceKey: boolean;
@@ -102,15 +103,18 @@ export async function runLessonSearchTest(
   rep.text = { ok: !debug.textError, error: debug.textError, rows: text.map(hit) };
 
   // 3) Conclusion.
+  const t = await getAdminT();
   const ix = rep.index;
-  if (!rep.serviceKey) rep.verdict = "SUPABASE_SERVICE_ROLE_KEY غير مضبوط في Vercel: لا فهرسة تلقائية ولا فحص للفهرس.";
-  else if (rep.indexError) rep.verdict = `تعذّر قراءة الفهرس: ${rep.indexError}`;
-  else if (ix && ix.pdfFiles === 0) rep.verdict = "لا ملفات PDF مسجّلة في أي حصة.";
-  else if (ix && ix.chunks === 0) rep.verdict = "الفهرس فارغ (0 مقطع): لم تنجح الفهرسة. اضغط «إعادة فهرسة الكل» وانظر عمود الأخطاء.";
-  else if (ix && ix.withEmbedding === 0) rep.verdict = "المقاطع موجودة بلا متجهات: فشل التضمين وقت الفهرسة؛ أعد الفهرسة. البحث النصي يعمل مع ذلك.";
-  else if (!debug.vectorError && vector.length === 0 && text.length === 0) rep.verdict = "الفهرس سليم لكن البحث لم يُرجع شيئاً: تحقق أن الحصة «منشورة» وأن المادة/الحصة المحددة صحيحة.";
-  else if (debug.vectorError) rep.verdict = `البحث الدلالي فشل (${debug.vectorError}) لكن النصي ${text.length ? "وجد نتائج" : "لم يجد"}.`;
-  else if ((debug.topSimilarity ?? 0) < threshold && text.length === 0) rep.verdict = `أعلى تشابه ${debug.topSimilarity?.toFixed(2)} أقل من العتبة ${threshold}: خفّض RAG_MIN_SIMILARITY.`;
-  else rep.verdict = "السلسلة تعمل: وُجدت مقاطع مرتبطة بالسؤال.";
+  if (!rep.serviceKey) rep.verdict = t("lessondiag.noServiceKey");
+  else if (rep.indexError) rep.verdict = t("lessondiag.indexError", { error: rep.indexError });
+  else if (ix && ix.pdfFiles === 0) rep.verdict = t("lessondiag.noPdf");
+  else if (ix && ix.chunks === 0) rep.verdict = t("lessondiag.emptyIndex");
+  else if (ix && ix.withEmbedding === 0) rep.verdict = t("lessondiag.noVectors");
+  else if (!debug.vectorError && vector.length === 0 && text.length === 0) rep.verdict = t("lessondiag.nothingFound");
+  else if (debug.vectorError)
+    rep.verdict = t(text.length ? "lessondiag.vectorFailedFound" : "lessondiag.vectorFailedNone", { error: debug.vectorError });
+  else if ((debug.topSimilarity ?? 0) < threshold && text.length === 0)
+    rep.verdict = t("lessondiag.lowSimilarity", { sim: debug.topSimilarity?.toFixed(2) ?? "0", threshold });
+  else rep.verdict = t("lessondiag.ok");
   return rep;
 }
