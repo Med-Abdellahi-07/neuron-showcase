@@ -99,11 +99,11 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
             <span className="text-xs text-muted">{t("progress.correctRate")}</span>
             <span className="tech text-[34px] font-bold leading-[1.15]">{rate}%</span>
           </div>
-          <ClayBars className="pf clay self-center" />
+          <ClayBars width={52} height={48} className="pf clay shrink-0 self-center" />
           {delta !== null && (
             <span
               dir="ltr"
-              className={`tech rounded-full px-2.5 py-1 text-xs font-semibold ${delta >= 0 ? "bg-success-bg text-success" : "bg-urgent-bg text-urgent"}`}
+              className={`tech shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${delta >= 0 ? "bg-success-bg text-success" : "bg-urgent-bg text-urgent"}`}
             >
               {t("progress.vsPrev").replace("{d}", `${delta >= 0 ? "+" : ""}${delta}`).replace("{m}", monthName(prev, false))}
             </span>
@@ -154,14 +154,14 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
 
       <div className="grid grid-cols-2 gap-3">
         <section className="relative flex h-[120px] flex-col justify-between overflow-hidden rounded-[22px] bg-deep p-4 text-white">
-          <div className="pf2 clay absolute bottom-2.5 left-2" aria-hidden="true"><ClayCheck variant="ring" /></div>
+          <div className="pf2 clay absolute end-2 top-2" aria-hidden="true"><ClayCheck variant="ring" width={40} height={40} /></div>
           <span className="flex size-[30px] items-center justify-center rounded-full bg-white text-deep">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
           </span>
           <span className="flex flex-col"><span className="text-xs text-on-dark">{t("progress.solved")}</span><span className="tech text-2xl font-bold">{total}</span></span>
         </section>
         <section className="relative flex h-[120px] flex-col justify-between overflow-hidden rounded-[22px] bg-primary p-4 text-white">
-          <div className="pf clay absolute bottom-2.5 left-2" aria-hidden="true"><ClayClock /></div>
+          <div className="pf clay absolute end-2 top-2" aria-hidden="true"><ClayClock width={44} height={44} /></div>
           <span className="flex size-[30px] items-center justify-center rounded-full bg-white text-primary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
           </span>

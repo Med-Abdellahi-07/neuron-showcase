@@ -45,7 +45,7 @@ export function ScheduleDay({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="relative flex h-[108px] flex-col justify-center gap-1 rounded-3xl bg-deep px-[18px] py-4 text-white">
+      <section className="relative flex min-h-[108px] flex-col justify-center gap-1 rounded-3xl bg-deep py-4 ps-[18px] pe-[92px] text-white">
         <svg width="350" height="108" viewBox="0 0 350 108" aria-hidden="true" className="absolute inset-0 size-full rounded-3xl" preserveAspectRatio="xMidYMid slice">
           <circle cx="40" cy="96" r="70" fill="#3A1A8C" />
           <g stroke="#5A3BB8" strokeWidth="1.2" fill="none"><path d="M150 14 L190 34 L176 70" /></g>
@@ -60,8 +60,8 @@ export function ScheduleDay({
             : t("schedule.weekCount").replace("{n}", String(weekTotal))}
         </span>
         {upcoming && <span className="relative text-xs text-on-dark">{t("schedule.nextUp").replace("{p}", String(upcoming.sl.n)).replace("{t}", upcoming.sl.start)}</span>}
-        <div className="sf clay-lg absolute -top-4 left-4" aria-hidden="true"><ClayCalendar variant="hero" day={String(Number(sel.date.slice(8, 10)))} /></div>
-        <div className="sring clay-lg absolute left-[92px] top-[52px]" aria-hidden="true"><ClayAlarm /></div>
+        <div className="sf clay-lg absolute end-3 -top-2" aria-hidden="true"><ClayCalendar variant="hero" day={String(Number(sel.date.slice(8, 10)))} width={64} height={64} /></div>
+        <div className="sring clay-lg absolute bottom-2 end-2" aria-hidden="true"><ClayAlarm width={30} height={32} /></div>
       </section>
 
       <div role="tablist" aria-label={t("schedule.dayPicker")} className="grid grid-cols-6 gap-2">
