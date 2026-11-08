@@ -232,8 +232,8 @@ ok("a mastered question does not return to review", /no_questions/.test(await er
 // A mistake in free practice on a mastered question brings it back
 const F3 = await start(A, "free", { subject: S1, count: 50 });
 const inF3 = (await attemptQs(A, F3)).includes(target);
-if (inF3) { await answer(A, F3, target, WRONG); const r = await st(); ok("خطأ لاحق يعيد المتقَن إلى المراجعة", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
-else { await db.query("update public.attempts set question_ids = question_ids || $2::uuid where id=$1", [F3, target]); await answer(A, F3, target, WRONG); const r = await st(); ok("خطأ لاحق يعيد المتقَن إلى المراجعة", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
+if (inF3) { await answer(A, F3, target, WRONG); const r = await st(); ok("a later mistake sends a mastered question back to review", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
+else { await db.query("update public.attempts set question_ids = question_ids || $2::uuid where id=$1", [F3, target]); await answer(A, F3, target, WRONG); const r = await st(); ok("a later mistake sends a mastered question back to review", r.mastered === false && r.stage === 0, JSON.stringify(r)); }
 
 // -- p_client_ms and attempt_review
 {

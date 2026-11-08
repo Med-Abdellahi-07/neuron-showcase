@@ -9,7 +9,7 @@ export const groqVisionModel = () => process.env.GROQ_VISION_MODEL?.trim() || "q
 
 function key(): string {
   const k = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
-  if (!k) throw new AiError("groq", 0, "GROQ_API_KEY غير مضبوط");
+  if (!k) throw new AiError("groq", 0, "GROQ_API_KEY is not set");
   return k;
 }
 
@@ -56,7 +56,7 @@ async function send(b: unknown): Promise<Response> {
     });
   } catch (e) {
     if (e instanceof AiError) throw e;
-    throw new AiError("groq", 0, `تعذّر الاتصال بـ Groq: ${e instanceof Error ? e.message : e}`);
+    throw new AiError("groq", 0, `Could not connect to Groq: ${e instanceof Error ? e.message : e}`);
   }
 }
 
@@ -80,13 +80,13 @@ export async function groqGenerate(o: GenOpts): Promise<{ text: string; model: s
   const { res, model } = await post(o, false);
   const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const text = stripThink(j.choices?.[0]?.message?.content ?? "");
-  if (!text) throw new AiError("groq", 502, "رد Groq فارغ");
+  if (!text) throw new AiError("groq", 502, "Groq returned an empty reply");
   return { text, model };
 }
 
 export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
   const { res } = await post(o, true);
-  if (!res.body) throw new AiError("groq", 502, "لا يوجد جسم للرد");
+  if (!res.body) throw new AiError("groq", 502, "no response body");
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
@@ -138,5 +138,5 @@ export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
       }
     }
   }
-  if (!any) throw new AiError("groq", 502, "رد Groq فارغ");
+  if (!any) throw new AiError("groq", 502, "Groq returned an empty reply");
 }

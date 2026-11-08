@@ -57,7 +57,7 @@ export function compatProvider(c: CompatConfig) {
 
   async function post(o: GenOpts, stream: boolean, m: string): Promise<Response> {
     const k = key();
-    if (!k) throw new AiError(c.name, 0, `${c.keyEnv} غير مضبوط`);
+    if (!k) throw new AiError(c.name, 0, `${c.keyEnv} is not set`);
     let res: Response;
     try {
       res = await fetch(base(), {
@@ -67,7 +67,7 @@ export function compatProvider(c: CompatConfig) {
         signal: AbortSignal.timeout(45_000),
       });
     } catch (e) {
-      throw new AiError(c.name, 0, `تعذّر الاتصال بـ ${c.name}: ${e instanceof Error ? e.message : e}`);
+      throw new AiError(c.name, 0, `Could not connect to ${c.name}: ${e instanceof Error ? e.message : e}`);
     }
     if (!res.ok) throw await errorFromResponse(c.name, res);
     return res;
@@ -77,7 +77,7 @@ export function compatProvider(c: CompatConfig) {
     const res = await post(o, false, m);
     const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     const text = stripThink(j.choices?.[0]?.message?.content ?? "");
-    if (!text) throw new AiError(c.name, 502, `رد ${c.name} (${m}) فارغ`);
+    if (!text) throw new AiError(c.name, 502, `${c.name} (${m}) returned an empty reply`);
     return { text, model: m };
   }
 
@@ -96,7 +96,7 @@ export function compatProvider(c: CompatConfig) {
 
   async function* streamOne(o: GenOpts, m: string): AsyncGenerator<string> {
     const res = await post(o, true, m);
-    if (!res.body) throw new AiError(c.name, 502, "لا يوجد جسم للرد");
+    if (!res.body) throw new AiError(c.name, 502, "no response body");
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = "";
@@ -137,7 +137,7 @@ export function compatProvider(c: CompatConfig) {
         }
       }
     }
-    if (!any) throw new AiError(c.name, 502, `رد ${c.name} (${m}) فارغ`);
+    if (!any) throw new AiError(c.name, 502, `${c.name} (${m}) returned an empty reply`);
   }
 
   async function* stream(o: GenOpts): AsyncGenerator<string> {

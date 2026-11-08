@@ -104,7 +104,7 @@ function allFailed(errs: ErrorInfo[]): AiError {
   const last = errs[errs.length - 1];
   return new AiError(last.provider, last.status, errs.map((e) => `${e.provider}: ${e.status} ${e.message}`).join(" | ").slice(0, 600), last.reason);
 }
-const noProviders = () => new AiError("groq", 0, "لا يوجد مزوّد ذكاء اصطناعي مضبوط (GROQ_API_KEY …)");
+const noProviders = () => new AiError("groq", 0, "no AI provider is configured (GROQ_API_KEY ...)");
 
 export interface GenControl {
   /** Bypasses the circuit breaker (full test). */
@@ -141,7 +141,7 @@ export async function generateJson<T>(o: GenOpts, opts: GenControl = {}): Promis
   try {
     return { data: JSON.parse(cleaned) as T, provider: r.provider, model: r.model, fellBackFrom: r.fellBackFrom };
   } catch {
-    throw new AiError(r.provider, 502, "الرد ليس JSON صالحاً");
+    throw new AiError(r.provider, 502, "the reply is not valid JSON");
   }
 }
 

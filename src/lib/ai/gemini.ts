@@ -33,7 +33,7 @@ export interface GenOpts {
 
 function key(override?: string): string {
   const k = (override ?? process.env.GEMINI_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
-  if (!k) throw new AiError("gemini", 0, "GEMINI_API_KEY غير مضبوط");
+  if (!k) throw new AiError("gemini", 0, "GEMINI_API_KEY is not set");
   return k;
 }
 
@@ -82,7 +82,7 @@ function emptyError(j: GenJson): AiError {
   const finish = j.candidates?.[0]?.finishReason;
   const block = j.promptFeedback?.blockReason;
   const raw = JSON.stringify(j).slice(0, 700);
-  const msg = `رد Gemini فارغ — finishReason=${finish ?? "—"}${block ? ` blockReason=${block}` : ""} thoughtsTokens=${j.usageMetadata?.thoughtsTokenCount ?? "—"} model=${geminiModel()} | raw: ${raw}`;
+  const msg = `Gemini returned an empty reply - finishReason=${finish ?? "—"}${block ? ` blockReason=${block}` : ""} thoughtsTokens=${j.usageMetadata?.thoughtsTokenCount ?? "—"} model=${geminiModel()} | raw: ${raw}`;
   return new AiError("gemini", 502, msg, finish ?? block);
 }
 const textOf = (j: GenJson) =>
@@ -96,7 +96,7 @@ async function post(path: string, body: unknown, apiKey: string, signal?: AbortS
   try {
     res = await fetch(`${BASE}/${path}`, { method: "POST", headers: headers(apiKey), body: JSON.stringify(body), signal });
   } catch (e) {
-    throw new AiError("gemini", 0, `تعذّر الاتصال بـ Gemini: ${e instanceof Error ? e.message : e}`);
+    throw new AiError("gemini", 0, `Could not connect to Gemini: ${e instanceof Error ? e.message : e}`);
   }
   if (!res.ok) throw await errorFromResponse("gemini", res);
   return res;
@@ -127,7 +127,7 @@ export async function geminiGenerate(o: GenOpts): Promise<{ text: string; model:
 export async function* geminiStream(o: GenOpts): AsyncGenerator<string> {
   const model = geminiModel();
   const res = await postGen(`models/${model}:streamGenerateContent?alt=sse`, o, key(o.apiKeyOverride), 55_000);
-  if (!res.body) throw new AiError("gemini", 502, "لا يوجد جسم للرد");
+  if (!res.body) throw new AiError("gemini", 502, "no response body");
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
@@ -191,9 +191,9 @@ export async function geminiEmbed(
       AbortSignal.timeout(50_000)
     );
     const j = (await res.json()) as { embeddings?: { values: number[] }[] };
-    if (!j.embeddings || j.embeddings.length !== slice.length) throw new AiError("gemini", 502, "رد التضمين غير مكتمل");
+    if (!j.embeddings || j.embeddings.length !== slice.length) throw new AiError("gemini", 502, "incomplete embedding response");
     for (const e of j.embeddings) {
-      if (e.values.length !== EMBEDDING_DIMENSIONS) throw new AiError("gemini", 502, `بُعد التضمين ${e.values.length} بدل ${EMBEDDING_DIMENSIONS}`);
+      if (e.values.length !== EMBEDDING_DIMENSIONS) throw new AiError("gemini", 502, `embedding dimension ${e.values.length} instead of ${EMBEDDING_DIMENSIONS}`);
       out.push(l2(e.values));
     }
   }

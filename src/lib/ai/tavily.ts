@@ -9,7 +9,7 @@ export interface WebResult {
 /** Web search (Tavily). Sends only the question text, after scrubbing personal data. */
 export async function tavilySearch(query: string, max = 4): Promise<WebResult[]> {
   const k = (process.env.TAVILY_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
-  if (!k) throw new AiError("tavily", 0, "TAVILY_API_KEY غير مضبوط");
+  if (!k) throw new AiError("tavily", 0, "TAVILY_API_KEY is not set");
   let res: Response;
   try {
     res = await fetch((process.env.TAVILY_BASE_URL?.trim() || "https://api.tavily.com") + "/search", {
@@ -19,7 +19,7 @@ export async function tavilySearch(query: string, max = 4): Promise<WebResult[]>
       signal: AbortSignal.timeout(15_000),
     });
   } catch (e) {
-    throw new AiError("tavily", 0, `تعذّر الاتصال بـ Tavily: ${e instanceof Error ? e.message : e}`);
+    throw new AiError("tavily", 0, `Could not connect to Tavily: ${e instanceof Error ? e.message : e}`);
   }
   if (!res.ok) throw await errorFromResponse("tavily", res);
   const j = (await res.json()) as { results?: { title?: string; url?: string; content?: string }[] };
