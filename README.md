@@ -1,5 +1,125 @@
 # Neuron
 
+**An offline-first study companion with a course-grounded AI assistant, built for university students in Mauritania, where mobile data is slow and expensive.**
+
+Author: **Med Abdellahi**. I identified the problem, designed the product and its features, made the architecture and privacy decisions, directed the implementation using AI-assisted development (Claude as coding assistant), tested it with real students, and run it in production.
+
+Live app: <https://neuron-flame.vercel.app> (access is limited to enrolled students, so there is no public sign-up; the screenshots below show the real app running on mock data with fictional names).
+
+> **Development started in October 2026. This is a public mirror of the private repository that runs the live platform.** The full commit history is preserved with its original dates. Production keys, student data and internal operational files were removed from every commit, and the author e-mail address was replaced by a GitHub no-reply address. See [SECURITY.md](SECURITY.md) and [LICENSE](LICENSE).
+
+![Neuron demo](docs/assets/demo.gif)
+
+([Higher-quality video: demo.mp4](docs/assets/demo.mp4))
+
+## The problem
+
+University students in Mauritania study on phones, on prepaid mobile data that is both slow and costly. Course material arrives as large PDFs; connections drop during a lecture week; most study tools assume a fast, always-on connection and are not available in the students' languages (Arabic, French and English are all used on campus).
+
+## What I built and why
+
+I wanted one app a student could open on the bus with no signal and still see today's timetable, read a downloaded lesson and practise questions, and that also gives them a patient tutor grounded in *their own* course notes rather than generic web answers.
+
+- **Offline-first PWA**: install once, then cold-start with no connection; lessons, timetable and practice quizzes work offline and sync later.
+- **AI assistant grounded in the course**: retrieval-augmented answers with page citations, guided explanations, summaries, personal practice questions, written-answer correction.
+- **Practice and motivation**: ranked quizzes, weekly leaderboards, spaced review of mistakes, asynchronous duels between classmates, study streaks.
+- **Everything a class needs**: weekly timetable with study-week numbering, announcements, recordings, a moderated space chat, notifications, and admin tools with approval workflow and statistics.
+- **Built for the context**: Arabic (right-to-left), French and English, chunked uploads for very large PDFs, and strict privacy rules for anything sent to AI providers.
+
+## How it was built
+
+Neuron was built with AI-assisted development: Claude (by Anthropic) acted as my coding assistant and wrote most of the code under my direction. Many commits carry a `Co-Authored-By` trailer for that reason, and the history is published as it happened.
+
+My role was product owner, designer, tester and operator:
+
+- **Product owner and designer**: I identified the problem (slow, expensive mobile data; large PDFs; three languages on campus), decided which features matter, and made the architecture and privacy decisions (what is stored, what may be sent to an AI provider, who can read what).
+- **Director of the implementation**: I described the behavior I wanted, reviewed the results and asked for changes.
+- **Tester**: I tested the app with real students and fed back what broke or confused people.
+- **Operator**: I run the production deployment and apply the database migrations.
+
+What I learned by doing this:
+
+- **Row Level Security**: how database policies isolate students and spaces from each other, why grading must happen in the database, and how to test those guarantees.
+- **Offline-first PWA**: service workers, an app shell cache, IndexedDB and syncing results later.
+- **Retrieval-augmented generation (RAG)**: chunking and embedding lessons, retrieval with citations, and keeping answers grounded in the course.
+- **Multi-provider AI**: fallback chains across providers and privacy filtering before any text leaves the system.
+- **i18n and right-to-left layout**: Arabic, French and English with checks that fail the build when a translation is missing.
+
+## Screens
+
+All screens below are the real application running against a mock backend with fictional names.
+
+| Splash | Home | Schedule |
+| :---: | :---: | :---: |
+| <img src="docs/assets/splash.png" width="230"> | <img src="docs/assets/home.png" width="230"> | <img src="docs/assets/schedule.png" width="230"> |
+
+| AI assistant | Progress | Space chat |
+| :---: | :---: | :---: |
+| <img src="docs/assets/assistant.png" width="230"> | <img src="docs/assets/progress.png" width="230"> | <img src="docs/assets/chat.png" width="230"> |
+
+| Offline mode (airplane mode, cold start) |
+| :---: |
+| <img src="docs/assets/offline.png" width="230"> |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Device["Student's phone (PWA)"]
+    UI["Next.js UI (ar / fr / en, RTL)"]
+    SW["Service worker<br/>app shell cache"]
+    IDB[("IndexedDB<br/>lessons, timetable,<br/>offline results")]
+    UI <--> SW
+    UI <--> IDB
+  end
+
+  subgraph Vercel["Vercel"]
+    SA["Server actions and<br/>route handlers"]
+    CRON["Daily cron<br/>(notifications)"]
+  end
+
+  subgraph Supabase["Supabase"]
+    AUTH["Auth"]
+    PG[("PostgreSQL<br/>RLS, SQL functions,<br/>pgvector")]
+    ST[("Storage<br/>lesson files, 45 MB parts")]
+  end
+
+  subgraph AI["AI providers (fallback chain)"]
+    P["Groq, OpenRouter,<br/>NVIDIA NIM, GitHub Models,<br/>Gemini"]
+    W["Tavily web search"]
+  end
+
+  UI -- "JWT session" --> SA
+  UI -- "signed direct uploads" --> ST
+  SA --> AUTH
+  SA -- "student's JWT: RLS applies" --> PG
+  SA --> P
+  SA --> W
+  CRON --> SA
+  SW -. "offline" .-> IDB
+```
+
+## Key technical points
+
+- **Row Level Security isolation.** Every table has RLS enabled. A student can only read their own attempts, answers and conversations; spaces (major x level) are isolated from each other by policies built on `my_cohort()`. Grading, scoring and duels run inside `security definer` SQL functions, and `correct_index` / `explanation` are column-protected, so scores and answers cannot be read or forged from the browser. The SQL test suite checks these guarantees, including that migrations are idempotent.
+- **Offline-first PWA.** A service worker precaches the complete `/offline` shell per build and replaces the old version only after the new one is fully downloaded. Navigation is network-first with a 3-second timeout, then falls back to a local app backed by IndexedDB. The installed app cold-starts with no network, shows today's sessions and the two-week timetable, opens downloaded lessons (PDF, practice questions with math, summaries), grades practice locally and syncs results when the connection returns. Logging out wipes all local data.
+- **Chunked uploads above 50 MB.** Supabase limits an object to 50 MB on the free plan. Files above 45 MB are split in the browser into parts, uploaded directly to Storage with progress, cancel and per-part retry (never through a serverless function), stored as one logical file and verified by hash when joined. Very large PDFs are indexed for the assistant from the browser in small page batches.
+- **Multi-provider AI chain with privacy rules.** Requests fall back across five providers. Names, emails and phone numbers are never sent; student text is scrubbed of personal data first; providers that train on prompts are not used (zero data retention / no-training options are enforced where offered, e.g. OpenRouter's data-collection opt-out). A hidden per-student abuse cap and a "pressure mode" keep the free tiers within their limits.
+- **Retrieval-augmented answers.** Lessons are chunked and embedded; hybrid semantic plus text search retrieves excerpts, the model cites pages, and answers outside the syllabus are labelled as such.
+- **Trilingual UI with RTL.** Arabic, French and English dictionaries (1,050 keys each) are checked at build time: a missing translation, an empty value or an unknown `t("...")` key fails the build.
+- **Tests.** 55 unit tests (`node --test`) and 14 SQL suites with 574 assertions run against an in-process PostgreSQL (PGlite) that applies all 28 migrations twice. TypeScript, ESLint and the i18n check run clean, and the production build passes.
+
+## Repository tour
+
+- `src/` the Next.js application (`src/lib/ai`, `src/lib/offline`, `src/lib/i18n` are good starting points)
+- `supabase/migrations/` the full database history, 0001 to 0028
+- `public/sw.js` the service worker
+- `tests/` unit tests and SQL tests
+
+---
+
+# Technical documentation
+
 Neuron is an offline-capable study companion for university students. It is a Progressive Web App (PWA) built with Next.js and Supabase, with an AI assistant grounded in the course material, ranked quizzes, spaced review, a weekly timetable and a space chat. The interface is available in Arabic (right-to-left), French and English.
 
 It was designed for students in Mauritania, where mobile data is slow and expensive: lessons can be downloaded once and used without any connection, and large PDFs are uploaded in chunks.
@@ -52,7 +172,6 @@ src/lib/offline/...          IndexedDB layer, local grading, sync of offline res
 src/lib/i18n/...             Dictionaries (ar / fr / en) and translators
 public/sw.js                 Service worker (offline app shell)
 supabase/migrations/...      Schema, RLS policies and SQL functions (0001 ... 0028)
-supabase/reports/...         Read-only SQL reports
 scripts/                     Admin creation, icon generation, i18n check
 tests/                       Unit tests (tests/*.test.mjs) and SQL tests (tests/sql/phase*.mjs)
 .github/workflows/           Keep-alive ping and a fallback for the daily notification job
@@ -163,6 +282,6 @@ Other operational notes: the subject and semester catalog is cached for one hour
 - **Server-side grading**: answers are graded by SQL functions (`submit_answer`, `duel_answer`, ...). Students cannot read `correct_index` or `explanation` and cannot write to attempt tables directly, so scores cannot be forged from the browser.
 - **Next.js 16**: `middleware` is now `src/proxy.ts`, and Cache Components are disabled because every page is behind login.
 
-## License and status
+## License
 
-This is a private project that serves real students. See `AGENTS.md` for notes for AI coding agents working in the repository.
+All rights reserved (see LICENSE). The production system is private and serves real students.
