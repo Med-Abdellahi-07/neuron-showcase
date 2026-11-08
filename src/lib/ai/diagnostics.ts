@@ -9,12 +9,12 @@ export interface DiagRow {
   id: string;
   label: string;
   ok: boolean;
-  status: number | null; // رمز HTTP إن وُجد
+  status: number | null; // HTTP status code, if any.
   ms: number;
   model?: string;
   detail: string;
   hint?: string;
-  /** يظهر بشكل بارز (مثلاً 401 من Gemini) */
+  /** Shown prominently (for example a 401 from Gemini). */
   alert?: boolean;
 }
 

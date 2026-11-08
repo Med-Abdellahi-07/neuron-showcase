@@ -37,8 +37,8 @@ export interface ChatMessage {
 type Mode = "explain" | "review" | "solve";
 const MODES: Mode[] = ["explain", "review", "solve"];
 
-/** يحوّل [C1] و[W2] إلى روابط داخلية تُعرض كشارات */
-/** يدعم [C1] و[C1, C2] و[C1][W2] و[C1; C2]: كل مرجع زر مستقل */
+/** Turns [C1] and [W2] into internal links shown as badges. */
+/** Supports [C1], [C1, C2], [C1][W2] and [C1; C2]: each reference becomes its own button. */
 const withCitations = (text: string) =>
   text.replace(/\[((?:[CW]\d{1,2})(?:\s*[,;،]\s*[CW]\d{1,2})*)\]/g, (_m, list: string) =>
     list
@@ -47,14 +47,14 @@ const withCitations = (text: string) =>
       .join(" ")
   );
 
-/** المراجع المذكورة فعلاً في النص */
+/** References actually mentioned in the text. */
 function citedIds(text: string): Set<string> {
   const ids = new Set<string>();
   for (const m of text.matchAll(/\[((?:[CW]\d{1,2})(?:\s*[,;،]\s*[CW]\d{1,2})*)\]/g)) for (const id of m[1].split(/\s*[,;،]\s*/)) ids.add(id);
   return ids;
 }
 
-/** يفصل خيارات QCM (A) B) C) D)) عن نص السؤال لعرضها أزراراً */
+/** Splits QCM options (A) B) C) D)) from the question text so they render as buttons. */
 function splitOptions(content: string): { body: string; options: { letter: string; text: string }[] } {
   const lines = content.split("\n");
   const re = /^\s*(?:[-*]\s*)?\**([A-D])\**\s*[).:]\s*(.+?)\s*$/;
@@ -78,7 +78,7 @@ const usedSources = (m: ChatMessage) => {
   return (m.sources ?? []).filter((s) => cited.has(s.id));
 };
 
-/** نص نظيف للنسخ: بلا علامات المراجع، والمعادلات تبقى LaTeX كما كتبها النموذج */
+/** Clean text for copying: no reference markers, and formulas stay LaTeX as the model wrote them. */
 const cleanForCopy = (text: string) =>
   text
     .replace(/\s*\[(?:[CW]\d{1,2})(?:\s*[,;،]\s*[CW]\d{1,2})*\]/g, "")
@@ -111,7 +111,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-/** رابط المرجع: الحصة مع الصفحة، والحصة تفتح الـPDF على تلك الصفحة */
+/** Reference link: the lesson with a page; the lesson opens the PDF at that page. */
 const courseHref = (s: ChatSource) => `/lessons/${s.lessonId}${s.page ? `?page=${s.page}` : ""}#pdf-h`;
 
 function Markdown({ text, sources }: { text: string; sources: ChatSource[] }) {
@@ -155,7 +155,7 @@ function Markdown({ text, sources }: { text: string; sources: ChatSource[] }) {
   );
 }
 
-/** يصغّر الصورة في المتصفح قبل الإرسال (توفير للحصة ولحجم الطلب) */
+/** Downscales the image in the browser before sending (saves quota and request size). */
 async function toJpeg(file: File): Promise<{ mime: string; data: string; preview: string }> {
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
@@ -180,7 +180,7 @@ export function ChatView({
 }: {
   guided?: boolean;
   autoStart?: boolean;
-  /** سؤال حر جاهز من شريط المساعد (يُرسل بدل بدء الشرح الموجَّه) */
+  /** Ready-made free question from the assistant bar (sent instead of starting the guided explanation). */
   autoQuestion?: boolean;
   initialProgress?: { cursor: number; total: number; finished: boolean };
   initialStep?: number;
@@ -214,7 +214,7 @@ export function ChatView({
       try {
         next.push(await toJpeg(f));
       } catch {
-        /* صورة غير مدعومة */
+        /* unsupported image */
       }
     }
     setImages((cur) => [...cur, ...next].slice(0, 2));
@@ -230,7 +230,7 @@ export function ChatView({
     | { type: "done" }
     | { type: "error"; code: string };
 
-  /** يرسل طلباً إلى المساعد ويعرض الرد المتدفق. action: بدء/متابعة/أزرار سريعة في الجلسات الموجّهة */
+  /** Sends a request to the assistant and shows the streamed reply. action: start/continue/quick buttons in guided sessions. */
   async function run(o: { action?: string; text: string; images?: { mime: string; data: string }[] }) {
     if (busy || (o.action !== "start" && !o.text.trim())) return;
     let aid = crypto.randomUUID();
@@ -258,7 +258,7 @@ export function ChatView({
           const j = (await res.json()) as { error?: string };
           if (j.error === "break" || j.error === "busy" || j.error === "disabled") code = j.error;
         } catch {
-          /* ليس JSON */
+          /* Not JSON. */
         }
         patch({ error: code });
         return;
@@ -282,7 +282,7 @@ export function ChatView({
           else if (ev.type === "progress") setProgress({ cursor: ev.cursor, total: ev.total, finished: ev.finished });
           else if (ev.type === "step") setStep(ev.step);
           else if (ev.type === "next") {
-            // رسالة ثانية في الرد نفسه (الملخص بعد التصحيح الأخير)
+            // Second message in the same reply (the summary after the final grading).
             aid = crypto.randomUUID();
             const nid = aid;
             setMessages((m) => [...m, { id: nid, role: "assistant", content: "" }]);
@@ -307,7 +307,7 @@ export function ChatView({
     await run({ text: q, images: sentImages });
   }
 
-  // بدء الجلسة الموجّهة تلقائياً: المساعد يبادر دون سؤال من الطالب
+  // Start the guided session automatically: the assistant takes the initiative without a student question.
   const started = useRef(false);
   useEffect(() => {
     if ((!autoStart && !autoQuestion) || started.current || initialMessages.length > 0) return;
@@ -320,7 +320,7 @@ export function ChatView({
         sessionStorage.removeItem(`neuron-img-${conversationId}`);
       }
     } catch {
-      /* لا شيء */
+      /* nothing to do */
     }
     window.history.replaceState(null, "", `/assistant/${conversationId}`);
     let q = "";
@@ -329,7 +329,7 @@ export function ChatView({
         q = sessionStorage.getItem(`neuron-q-${conversationId}`) ?? "";
         sessionStorage.removeItem(`neuron-q-${conversationId}`);
       } catch {
-        /* لا شيء */
+        /* nothing to do */
       }
     }
     if (q) void run({ text: q, images: imgs });

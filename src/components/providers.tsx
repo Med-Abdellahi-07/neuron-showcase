@@ -7,12 +7,12 @@ import { OfflineBanner } from "@/components/offline-banner";
 import type { Locale } from "@/lib/i18n/dictionaries";
 
 export function Providers({ locale, children }: { locale: Locale; children: ReactNode }) {
-  // يُسجَّل من أول تحميل لأي صفحة (حتى /login): أول زيارة تُثبّت قشرة التطبيق المحلية في الخلفية
+  // Registered on the first load of any page (even /login): the first visit installs the local app shell in the background.
   useEffect(() => {
     if (!("serviceWorker" in navigator) || process.env.NODE_ENV !== "production") return;
     navigator.serviceWorker
       .register("/sw.js", { scope: "/", updateViaCache: "none" })
-      .then((reg) => reg.update().catch(() => {})) // كل فتح للتطبيق يفحص وجود نسخة جديدة
+      .then((reg) => reg.update().catch(() => {})) // Every app open checks for a new version.
       .catch(() => {});
   }, []);
 

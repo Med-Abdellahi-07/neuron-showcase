@@ -13,8 +13,8 @@ import type { OfflineSnapshot } from "@/lib/offline/types";
 export const dynamic = "force-dynamic";
 
 /**
- * لقطة الجدول للتشغيل بدون إنترنت: الأسبوع الافتراضي + التالي، المواد المتبقية، اسم الفضاء والعرض.
- * لا بريد ولا هاتف ولا رموز ولا محادثات.
+ * Timetable snapshot for offline use: default week + next week, remaining subjects, space name and display.
+ * No email, phone, tokens or conversations.
  */
 export async function GET() {
   const profile = await getProfile();

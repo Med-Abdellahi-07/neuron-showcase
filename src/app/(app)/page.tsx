@@ -27,8 +27,8 @@ export default async function HomePage() {
   const cohortId = profile.cohort_id;
   const features = (await getSpace())?.features;
 
-  // كل هذه الاستعلامات مستقلة عن بعضها، فتُنفَّذ معاً في موجة واحدة
-  const remaining = await getRemainingSubjects(); // مواد متبقية من L1 (طالب L2 فقط)
+  // These queries are independent, so they run together in one wave.
+  const remaining = await getRemainingSubjects(); // Remaining L1 subjects (L2 students only).
   const sessionFilter = [`cohort_id.eq.${cohortId}`, ...(remaining.length ? [`subject_id.in.(${remaining.map((r) => r.id).join(",")})`] : [])].join(",");
   const [subjects, sessionsRes, annsRes, lessonsRes, progressRes, dueRes, duelsRes, answersRes, totalAnsRes, okAnsRes, options, sem] = await Promise.all([
     getCurrentSubjects(),
@@ -72,14 +72,14 @@ export default async function HomePage() {
   const soonest = myTurn.filter((d) => d.status === "open").sort((a, b) => hoursLeft(a.expires_at) - hoursLeft(b.expires_at))[0];
 
   const byId = new Map([...subjects, ...remaining].map((s) => [s.id, s]));
-  const ownIds = new Set(subjects.map((s) => s.id)); // التقدّم لمواد فضائي فقط؛ المتبقية في قسمها
+  const ownIds = new Set(subjects.map((s) => s.id)); // Progress covers this space's subjects only; remaining ones have their own section.
   const next =
     ((sessionsRes?.data ?? []) as ScheduleSession[]).find(
       (s) => !hasEnded(s, today) && visibleForGroup(s, byId.get(s.subject_id)?.code, profile)
     ) ?? null;
   const announcements = (annsRes?.data ?? []) as Announcement[];
 
-  // التقدم: الحصص المنشورة (CM/TD/TP) في مواد السداسي الحالي مقابل ما درسه الطالب
+  // Progress: published lessons (CM/TD/TP) in current-semester subjects vs. what the student has studied.
   const lessonIds = new Set(
     (lessonsRes.data ?? []).filter((l) => ownIds.has(l.subject_id as string)).map((l) => l.id as string)
   );
@@ -90,7 +90,7 @@ export default async function HomePage() {
   const nextSubject = next ? byId.get(next.subject_id) : undefined;
   const nextSlot = next ? SLOTS.find((s) => s.n === next!.slot) : undefined;
 
-  // تقدّم كل مادة (حلقة لكل مادة) من الحصص المنشورة
+  // Per-subject progress (one ring per subject) from published lessons.
   const subjectOf = new Map((lessonsRes.data ?? []).map((l) => [l.id as string, l.subject_id as string]));
   const perSubject = new Map<string, { done: number; total: number }>();
   for (const [lid, sid] of subjectOf) {
@@ -104,7 +104,7 @@ export default async function HomePage() {
   const firstName = profile.full_name.split(" ")[0];
   const space = await getSpace();
 
-  // السلسلة: أيام متتالية فيها إجابة أو حصة مدروسة (بتوقيت التطبيق)
+  // Streak: consecutive days with an answer or a studied lesson (in app time).
   const tz = appTimeZone();
   const dayOf = (v: unknown) => {
     const d = new Date(String(v));
@@ -123,7 +123,7 @@ export default async function HomePage() {
   const hour = Number(nowHM().slice(0, 2));
   const dayOfMonth = String(Number(today.slice(8, 10)));
   const nextWhen = next ? (next.session_date === today ? t("home.today") : next.session_date === addDays(today, 1) ? t("home.tomorrow") : formatDate(next.session_date, locale)) : "";
-  const C = 2 * Math.PI * 40; // محيط دائرة الإتقان (r=40)
+  const C = 2 * Math.PI * 40; // Circumference of the mastery ring (r=40).
 
   const shortcuts = [
     { href: "/subjects", label: t("home.lessons"), bg: "#EFE9FF", icon: <ClayBook variant="tile" className="clays" /> },

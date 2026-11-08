@@ -21,7 +21,7 @@ interface Dash {
   recent_students: { id: string; full_name: string; last_seen_at: string | null }[];
 }
 
-/** لوحة الفضاء الحالي: إحصاءاته وحدها (الدالة تقيّد بفضاء المستخدم في قاعدة البيانات). */
+/** Current space dashboard: its own statistics only (the database function restricts to the user's space). */
 export async function SpaceDashboard() {
   const { t } = await getT();
   const supabase = await createClient();

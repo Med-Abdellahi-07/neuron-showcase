@@ -27,7 +27,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   if (!parsed || !password) return { error: t("login.invalid") };
 
   let email = parsed.email;
-  // الهاتف قد يُكتب بصيغ مختلفة (+222…، 00222…، بدون مفتاح الدولة): نطابق آخر 8 أرقام.
+  // Phones can be typed in many formats (+222..., 00222..., without country code): match the last 8 digits.
   if (parsed.phoneTail && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const { data } = await createAdminClient()
       .from("profiles")
@@ -37,7 +37,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
     if (data && data.length === 1 && data[0].email) email = data[0].email;
   }
 
-  // الفضاء المختار في شاشة الدخول (اختياري: نموذج الاحتياط القديم بلا فضاء)
+  // Space chosen on the login screen (optional: the legacy fallback form has none).
   const spaceRaw = String(formData.get("space_id") ?? "");
   const spaceId = UUID_RE.test(spaceRaw) ? spaceRaw : null;
 
@@ -45,12 +45,12 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: t("login.invalid") };
 
-  // المستخدم يأتي من نتيجة تسجيل الدخول نفسها — لا حاجة لطلب getUser إضافي
+  // The user comes from the sign-in result itself, so no extra getUser call is needed.
   const user = signIn.user;
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("locale, role, cohort_id").eq("id", user.id).maybeSingle();
 
-    // فضاء واحد: غير المشرف العام يجب أن يكون في IAA L2 وإلا يُمنع (الحساب لا يُحذف)
+    // Single space: anyone other than the super admin must be in IAA L2, otherwise login is refused (the account is not deleted).
     if (!MULTI_SPACE && profile?.role !== "admin") {
       let ok = false;
       if (profile?.cohort_id) {
@@ -72,11 +72,11 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
     if (MULTI_SPACE && spaceId) {
       const { data: space } = await supabase.from("cohorts").select("id, name, is_active").eq("id", spaceId).maybeSingle();
       if (profile?.role === "admin") {
-        // المشرف العام يدخل أي فضاء: يصير هو «فضاءه الحالي»
+        // The super admin can enter any space, which becomes their current space.
         if (space && process.env.SUPABASE_SERVICE_ROLE_KEY && profile.cohort_id !== spaceId)
           await createAdminClient().from("profiles").update({ cohort_id: spaceId }).eq("id", user.id);
       } else if (!profile || profile.cohort_id !== spaceId) {
-        // ليس حسابه في هذا الفضاء: نُنهي الجلسة ونبيّن الفضاء المطلوب
+        // The account does not belong to this space: end the session and name the required space.
         await supabase.auth.signOut();
         let label = "";
         if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -112,7 +112,7 @@ export async function requestReset(_prev: FormState, formData: FormData): Promis
       redirectTo: `${origin}/auth/callback?next=/reset-password`,
     });
   }
-  // رسالة موحّدة حتى لا نكشف وجود الحساب
+  // Uniform response so account existence is not revealed.
   return { message: t("forgot.sent") };
 }
 

@@ -1,8 +1,8 @@
 export type LlmProvider = "groq" | "openrouter" | "nvidia" | "github" | "gemini";
 
 /**
- * ترتيب المزوّدين (قرار neuron-ai-plan.md). كلهم لا يدرّبون على طلبات الطلاب الشخصية، وGemini آخر احتياط.
- * Mistral مستبعد نهائياً. المحتوى غير الشخصي (personal:false: أسئلة Duel الدورية، سؤال اليوم) يبدأ بـ Gemini.
+ * Provider order (decision in neuron-ai-plan.md). None of them train on students' personal requests, and Gemini is the last fallback.
+ * Mistral is permanently excluded. Non-personal content (personal:false: periodic duel questions, question of the day) starts with Gemini.
  */
 export const PERSONAL_CHAIN: LlmProvider[] = ["groq", "openrouter", "nvidia", "github", "gemini"];
 export const GENERAL_CHAIN: LlmProvider[] = ["gemini", "groq", "openrouter", "nvidia", "github"];

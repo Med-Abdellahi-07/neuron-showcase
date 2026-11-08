@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-/** زر الشهر في «تقدّمي»: عنصر select أصلي مغطّى بشكل الزر (وصولية ممتازة بلا نافذة مخصّصة) */
+/** Month button in "Progress": a native select styled as a button (excellent accessibility without a custom popup). */
 export function MonthSelect({ value, options, label }: { value: string; options: { ym: string; label: string }[]; label: string }) {
   const router = useRouter();
   const current = options.find((o) => o.ym === value)?.label ?? value;

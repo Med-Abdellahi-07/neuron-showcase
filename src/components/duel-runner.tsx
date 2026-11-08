@@ -9,8 +9,8 @@ import { answerDuel, loadDuelQuestions, type DuelQuestion } from "@/app/actions/
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 /**
- * جلسة Duel: سؤال واحد في كل مرة بلا أي كشف للصحة أثناء اللعب (حتى لا تتسرّب الإجابات).
- * تُحسب السرعة في الخادم. عند الانتهاء تُحدَّث الصفحة لتعرض الانتظار أو المقارنة.
+ * Duel session: one question at a time with no correctness reveal during play (so answers do not leak).
+ * Speed is computed on the server. When finished, the page refreshes to show waiting or the comparison.
  */
 export function DuelRunner({ duelId, total }: { duelId: string; total: number }) {
   const { t } = useT();

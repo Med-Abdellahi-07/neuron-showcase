@@ -4,10 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
 /**
- * معرّف المستخدم الحالي من الـ JWT عبر getClaims().
- * مع مفاتيح التوقيع غير المتماثلة يتم التحقق محلياً بلا طلب شبكة إلى Supabase Auth
- * (بخلاف getUser() التي تتصل بالخادم في كل مرة). cache() يمنع التكرار داخل الطلب الواحد.
- * الأمان الفعلي للبيانات يظل في RLS لأن auth.uid() تُقرأ من الـ JWT في قاعدة البيانات.
+ * Current user id from the JWT via getClaims().
+ * With asymmetric signing keys verification is local, with no network request to Supabase Auth
+ * (unlike getUser(), which contacts the server every time). cache() prevents repeats within a single request.
+ * Actual data security still lives in RLS, because auth.uid() is read from the JWT in the database.
  */
 export const getUserId = cache(async (): Promise<string | null> => {
   const supabase = await createClient();
@@ -16,7 +16,7 @@ export const getUserId = cache(async (): Promise<string | null> => {
   return data.claims.sub;
 });
 
-/** الملف الشخصي: يُقرأ مرة واحدة فقط لكل طلب (Layout والصفحة يشتركان في النتيجة). */
+/** The profile: read once per request (the layout and the page share the result). */
 export const getProfile = cache(async (): Promise<Profile | null> => {
   const userId = await getUserId();
   if (!userId) return null;
@@ -26,12 +26,12 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
     .select("id, full_name, email, phone, role, can_publish_direct, cohort_id, locale, english_group, hide_from_ranking")
     .eq("id", userId)
     .maybeSingle();
-  // يظهر السبب الحقيقي (مثل permission denied) في سجلات Vercel بدل رسالة عامة فقط
+  // Surfaces the real cause (such as permission denied) in Vercel logs instead of only a generic message.
   if (error) console.error("getProfile failed:", error.code, error.message);
   return (data as Profile | null) ?? null;
 });
 
-/** للصفحات التي تكفيها هوية المستخدم فقط: بلا قراءة الملف الشخصي من قاعدة البيانات. */
+/** For pages that only need the user's identity: no profile read from the database. */
 export async function requireUserId(): Promise<string> {
   const id = await getUserId();
   if (!id) redirect("/login");
@@ -44,9 +44,9 @@ export async function requireProfile(): Promise<Profile> {
   return profile;
 }
 
-/** طاقم الفضاء الحالي: مشرف، مشرف فضاء، أو المشرف العام (داخل الفضاء الذي دخله) */
+/** Staff of the current space: moderator, space admin, or the super admin (inside the space they entered). */
 export const isStaffRole = (role: Profile["role"]) => role === "moderator" || role === "space_admin" || role === "admin";
-/** «مدير» الفضاء: مشرف الفضاء أو المشرف العام. ينشر مباشرة ويدير كل محتوى فضائه. */
+/** Space "manager": space admin or super admin. Publishes directly and manages all of the space's content. */
 export const isManagerRole = (role: Profile["role"]) => role === "space_admin" || role === "admin";
 
 export async function requireStaff(): Promise<Profile> {
@@ -55,14 +55,14 @@ export async function requireStaff(): Promise<Profile> {
   return profile;
 }
 
-/** مدير الفضاء (مشرف فضاء أو المشرف العام). كل ما يخص فضاءً واحداً: الإعلانات، الأسئلة المخصّصة، بداية السداسي… */
+/** Space manager (space admin or super admin). Everything tied to a single space: announcements, assigned questions, semester start, etc. */
 export async function requireManager(): Promise<Profile> {
   const profile = await requireProfile();
   if (!isManagerRole(profile.role)) redirect(isStaffRole(profile.role) ? "/admin" : "/");
   return profile;
 }
 
-/** المشرف العام فقط (إدارة الفضاءات والحسابات عبر الفضاءات وكل ما هو عام للجامعة) */
+/** Super admin only (managing spaces, cross-space accounts and everything university-wide). */
 export async function requireAdmin(): Promise<Profile> {
   const profile = await requireProfile();
   if (profile.role !== "admin") redirect(isStaffRole(profile.role) ? "/admin" : "/");

@@ -5,7 +5,7 @@ import { AiSpaceRow, type SpaceAi } from "@/components/ai-space-row";
 
 interface Usage { cohort_id: string; day: string; points: number; users: number }
 
-/** لوحة المشرف العام: أعلام الذكاء الاصطناعي لكل فضاء، حصة النقاط اليومية، واستهلاك كل فضاء. */
+/** Super admin panel: AI flags per space, daily points quota, and each space's usage. */
 export async function AiControl() {
   const { t } = await getT();
   const supabase = await createClient();

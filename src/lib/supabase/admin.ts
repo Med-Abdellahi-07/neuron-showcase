@@ -2,8 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL } from "./env";
 
 /**
- * عميل بصلاحية service role — يتجاوز RLS. للاستخدام داخل Server Actions
- * بعد التحقق من أن المستدعي مدير. لا يُستورد أبداً من مكوّن عميل.
+ * Service-role client: bypasses RLS. For use inside Server Actions
+ * after verifying the caller is an admin. Never imported from a client component.
  */
 export function createAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

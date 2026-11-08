@@ -18,21 +18,21 @@ export interface OfflinePdf {
   name: string;
   blob: Blob;
 }
-/** حزمة حصة محفوظة على الجهاز */
+/** A lesson pack saved on the device. */
 export interface OfflinePack {
   id: string;
   title: string;
   kind: string;
   number: number;
   subject: string;
-  /** رمز المادة (للتجميع في الصفحة المحلية)؛ قد يغيب في حزم قديمة */
+  /** Subject code (for grouping on the local page); may be missing in old packs. */
   subjectCode?: string;
   savedAt: number;
   pdfs: OfflinePdf[];
   questions: OfflineQuestion[];
   summaries: OfflineSummary[];
 }
-/** ما يعيده الخادم قبل جلب ملفات PDF */
+/** What the server returns before the PDF files are fetched. */
 export interface PackManifest {
   id: string;
   title: string;
@@ -50,30 +50,30 @@ export interface OfflineScore {
   correct: number;
   total: number;
 }
-/** نتيجة بانتظار الإرسال للخادم (تمرين فقط، لا ترتيب) */
+/** A result waiting to be sent to the server (practice only, no ranking). */
 export interface OutboxScore extends OfflineScore {
   clientId: string;
 }
 
 /**
- * نسخة الجدول المحفوظة عند كل فتح للتطبيق بنت. لا بريد ولا هاتف ولا رموز ولا محادثات:
- * الاسم المعروض واسم الفضاء والحصص والمواد فقط.
+ * The timetable copy saved on every open of the installed app. No email, phone, tokens or conversations:
+ * only display name, space name, sessions and subjects.
  */
 export interface OfflineSnapshot {
   userId: string;
   name: string;
   space: string;
   locale: "ar" | "fr" | "en";
-  /** المنطقة الزمنية للتطبيق (لحساب اليوم والساعة محليًا) */
+  /** The app's time zone (to compute day and hour locally). */
   tz: string;
   savedAt: number;
-  /** تاريخ بداية السداسي لترقيم الأسابيع */
+  /** Semester start date for week numbering. */
   semesterStart: string | null;
-  /** إثنين الأسبوع الافتراضي (الحالي، أو القادم يوم الأحد) */
+  /** Monday of the default week (the current one, or the next one on Sunday). */
   defaultMonday: string;
-  /** حصص الأسبوع الحالي والقادم (مع شارة L1 للمواد المتبقية) */
+  /** Sessions of the current and next week (with an L1 badge for remaining subjects). */
   sessions: GridSession[];
-  /** المواد المتبقية من L1 */
+  /** Remaining L1 subjects. */
   remaining: { id: string; code: string; name: string }[];
   features: { ai: boolean; chat: boolean; ranking: boolean };
 }

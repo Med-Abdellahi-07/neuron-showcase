@@ -22,7 +22,7 @@ function fields(fd: FormData) {
   };
 }
 
-/** مدير الفضاء: إضافة مادة إلى سداسي فضائه (RLS يمنع أي سداسي آخر). */
+/** Space admin: add a subject to their own space's semester (RLS blocks any other semester). */
 export async function createSubject(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireManager();
   const { t } = await getT();
@@ -48,7 +48,7 @@ export async function updateSubject(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** حذف مادة يحذف دروسها وأسئلتها (cascade) — يطلب الواجهة تأكيداً. */
+/** Deleting a subject deletes its lessons and questions (cascade); the UI asks for confirmation. */
 export async function deleteSubject(fd: FormData) {
   await requireManager();
   const id = text(fd, "id");

@@ -1,6 +1,6 @@
 /**
- * منطق الأسابيع الدراسية — دوال صرفة بلا اعتماد على البيئة (تُختبر مباشرة بـ node --test).
- * أيام الدراسة: الإثنين–السبت. الأحد لا دراسة فيه.
+ * Study-week logic: pure functions with no environment dependency (tested directly with node --test).
+ * Study days: Monday-Saturday. No classes on Sunday.
  */
 
 const parse = (iso: string) => {
@@ -15,43 +15,43 @@ export function addDays(iso: string, days: number): string {
   return fmt(d);
 }
 
-/** يوم الأسبوع ISO: الإثنين = 1 … الأحد = 7 */
+/** ISO weekday: Monday = 1 ... Sunday = 7. */
 export function isoWeekday(iso: string): number {
   const d = parse(iso).getUTCDay();
   return d === 0 ? 7 : d;
 }
 
-/** بداية الأسبوع (الإثنين) لتاريخ معيّن */
+/** Start of the week (Monday) for a given date. */
 export function mondayOf(iso: string): string {
   return addDays(iso, 1 - isoWeekday(iso));
 }
 
-/** تاريخ اليوم YYYY-MM-DD في منطقة زمنية معيّنة (لا UTC ولا توقيت الخادم) */
+/** Today's date YYYY-MM-DD in a given time zone (not UTC and not the server's time). */
 export function dateInZone(now: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
 /**
- * الأسبوع الذي يُعرض افتراضياً: الإثنين–السبت ← أسبوع اليوم نفسه،
- * الأحد ← الأسبوع القادم (لا دراسة يوم الأحد).
+ * The week shown by default: Monday-Saturday -> the current week,
+ * Sunday -> next week (no classes on Sunday).
  */
 export function defaultWeekMonday(today: string): string {
   return isoWeekday(today) === 7 ? addDays(today, 1) : mondayOf(today);
 }
 
-/** أول يوم دراسة من اليوم فصاعداً: الأحد ← الإثنين التالي، غيره ← اليوم نفسه. */
+/** First study day from today onward: Sunday -> next Monday, otherwise today. */
 export function studyDateFrom(today: string): string {
   return isoWeekday(today) === 7 ? addDays(today, 1) : today;
 }
 
-/** هل غداً يوم دراسة؟ (مساء السبت لا؛ لأن الغد أحد) */
+/** Is tomorrow a study day? (Saturday evening: no, because tomorrow is Sunday.) */
 export function isStudyDay(iso: string): boolean {
   return isoWeekday(iso) <= 6;
 }
 
 /**
- * رقم الأسبوع الدراسي (1 = الأسبوع الذي يحتوي تاريخ بداية السداسي، من الإثنين).
- * يعيد null قبل بداية السداسي أو إن لم يُحدَّد تاريخ البداية.
+ * Study week number (1 = the week containing the semester start date, counted from Monday).
+ * Returns null before the semester starts or if no start date is set.
  */
 export function weekNumber(monday: string, semesterStart: string | null | undefined): number | null {
   if (!semesterStart || !/^\d{4}-\d{2}-\d{2}$/.test(semesterStart)) return null;
@@ -61,9 +61,9 @@ export function weekNumber(monday: string, semesterStart: string | null | undefi
 }
 
 /**
- * مدى الأسبوع (الإثنين–السبت) بحسب اللغة:
- *   ar «19–24 أكتوبر» · fr «19–24 oct.» · en «Oct 19–24»
- * وعند اختلاف الشهرين: «28 أكتوبر–2 نوفمبر» · «28 oct.–2 nov.» · «Oct 28–Nov 2».
+ * Week range by language:
+ *   ar "19-24 <Arabic month>" · fr "19-24 oct." · en "Oct 19-24"
+ *   when the months differ: ar "28 <month>-2 <month>" · fr "28 oct.-2 nov." · en "Oct 28-Nov 2".
  */
 export function formatWeekRange(monday: string, locale: "ar" | "fr" | "en"): string {
   const tag = { ar: "ar-u-nu-latn", fr: "fr-FR", en: "en-US" }[locale];

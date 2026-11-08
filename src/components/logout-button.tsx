@@ -2,7 +2,7 @@
 
 import { wipeAll } from "@/lib/offline/db";
 
-/** الخروج: يمسح بيانات الجهاز (جدول، دروس محفوظة، نتائج) قبل إرسال النموذج. */
+/** Logout: wipes device data (timetable, saved lessons, results) before submitting the form. */
 export function LogoutForm({ action, label }: { action: () => void | Promise<void>; label: string }) {
   return (
     <form

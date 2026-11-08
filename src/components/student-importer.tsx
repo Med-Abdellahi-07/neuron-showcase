@@ -9,7 +9,7 @@ import { ACCOUNT_CSV_EXAMPLE, MAX_ACCOUNT_ROWS, parseAccountRows } from "@/lib/a
 import { useT } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 
-/** نص المعرّف+كلمة السر لكل طالب: يُعرض مرة واحدة فقط بعد الإنشاء كي يسلّمه المشرف للطلاب. */
+/** Identifier + password text for each student: shown only once after creation so the admin can hand it to students. */
 const credentialsCsv = (o: BulkOutcome) =>
   Papa.unparse({ fields: ["full_name", "identifier", "password"], data: o.created.map((c) => [c.full_name, c.identifier, c.password]) });
 
@@ -34,7 +34,7 @@ export function StudentImporter() {
     try {
       if (/\.xlsx$/i.test(file.name)) {
         const { readSheet } = await import("read-excel-file/browser");
-        const sheet = await readSheet(file); // أول ورقة
+        const sheet = await readSheet(file); // First sheet.
         setRows(sheet.map((r) => r.map((c) => String(c ?? ""))));
       } else {
         const res = Papa.parse<string[]>(await file.text(), { skipEmptyLines: true });
@@ -67,7 +67,7 @@ export function StudentImporter() {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
               } catch {
-                /* الحافظة غير متاحة */
+                /* clipboard unavailable */
               }
             }}
           >

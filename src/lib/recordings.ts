@@ -1,9 +1,9 @@
-/** تحليل رابط تسجيل: YouTube (عادي/مدرج/Shorts/embed) أو Google Drive. نخزّن المعرّف فقط. */
+/** Parses a recording link: YouTube (regular/unlisted/Shorts/embed) or Google Drive. Only the id is stored. */
 export type Provider = "youtube" | "drive";
 export interface ParsedVideo {
   provider: Provider;
   video_id: string;
-  /** ثوانٍ، إن وُجد t= أو start= في رابط YouTube */
+  /** Seconds, if t= or start= is present in a YouTube link. */
   start?: number;
 }
 
@@ -49,7 +49,7 @@ export function parseVideoUrl(raw: string): ParsedVideo | null {
   return null;
 }
 
-/** عنوان التضمين. YouTube عبر youtube-nocookie (بلا كوكيز قبل التشغيل). */
+/** Embed URL. YouTube goes through youtube-nocookie (no cookies before playback). */
 export function embedUrl(provider: Provider, id: string, opts: { start?: number; autoplay?: boolean } = {}): string {
   if (provider === "drive") return `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
   const p = new URLSearchParams({ rel: "0", modestbranding: "1", playsinline: "1" });
@@ -58,7 +58,7 @@ export function embedUrl(provider: Provider, id: string, opts: { start?: number;
   return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?${p}`;
 }
 
-/** 90 → 1:30 ، 3725 → 1:02:05 */
+/** 90 -> 1:30, 3725 -> 1:02:05 */
 export const fmtTime = (s: number) => {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);

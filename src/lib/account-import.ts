@@ -1,6 +1,6 @@
 import { parseIdentifier } from "./identifier.ts";
 
-/** خطأ صف في استيراد الحسابات: مفتاح قاموس (يُترجم في الواجهة) + تفصيل اختياري */
+/** Row error in account import: a dictionary key (translated in the UI) + optional detail. */
 export interface AccountImportError {
   row: number;
   key: "acc.imp.err.name" | "acc.imp.err.identifier" | "acc.imp.err.password" | "acc.imp.err.duplicate";
@@ -11,7 +11,7 @@ export interface AccountRow {
   full_name: string;
   email: string;
   phone: string | null;
-  /** فارغ = يولَّد على الخادم */
+  /** Empty = generated on the server. */
   password: string | null;
 }
 export const MAX_ACCOUNT_ROWS = 300;
@@ -24,7 +24,7 @@ const ALIASES: Record<"name" | "id" | "pw", string[]> = {
 };
 const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
 
-/** يقبل مصفوفة صفوف (من CSV أو Excel). الصف الأول عنوان إن طابق أسماء الأعمدة المعروفة، وإلا الترتيب: الاسم، المعرّف، كلمة السر. */
+/** Accepts an array of rows (from CSV or Excel). The first row is a header if it matches known column names, otherwise the order is: name, identifier, password. */
 export function parseAccountRows(rows: unknown[][]): { valid: AccountRow[]; errors: AccountImportError[]; tooMany: boolean } {
   const clean = rows.filter((r) => Array.isArray(r) && r.some((c) => String(c ?? "").trim() !== ""));
   let idx = { name: 0, id: 1, pw: 2 };

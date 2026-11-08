@@ -6,7 +6,7 @@ export interface WebResult {
   content: string;
 }
 
-/** بحث الإنترنت (Tavily). يُرسل نص السؤال فقط، بعد تنقيته من البيانات الشخصية. */
+/** Web search (Tavily). Sends only the question text, after scrubbing personal data. */
 export async function tavilySearch(query: string, max = 4): Promise<WebResult[]> {
   const k = (process.env.TAVILY_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
   if (!k) throw new AiError("tavily", 0, "TAVILY_API_KEY غير مضبوط");

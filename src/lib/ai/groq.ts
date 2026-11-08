@@ -1,8 +1,8 @@
 import { AiError, errorFromResponse } from "./errors";
 import type { GenOpts } from "./gemini";
 
-/** Groq (احتياطي) عبر واجهته المتوافقة مع OpenAI. */
-const URL_ = (process.env.GROQ_BASE_URL?.trim() || "https://api.groq.com/openai/v1") + "/chat/completions"; // GROQ_BASE_URL: للاختبارات فقط
+/** Groq (fallback) through its OpenAI-compatible API. */
+const URL_ = (process.env.GROQ_BASE_URL?.trim() || "https://api.groq.com/openai/v1") + "/chat/completions"; // GROQ_BASE_URL: tests only.
 
 export const groqModel = () => process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
 export const groqVisionModel = () => process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b";
@@ -13,7 +13,7 @@ function key(): string {
   return k;
 }
 
-/** نماذج التفكير: تُخفى سلسلة التفكير من الرد، ونزيد حد الرموز لأن التفكير يُحسب منه */
+/** Thinking models: the reasoning chain is hidden from the reply, and the token limit is raised because thinking counts toward it. */
 const isOss = (m: string) => /gpt-oss/i.test(m);
 const isQwen = (m: string) => /qwen/i.test(m);
 
@@ -64,7 +64,7 @@ async function post(o: GenOpts, stream: boolean): Promise<{ res: Response; model
   const b = body(o, stream);
   let res = await send(b);
   if (res.status === 400) {
-    // قد يرفض النموذج حقول التفكير الإضافية: نعيد المحاولة بدونها
+    // The model may reject the extra thinking fields: retry without them.
     const err = await errorFromResponse("groq", res);
     if (!/reason/i.test(err.message)) throw err;
     res = await send(body(o, stream, false));
@@ -73,7 +73,7 @@ async function post(o: GenOpts, stream: boolean): Promise<{ res: Response; model
   return { res, model: b.model };
 }
 
-/** يزيل كتل <think>…</think> إن أرجعها النموذج داخل النص (احتياط) */
+/** Removes <think>...</think> blocks if the model returned them inside the text (safety net). */
 export const stripThink = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^\s*<think>[\s\S]*$/i, "").trim();
 
 export async function groqGenerate(o: GenOpts): Promise<{ text: string; model: string }> {
@@ -118,7 +118,7 @@ export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
             } else {
               const b = pending.indexOf("<think>");
               if (b < 0) {
-                // نحتفظ بذيل قد يكون بداية وسم
+                // Keep a tail that may be the start of a tag.
                 const keep = pending.lastIndexOf("<");
                 if (keep >= 0 && "<think>".startsWith(pending.slice(keep))) { out += pending.slice(0, keep); pending = pending.slice(keep); } else { out += pending; pending = ""; }
                 break;
@@ -134,7 +134,7 @@ export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
           }
         }
       } catch {
-        /* تجاهل */
+        /* ignore */
       }
     }
   }

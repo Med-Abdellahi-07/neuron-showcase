@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { getSubjectById } from "@/lib/data";
 import type { Lesson, LessonFile } from "@/lib/types";
 
-/** الفهرسة (PDF → نص → تضمين) قد تستغرق وقتاً للملفات الكبيرة */
+/** Indexing (PDF -> text -> embeddings) can take a while for large files. */
 export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

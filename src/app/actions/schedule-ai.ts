@@ -24,7 +24,7 @@ export interface DraftRow {
 
 export type ExtractResponse = { ok: true; rows: DraftRow[]; skipped: number } | { ok: false; error: "busy" | "unavailable" | "invalid" };
 
-/** يقرأ صورة جدول أسبوعي ويقترح حصصاً؛ لا يُحفظ شيء حتى يراجعها المشرف. */
+/** Reads a weekly timetable image and suggests sessions; nothing is saved until the admin reviews them. */
 export async function extractSchedule(input: { image: { mime: string; data: string }; week: string }): Promise<ExtractResponse> {
   await requireStaff();
   if (!(await featureEnabled("ai"))) return { ok: false, error: "unavailable" };
@@ -80,10 +80,10 @@ export async function extractSchedule(input: { image: { mime: string; data: stri
   }
 }
 
-/** بعد المراجعة: حفظ الحصص (مع تجاهل المكرر). */
+/** After review: save the sessions (skipping duplicates). */
 export async function saveExtracted(_cohortId: string, rows: DraftRow[]): Promise<{ ok: boolean; saved: number }> {
   const me = await requireStaff();
-  const cohortId = me.cohort_id ?? ""; // فضاء المشرف، لا ما يرسله العميل
+  const cohortId = me.cohort_id ?? ""; // The admin's space, not what the client sends.
   if (!UUID_RE.test(cohortId) || !Array.isArray(rows) || rows.length > 80) return { ok: false, saved: 0 };
   const valid = rows.filter(
     (r) =>

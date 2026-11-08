@@ -1,7 +1,7 @@
 import { useUid } from "./uid";
 import type { ClayProps } from "./types";
 
-/** ساعة بعقرب دوّار (class phand معرّف في globals.css) */
+/** Clock with a rotating hand (class phand defined in globals.css). */
 export function ClayClock({ width = 72, height = 72, className }: ClayProps) {
   const u = useUid("clk");
   return (

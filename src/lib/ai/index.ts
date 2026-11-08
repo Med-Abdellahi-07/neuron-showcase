@@ -13,14 +13,14 @@ import type { LlmProvider } from "./chain-order";
 export interface Used {
   provider: LlmProvider;
   model: string;
-  /** إن فشل مزوّد قبل أن ينجح هذا: سبب فشل أول مزوّد */
+  /** If a provider failed before this one succeeded: the first failed provider's reason. */
   fellBackFrom?: ErrorInfo;
 }
 
 interface Entry {
   name: LlmProvider;
   configured: () => boolean;
-  /** يقبل صوراً؟ */
+  /** Accepts images? */
   vision: boolean;
   model: (o: GenOpts) => string;
   generate: (o: GenOpts) => Promise<{ text: string; model: string }>;
@@ -66,13 +66,13 @@ export function chainFor(o: GenOpts, skip: LlmProvider[] = []): Entry[] {
     .filter((e) => e.configured() && (!hasImages || e.vision));
 }
 
-/** أسماء المزوّدين المضبوطة (للوحة المشرف) */
+/** Names of the configured providers (for the admin panel). */
 export const configuredProviders = (): LlmProvider[] =>
   (Object.keys(REGISTRY) as LlmProvider[]).filter((n) => REGISTRY[n].configured());
 
 /**
- * فشل مفتاح/نموذج (401/403/404) لا يُصلح نفسه خلال ثوانٍ، وكذلك 429 بعد استنفاد الحصة: نتجنّب دفع زمن محاولة فاشلة
- * مع كل رسالة عبر «قاطع دائرة» قصير داخل الذاكرة لكل مزوّد. الأخطاء المؤقتة الأخرى تُعاد محاولتها دوماً.
+ * A key/model failure (401/403/404) does not heal within seconds, and neither does a 429 once the quota is exhausted: avoid paying a failed attempt's latency
+ * on every message with a short in-memory circuit breaker per provider. Other transient errors are always retried.
  */
 const blocked = new Map<LlmProvider, { until: number; info: ErrorInfo }>();
 const isBlocked = (n: LlmProvider) => {
@@ -88,7 +88,7 @@ function noteProviderFailure(n: LlmProvider, e: unknown): ErrorInfo {
 }
 const noteProviderOk = (n: LlmProvider) => blocked.delete(n);
 
-/** إخفاقات المزوّدين منذ آخر تفريغ؛ يحفظها مسار الطلب في قاعدة البيانات لتظهر للمدير */
+/** Provider failures since the last flush; the request path saves them to the database so they show up for the admin. */
 const failures: ErrorInfo[] = [];
 const noteFailure = (i: ErrorInfo) => {
   if (failures.length < 20) failures.push(i);
@@ -107,13 +107,13 @@ function allFailed(errs: ErrorInfo[]): AiError {
 const noProviders = () => new AiError("groq", 0, "لا يوجد مزوّد ذكاء اصطناعي مضبوط (GROQ_API_KEY …)");
 
 export interface GenControl {
-  /** يتجاوز قاطع الدائرة (الاختبار الشامل) */
+  /** Bypasses the circuit breaker (full test). */
   skipBreaker?: boolean;
-  /** مزوّدون يُستبعدون (اختبار التحويل التلقائي) */
+  /** Providers to exclude (automatic failover test). */
   skip?: LlmProvider[];
 }
 
-/** توليد نص كامل: يجرّب المزوّدين بالترتيب وينتقل تلقائياً عند أي فشل (429 أو غيره). */
+/** Full text generation: tries providers in order and fails over automatically on any failure (429 or otherwise). */
 export async function generateText(o: GenOpts, opts: GenControl = {}): Promise<{ text: string } & Used> {
   const errs: ErrorInfo[] = [];
   for (const e of chainFor(o, opts.skip)) {
@@ -148,8 +148,8 @@ export async function generateJson<T>(o: GenOpts, opts: GenControl = {}): Promis
 export type StreamEvent = { type: "meta"; used: Used } | { type: "delta"; text: string };
 
 /**
- * بثّ الرد. إن فشل مزوّد قبل أول جزء ننتقل إلى التالي. إن انقطع بعد بدء الرد نرمي الخطأ
- * (لا نكرر نصاً على الطالب).
+ * Streams the reply. If a provider fails before the first chunk we move to the next. If it drops after the reply started we throw
+ * (no repeating text to the student).
  */
 export async function* streamChat(o: GenOpts): AsyncGenerator<StreamEvent> {
   const errs: ErrorInfo[] = [];

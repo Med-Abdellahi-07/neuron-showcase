@@ -11,7 +11,7 @@ import { featureEnabled } from "@/lib/spaces";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KNOWN = ["duel_exists", "too_many", "not_enough_questions", "bad_opponent"];
 
-/** إنشاء تحدٍّ: يُختار الخصم والمادة/الحصص، ثم ينتقل المتحدّي ليجيب أولاً. */
+/** Create a duel: pick the opponent and subject/lessons, then the challenger answers first. */
 export async function createDuel(fd: FormData) {
   const userId = await getUserId();
   if (!userId) redirect("/login");
@@ -42,7 +42,7 @@ export interface DuelQuestion {
 }
 export type DuelLoad = { ok: true; questions: DuelQuestion[] } | { ok: false; error: "unavailable" | "finished" | "expired" };
 
-/** أول استدعاء يبدأ ساعة اللاعب. الأسئلة بلا إجابة صحيحة. */
+/** The first call starts the player's clock. Questions carry no correct answer. */
 export async function loadDuelQuestions(duelId: string): Promise<DuelLoad> {
   if (!UUID_RE.test(duelId) || !(await getUserId()) || !(await featureEnabled("duel"))) return { ok: false, error: "unavailable" };
   const supabase = await createClient();
@@ -56,7 +56,7 @@ export async function loadDuelQuestions(duelId: string): Promise<DuelLoad> {
   return { ok: true, questions: (data as { questions: DuelQuestion[] }).questions };
 }
 
-/** تسجيل إجابة. لا تُرجع صحتها. عند انتهاء اللاعب تُرسل الإشعارات المناسبة. */
+/** Record an answer. Correctness is not returned. When a player finishes, the relevant notifications are sent. */
 export async function answerDuel(input: { duelId: string; questionId: string; selected: number }): Promise<{ ok: boolean; finished?: boolean }> {
   const userId = await getUserId();
   if (!userId || !(await featureEnabled("duel")) || !UUID_RE.test(input.duelId) || !UUID_RE.test(input.questionId) || !Number.isInteger(input.selected)) return { ok: false };

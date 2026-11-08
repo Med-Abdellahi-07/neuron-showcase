@@ -12,8 +12,8 @@ const dayKey = (n: number) => `day.${n}` as DictKey;
 const shortKey = (n: number) => `day.short.${n}` as DictKey;
 
 /**
- * عرض اليوم للطالب (VSchedule.html): بطاقة «بقي لك اليوم»، شرائط الأيام الستة، وقائمة حصص اليوم.
- * عرض الشبكة (P1–P6) يبقى خلف زر الشبكة في الرأس.
+ * Student day view (VSchedule.html): a "left today" card, the six day strips, and the day's session list.
+ * The grid view (P1-P6) stays behind the grid button in the header.
  */
 export function ScheduleDay({
   monday,

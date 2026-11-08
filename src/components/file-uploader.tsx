@@ -17,7 +17,7 @@ function safeName(name: string) {
 
 const resumeKey = (lessonId: string, f: File) => `neuron-up:${lessonId}:${f.name}:${f.size}:${f.lastModified}`;
 const lsGet = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
-const lsSet = (k: string, v: string | null) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* اختياري */ } };
+const lsSet = (k: string, v: string | null) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* optional */ } };
 const mb = (b: number) => (b / 1048576).toFixed(1);
 
 type Phase = "idle" | "uploading" | "saving" | "indexing" | "cancelled";
@@ -41,7 +41,7 @@ export function FileUploader({ lessonId }: { lessonId: string }) {
     const n = partCountFor(file.size);
     const multi = file.size > PART_SIZE;
     const key = resumeKey(lessonId, file);
-    // الاستئناف: نفس الملف (الاسم+الحجم+التعديل) يعيد استخدام معرّفه وأجزاءه المرفوعة
+    // Resume: the same file (name + size + modified time) reuses its id and already-uploaded parts.
     const fileId = (multi && lsGet(key)) || crypto.randomUUID();
     if (multi) lsSet(key, fileId);
     const path = multi ? `${lessonId}/${fileId}` : `${lessonId}/${Date.now()}-${safeName(file.name)}`;
@@ -69,7 +69,7 @@ export function FileUploader({ lessonId }: { lessonId: string }) {
       if (multi && existing.get(objPath.split("/").pop()!) === blob.size) {
         done += blob.size;
         setLoaded(done);
-        continue; // جزء مرفوع كاملاً سابقاً
+        continue; // Part already fully uploaded earlier.
       }
       await withRetry(async () => {
         const { data, error: e } = await supabase.storage.from(BUCKET).createSignedUploadUrl(objPath, { upsert: true });
@@ -101,7 +101,7 @@ export function FileUploader({ lessonId }: { lessonId: string }) {
       try {
         await indexPdfInBrowser(file, res.id, { signal, onProgress: (d, tt) => setIdx([d, tt]) });
       } catch (e) {
-        if (e instanceof Cancelled) return; // الملف محفوظ؛ الفهرسة يمكن إعادتها من «اختبار البحث»
+        if (e instanceof Cancelled) return; // The file is saved; indexing can be re-run from "Search test".
         console.error("browser indexing failed:", e);
       }
     }

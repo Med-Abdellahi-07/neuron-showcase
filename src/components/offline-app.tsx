@@ -15,8 +15,8 @@ import { hueOf } from "@/lib/schedule-grid";
 import { dismissSplash } from "@/components/splash";
 
 /**
- * الاتصال الفعلي: navigator.onLine وحده يكذب (واي فاي بلا إنترنت، أو الخادم غير متاح)،
- * فنؤكده بطلب صغير للخادم (يمر عبر الشبكة دائمًا) عند الفتح وعند أحداث الشبكة وكل 15 ثانية.
+ * Real connectivity: navigator.onLine alone lies (Wi-Fi without internet, or an unreachable server),
+ * so we confirm it with a small server request (always goes over the network) on open, on network events and every 15 seconds.
  */
 function useReallyOnline(): boolean {
   const [ok, setOk] = useState(false);
@@ -50,7 +50,7 @@ function cookieLocale(): Locale | null {
   return v && LOCALES.includes(v) ? v : null;
 }
 
-/** اليوم والساعة في منطقة التطبيق (من لقطة الجدول) بدون الخادم */
+/** Day and hour in the app's time zone (from the timetable snapshot), without the server. */
 function localNow(tz: string) {
   const d = new Date();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
@@ -66,7 +66,7 @@ interface Data {
   est: { used: number; quota: number } | null;
 }
 
-/** الصفحة المحلية: لا تطلب شيئًا من الخادم؛ كل ما فيها من IndexedDB. تعمل كتطبيق صغير بحالة داخلية (بدون تنقّل خادم). */
+/** Local page: asks the server for nothing; everything comes from IndexedDB. Works as a small app with internal state (no server navigation). */
 export function OfflineApp() {
   const [data, setData] = useState<Data | null>(null);
   const [locale, setLocale] = useState<Locale>("ar");
@@ -83,14 +83,14 @@ export function OfflineApp() {
         listScores(),
         listOutbox().then((x) => x.length),
       ]);
-    } catch { /* لا قاعدة بعد */ }
+    } catch { /* no database yet */ }
     const est = await storageEstimate();
     setLocale(cookieLocale() ?? snap?.locale ?? "ar");
     setData({ snap, packs: packs.sort((a, b) => b.savedAt - a.savedAt), scores, pending, est });
   }, []);
 
   useEffect(() => {
-    // قراءة IndexedDB (نظام خارجي) ثم ضبط الحالة
+    // Read IndexedDB (an external system) then set state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
@@ -117,7 +117,7 @@ function Inner({ data, reload }: { data: Data; reload: () => Promise<void> }) {
   const online = useReallyOnline();
   const [view, setView] = useState<View>("home");
   useEffect(() => {
-    // عودة الاتصال: أرسل النتائج المعلّقة
+    // Connection is back: send pending results.
     if (online) flushOutbox().then((n) => { if (n) reload(); }).catch(() => {});
   }, [online, reload]);
 
@@ -145,7 +145,7 @@ function Inner({ data, reload }: { data: Data; reload: () => Promise<void> }) {
         {online && (
           <div role="status" className="card flex flex-wrap items-center justify-between gap-3 !border-success bg-success/10">
             <span className="flex items-center gap-2 text-sm font-semibold"><Wifi size={16} aria-hidden /> {t("off.connBack")}</span>
-            {/* رابط عادي (تحميل كامل) كي يمر عبر الشبكة بلا مهلة */}
+ {/* Plain link (full load) so it goes through the network with no timeout. */}
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/?online=1" className="btn btn-primary btn-sm">{t("off.goOnline")}</a>
           </div>

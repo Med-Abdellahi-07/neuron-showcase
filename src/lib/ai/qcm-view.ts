@@ -1,6 +1,6 @@
 import type { AiQ } from "@/components/ai-qcm-runner";
 
-/** يحوّل صفوف ai_questions إلى بيانات المتصفح: الإجابة الصحيحة تُرسل فقط للأسئلة المُجاب عنها */
+/** Turns ai_questions rows into browser data: the correct answer is only sent for questions already answered. */
 export function toAiQ(rows: Record<string, unknown>[], lessonLabel: Map<string, string>): AiQ[] {
   return rows.map((r) => {
     const answered = r.selected !== null && r.selected !== undefined;

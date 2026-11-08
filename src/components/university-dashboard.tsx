@@ -19,18 +19,18 @@ interface SpaceRow {
 }
 interface Sup { id: string; full_name: string; role: string; space: string | null; last_seen_at: string | null; last_upload_at: string | null }
 
-/** لوحة الجامعة (المشرف العام): كل الفضاءات مجمّعة حسب المؤسسة + نشاط المشرفين. بلا بيانات شخصية للطلاب. */
+/** University dashboard (super admin): all spaces grouped by institution + admin activity. No personal student data. */
 export async function UniversityDashboard() {
   const { t } = await getT();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_overview");
   if (error || !data) return <p className="card text-sm text-warn">{t("stats.runMigration")}</p>;
   const ov = data as unknown as { spaces: SpaceRow[]; supervisors: Sup[] };
-  // فضاء واحد: إحصاءات IAA L2 فقط (بقية الفضاءات مخفية)
+  // Single space: IAA L2 statistics only (other spaces are hidden).
   if (!MULTI_SPACE) ov.spaces = ov.spaces.filter((s) => s.name === SINGLE_SPACE_NAME);
   const { data: su } = await supabase.rpc("storage_usage");
   const usage = su ? (su as unknown as { total_bytes: number; files: number; by_space: { id: string; name: string; bytes: number; files: number }[] }) : null;
-  const limit = Number(process.env.STORAGE_LIMIT_BYTES) > 0 ? Number(process.env.STORAGE_LIMIT_BYTES) : 1024 ** 3; // 1GB (خطة Supabase المجانية)
+  const limit = Number(process.env.STORAGE_LIMIT_BYTES) > 0 ? Number(process.env.STORAGE_LIMIT_BYTES) : 1024 ** 3; // 1 GB (Supabase free plan).
   const pct = usage ? (Number(usage.total_bytes) / limit) * 100 : 0;
   const tone = pct >= 100 ? "danger" : pct >= 80 ? "warn" : "ok";
   const mb = (b: number) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1));

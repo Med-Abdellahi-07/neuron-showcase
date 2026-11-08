@@ -4,13 +4,13 @@ export const PHONE_EMAIL_DOMAIN = "phone.neuron.local";
 export interface ParsedIdentifier {
   email: string;
   phone: string | null;
-  /** آخر 8 أرقام، لمطابقة الهاتف بصيغ مختلفة عند الدخول */
+  /** Last 8 digits, to match phones written in different formats at login. */
   phoneTail: string | null;
 }
 
 /**
- * يحوّل ما يكتبه المستخدم إلى بريد دخول.
- * الهاتف معرّف فقط (بلا SMS): نحوّله إلى بريد داخلي <digits>@phone.neuron.local.
+ * Turns what the user types into a login email.
+ * A phone number is only an identifier (no SMS): it is turned into an internal email <digits>@phone.neuron.local.
  */
 export function parseIdentifier(raw: string): ParsedIdentifier | null {
   const v = raw.trim();

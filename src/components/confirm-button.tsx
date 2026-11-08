@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useT } from "@/lib/i18n/client";
 
-/** زر داخل <form> يطلب تأكيداً قبل الإرسال. */
+/** Button inside a <form> that asks for confirmation before submitting. */
 export function ConfirmButton({ children, className = "btn btn-sm btn-danger" }: { children: ReactNode; className?: string }) {
   const { t } = useT();
   return (

@@ -2,7 +2,7 @@ import { requireFeature } from "@/lib/spaces";
 import { getAiBalance } from "@/lib/ai/access";
 import { AiTabs, type AiTab } from "@/components/ai-tabs";
 
-/** كل صفحات المساعد مقفولة على الخادم في الفضاءات بلا ميزة الذكاء الاصطناعي؛ وكل قسم له علمه (ai_chat / ai_summary / ai_qcm) */
+/** All assistant pages are gated on the server for spaces without the AI feature; each section has its own flag (ai_chat / ai_summary / ai_qcm). */
 export default async function AssistantLayout({ children }: { children: React.ReactNode }) {
   await requireFeature("ai");
   const bal = await getAiBalance();

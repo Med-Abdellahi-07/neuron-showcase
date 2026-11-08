@@ -2,8 +2,8 @@ import { useUid } from "./uid";
 import type { ClayProps } from "./types";
 
 /**
- * كتاب. gold = رأس الرئيسية، violet = الدخول، tile = أيقونة «الدروس»،
- * tileDot = أيقونة «اشرح الدرس» في المساعد (مع دائرة ذهبية).
+ * Book. gold = home header, violet = login, tile = "Lessons" icon,
+ * tileDot = "Explain the lesson" icon in the assistant (with a gold circle).
  */
 export function ClayBook({ variant = "gold", width, height, className }: ClayProps & { variant?: "gold" | "violet" | "tile" | "tileDot" }) {
   const u = useUid("book");

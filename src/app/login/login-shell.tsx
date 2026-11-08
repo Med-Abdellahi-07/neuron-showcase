@@ -5,9 +5,9 @@ import { ClayBook, ClayBulb, ClayCap, LayeredN } from "@/components/clay";
 import { useT } from "@/lib/i18n/client";
 
 /**
- * مشهد الدخول (Login.html): شعار N بخمس طبقات في الوسط وقبعة وكتاب ومصباح عائمة،
- * تتحرك بتأثير بارالاكس مع المؤشر (far 6 / mid 12 / near 20) ومع إمالة الهاتف.
- * التحديث عبر متغيّرين CSS (--px/--py) بلا إعادة رسم React.
+ * Login scene (Login.html): a five-layer N logo in the center with a floating cap, book and lamp,
+ * moving with a parallax effect following the pointer (far 6 / mid 12 / near 20) and the phone's tilt.
+ * Updates go through two CSS variables (--px/--py), with no React re-render.
  */
 export function LoginShell({ lang, title, subtitle, children }: { lang: React.ReactNode; title: string; subtitle: string; children: React.ReactNode }) {
   const { t } = useT();

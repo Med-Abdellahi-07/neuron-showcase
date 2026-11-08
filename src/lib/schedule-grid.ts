@@ -1,7 +1,7 @@
 import { SLOTS } from "@/lib/constants";
 import type { ScheduleSession, Subject } from "@/lib/types";
 
-/** الحصة كما تصل إلى شبكة الجدول (بيانات بسيطة قابلة للتمرير إلى مكوّن عميل) */
+/** A session as it reaches the timetable grid (plain data, safe to pass to a client component). */
 export interface GridSession {
   id: string;
   date: string;
@@ -16,13 +16,13 @@ export interface GridSession {
   groupLabel: string | null;
   status: "scheduled" | "cancelled" | "changed";
   note: string | null;
-  /** رقم لون المادة (ثابت لكل مادة) */
+  /** Subject color index (stable per subject). */
   color: number;
-  /** حصة مادة متبقية من L1 (من فضاء آخر) ← شارة «L1» */
+  /** A remaining L1 subject's session (from another space) -> "L1" badge. */
   l1: boolean;
 }
 
-/** درجات اللون (HSL hue): الأزرق أولاً ثم ألوان متناسقة معه. تُخلط مع لون السطح فتبقى خفيفة في الوضعين. */
+/** Color hues (HSL): blue first, then matching colors. Mixed with the surface color so they stay light in both modes. */
 export const SUBJECT_HUES = [214, 258, 172, 38, 196, 146, 82, 234, 52, 282] as const;
 export const hueOf = (color: number) => SUBJECT_HUES[((color % SUBJECT_HUES.length) + SUBJECT_HUES.length) % SUBJECT_HUES.length];
 
@@ -33,8 +33,8 @@ const hash = (s: string) => {
 };
 
 /**
- * لون كل مادة: ترتيبها في مواد السداسي الحالي (فلا يتكرر لونان داخل السداسي)،
- * وأي مادة خارجه تأخذ لوناً ثابتاً من رمزها.
+ * Each subject's color: its position in the current semester's subjects (so no two colors repeat within a semester),
+ * and any subject outside it gets a stable color from its code.
  */
 export function colorMap(current: Pick<Subject, "id" | "code">[], extra: Pick<Subject, "id" | "code">[] = []): Map<string, number> {
   const m = new Map<string, number>();
@@ -63,19 +63,19 @@ export function toGridSession(s: ScheduleSession, subject: Pick<Subject, "code" 
   };
 }
 
-/** رقم الفترة الجارية الآن (HH:MM)؛ لا شيء بين الفترات (مثل 11:00–11:10) */
+/** Index of the period happening now (HH:MM); none between periods (such as 11:00-11:10). */
 export function slotAt(hm: string): number | null {
   return SLOTS.find((s) => s.start <= hm && hm < s.end)?.n ?? null;
 }
 
 export const VIEW_COOKIE = "neuron-sched-view";
 
-/** يحفظ اختيار الطالب (شبكة/يوم) في كوكي يقرؤها الخادم عند أول رسم، فلا يومض العرض */
+/** Saves the student's choice (grid/day) in a cookie the server reads on first paint, so the view does not flicker. */
 export function saveView(v: ScheduleView) {
   try {
     document.cookie = `${VIEW_COOKIE}=${v}; path=/; max-age=31536000; samesite=lax`;
   } catch {
-    /* الكوكيز غير متاحة: الاختيار يبقى لهذه الزيارة فقط */
+    /* Cookies unavailable: the choice lasts for this visit only. */
   }
 }
 export type ScheduleView = "grid" | "day";

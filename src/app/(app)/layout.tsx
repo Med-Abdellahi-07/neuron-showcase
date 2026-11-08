@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { t } = await getT();
 
   if (!profile) {
-    // مستخدم مسجّل دخوله لكن بلا ملف شخصي (لم يُنشئه المدير)
+    // Signed-in user without a profile (the admin has not created it yet).
     return (
       <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 px-5 text-center">
         <Logo />
@@ -32,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isStaff = isStaffRole(profile.role);
   const space = await getSpace();
   const ai = space?.features.ai === true;
-  // المشرف العام: قائمة الفضاءات للتبديل السريع
+  // Super admin: space list for quick switching.
   const options = MULTI_SPACE && profile.role === "admin" ? await getSpaceOptions() : [];
   const initial = profile.full_name.trim().charAt(0).toUpperCase() || "?";
 

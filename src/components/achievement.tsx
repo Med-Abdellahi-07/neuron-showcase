@@ -7,8 +7,8 @@ import { useUid } from "@/components/clay/uid";
 import { useT } from "@/lib/i18n/client";
 
 /**
- * شاشة الإنجاز (VWin.html). تظهر عند: معلم سلسلة جديد، أو إتمام هدف الأسبوع (5 أيام دراسة)،
- * أو فوز جديد في Duel. ما رآه الطالب يُحفظ في localStorage فلا تتكرر.
+ * Achievement screen (VWin.html). Shown on: a new streak milestone, completing the weekly goal (5 study days),
+ * or a new duel win. What the student has seen is stored in localStorage so it does not repeat.
  */
 const KEY = "neuron-win-seen";
 interface Seen { streak?: number; week?: string; wins?: number }
@@ -29,16 +29,16 @@ const write = (v: Seen) => {
   try {
     localStorage.setItem(KEY, JSON.stringify(v));
   } catch {
-    /* بلا تخزين: قد تتكرر في الزيارة التالية */
+    /* not persisted: may repeat on the next visit */
   }
 };
 
 export interface AchievementProps {
   name: string;
-  /** رقم السلسلة إن كان معلماً، وإلا null */
+  /** Streak number if it is a milestone, otherwise null. */
   streakMilestone: number | null;
   streak: number;
-  /** مفتاح الأسبوع (تاريخ الإثنين) إن اكتمل هدفه، وإلا null */
+  /** Week key (the Monday's date) if its goal is complete, otherwise null. */
   weekGoalKey: string | null;
   goalPct: number;
   wins: number;
@@ -66,7 +66,7 @@ export function Achievement(p: AchievementProps) {
     () => "",
   );
 
-  // أول زيارة: نثبّت عدد الانتصارات الحالي كمرجع فلا نحتفل بما مضى
+  // First visit: record the current win count as the baseline so past wins are not celebrated.
   useEffect(() => {
     if (!read()) write({ wins: p.wins });
   }, [p.wins]);

@@ -1,6 +1,6 @@
 import type { OfflineQuestion } from "./types.ts";
 
-/** تصحيح محلي: answers[i] = فهرس الخيار المختار للسؤال i (أو -1) */
+/** Local grading: answers[i] = index of the chosen option for question i (or -1). */
 export function gradeLocal(questions: OfflineQuestion[], answers: number[]) {
   let correct = 0;
   const wrong: number[] = [];

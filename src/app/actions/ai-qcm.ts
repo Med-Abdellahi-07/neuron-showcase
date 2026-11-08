@@ -18,8 +18,8 @@ const MINUTES = [0, 5, 10, 15, 20, 30, 45, 60];
 const MAX_QCM_LESSONS = 10;
 
 /**
- * QCM شخصي: أسئلة جديدة تُولَّد من نص الدروس المختارة للطالب وحده (3 نقاط)، بلا أي أثر على الترتيب المصنّف.
- * تحقق آلي من البنية قبل الحفظ، ومحاولة ثانية إن لم يصل العدد الكافي من الأسئلة الصالحة.
+ * Personal QCM: new questions generated from the chosen lessons' text for that student only (3 points), with no effect on the ranking.
+ * Structure is validated automatically before saving, with a second attempt if too few valid questions come back.
  */
 export async function generateQcm(_prev: FormState, fd: FormData): Promise<FormState> {
   const { t } = await getT();
@@ -37,7 +37,7 @@ export async function generateQcm(_prev: FormState, fd: FormData): Promise<FormS
   if (!lessonIds.length || lessonIds.length > MAX_QCM_LESSONS) return { error: lessonIds.length ? t("sum.tooMany").replace("{max}", String(MAX_QCM_LESSONS)) : t("sum.pickLessons") };
 
   const supabase = await createClient();
-  // الدروس يجب أن تكون من المادة المختارة (ومن النوع إن حُدّد) وأن يقرأها الطالب (RLS)
+  // Lessons must belong to the chosen subject (and kind, if given) and be readable by the student (RLS).
   const { data: ls } = await supabase.from("lessons").select("id, subject_id, kind").in("id", lessonIds);
   if ((ls ?? []).length !== lessonIds.length || (ls ?? []).some((l) => l.subject_id !== subjectId || (kind && l.kind !== kind)))
     return { error: t("common.error") };
@@ -50,9 +50,9 @@ export async function generateQcm(_prev: FormState, fd: FormData): Promise<FormS
     const mat = await loadMaterial(supabase, lessonIds, 24_000);
     if (!mat?.text) { await refundPoints(spent.ledgerId); return { error: t("ai.err.noMaterial") }; }
 
-    // لا نكرر ما سبق أن ولّدناه له في المادة نفسها
+    // Do not repeat what was already generated for the same subject.
     const good = await generateQuestions({ mat, count, difficulty, lang, avoid: await recentStatements(supabase, subjectId) });
-    // نقبل أقل قليلًا من المطلوب (80%) لكن لا أقل من سؤال، ونحفظ العدد الفعلي
+    // Accept slightly fewer than requested (80%) but never fewer than one question, and store the actual count.
     if (good.length < Math.max(1, Math.ceil(count * 0.8))) throw new Error("too_few_valid");
 
     const { data: coh } = await supabase.from("profiles").select("cohort_id").eq("id", userId).maybeSingle();

@@ -1,7 +1,7 @@
 import { useUid } from "./uid";
 import type { ClayProps } from "./types";
 
-/** كرة المساعد: نجمة تتلألأ وقمر ذهبي يدور (aorb / atw في globals.css) */
+/** Assistant orb: a twinkling star and a rotating gold moon (aorb / atw in globals.css). */
 export function AiOrb({ width = 78, height = 78, label = "Neuron AI", className }: ClayProps & { label?: string }) {
   const u = useUid("orb");
   return (

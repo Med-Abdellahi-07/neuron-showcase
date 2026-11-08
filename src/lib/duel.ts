@@ -1,4 +1,4 @@
-/** أنواع وأدوات مشتركة لصفحات Duel (خارج ملفات الصفحات لأن Next يقيّد ما تصدّره). */
+/** Shared types and helpers for the duel pages (outside the page files because Next restricts what they export). */
 export type DuelStatus = "challenger_turn" | "open" | "completed" | "expired";
 
 export interface DuelItem {

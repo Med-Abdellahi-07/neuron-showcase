@@ -2,7 +2,7 @@ import Papa from "papaparse";
 import { z } from "zod";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 
-/** خطأ استيراد: مفاتيح قاموس تُترجم في الواجهة + تفصيل تقني اختياري (يبقى كما هو) */
+/** Import error: dictionary keys translated in the UI + an optional technical detail (kept as is). */
 export interface ImportError {
   row: number;
   keys: DictKey[];
@@ -29,7 +29,7 @@ const rowSchema = z
     correct: z.preprocess((v) => emptyToUndef(v)?.toUpperCase(), z.string().optional()),
     model_answer: z.preprocess(emptyToUndef, z.string().optional()),
     explanation: z.preprocess(emptyToUndef, z.string().optional()),
-    // اختياري: سؤال مخصّص للاختبار المصنّف فقط (لا يظهر في التدريب الحر ولا في تنزيل QCM)
+    // Optional: a question reserved for the ranked quiz only (never shown in free practice or QCM downloads).
     exam_only: z.preprocess((v) => {
       if (typeof v === "boolean") return v;
       const x = emptyToUndef(v)?.toLowerCase();
@@ -73,7 +73,7 @@ export interface ParseResult {
   errors: ImportError[];
 }
 
-/** يحوّل صف CSV (option_a…option_f) إلى الشكل الموحّد. */
+/** Converts a CSV row (option_a...option_f) to the unified shape. */
 function fromCsvRow(raw: Record<string, unknown>): Record<string, unknown> {
   const options = ["a", "b", "c", "d", "e", "f"]
     .map((l) => str(raw[`option_${l}`]))

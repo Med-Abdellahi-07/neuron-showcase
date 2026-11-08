@@ -14,7 +14,7 @@ const MAX_CHARS = 1100;
 const OVERLAP = 150;
 const MIN_PAGE_CHARS = 40;
 
-/** يقسم نص صفحة إلى مقاطع متداخلة قليلاً، مع تفضيل القطع عند نهاية الفقرة أو الجملة. */
+/** Splits page text into slightly overlapping chunks, preferring cuts at paragraph or sentence ends. */
 export function chunkText(text: string): string[] {
   const clean = text.replace(/\u0000/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
   if (clean.length < MIN_PAGE_CHARS) return [];
@@ -38,7 +38,7 @@ export function chunkText(text: string): string[] {
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-/** يضمّن مقاطع النص ويحفظها (بلا حذف سابق). فشل التضمين لا يمنع الحفظ (يعمل البحث النصي) ويُعاد سببه. */
+/** Embeds text chunks and stores them (no prior deletion). An embedding failure does not block saving (text search still works) and its reason is returned. */
 export async function embedAndStore(
   admin: Admin,
   ctx: { fileId: string; lessonId: string; subjectId: string },
@@ -68,7 +68,7 @@ export async function embedAndStore(
   return { vectors: !!vectors, embedError };
 }
 
-/** يستخرج نص PDF (صفحة بصفحة) ويقسمه ويضمّنه ويخزنه. يعمل بصلاحية service role، فيُستدعى بعد التحقق من الصلاحية. */
+/** Extracts PDF text (page by page), chunks it, embeds and stores it. Runs with the service role, so it is called after the permission check. */
 export async function indexFile(fileId: string): Promise<IndexResult> {
   const admin = createAdminClient();
   const { data: file } = await admin

@@ -28,7 +28,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
   const features = (await getSpace())?.features;
   const supabase = await createClient();
 
-  // الموجة 1: كل ما يكفيه معرّف الحصة من الرابط يُجلب معاً
+  // Wave 1: everything that only needs the lesson id from the URL is fetched together.
   const [{ data: lessonRow }, { data: fileRows }, { data: prog }] = await Promise.all([
     supabase.from("lessons").select("*").eq("id", id).maybeSingle(),
     supabase.from("lesson_files").select("*").eq("lesson_id", id).order("created_at"),
@@ -38,12 +38,12 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
   const lesson = lessonRow as Lesson;
   const files = (fileRows ?? []) as LessonFile[];
 
-  // الموجة 2: ما يحتاج بيانات الحصة (الملخص، الروابط الموقّعة، المادة من الكتالوج المخزَّن)
-  // التسجيلات: المربوطة بهذه الحصة صراحةً، أو التي تطابق (مادة + نوع + تاريخ الحصة)
+  // Wave 2: what needs the lesson data (summary, signed links, subject from the cached catalog).
+  // Recordings: explicitly linked to this lesson, or matching (subject + kind + lesson date).
   const recFilter = lesson.lesson_date
     ? `lesson_id.eq.${lesson.id},and(subject_id.eq.${lesson.subject_id},kind.eq.${lesson.kind},rec_date.eq.${lesson.lesson_date})`
     : `lesson_id.eq.${lesson.id}`;
-  // الملف المجزّأ: يُوقَّع كل جزء (part-001…) بدل المسار الأساسي
+  // Multipart file: sign every part (part-001...) instead of the base path.
   const signPaths = files.flatMap((f) => (f.part_count > 1 ? Array.from({ length: f.part_count }, (_, i) => partPath(f.storage_path, i)) : [f.storage_path]));
   const [{ data: resumeRow }, signed, subject, { data: recRows }] = await Promise.all([
     lesson.kind === "resume"
@@ -72,7 +72,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
     for (const x of m ?? []) (marks[x.recording_id as string] ??= []).push({ at_seconds: x.at_seconds as number, label: x.label as string });
   }
 
-  // روابط موقّعة لمدة ساعة
+  // Signed links valid for one hour.
   const urls = new Map<string, string>();
   const partUrls = new Map<string, string[]>();
   {

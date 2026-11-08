@@ -17,7 +17,7 @@ export type GradeResponse =
   | { ok: true; result: AnswerResult; score: number; verdict: string; feedback: string; missing: string[] }
   | { ok: false; error: "busy" | "unavailable" | "expired" | "finished" | "failed" };
 
-/** تصحيح إجابة مكتوبة بالذكاء الاصطناعي؛ لا يُرسل أي بيانات شخصية، ثم تُسجَّل النتيجة بدالة قاعدة البيانات. */
+/** AI grading of a written answer; no personal data is sent, and the result is recorded through a database function. */
 export async function gradeWrittenAnswer(input: {
   attemptId: string;
   questionId: string;
@@ -38,7 +38,7 @@ export async function gradeWrittenAnswer(input: {
   });
   if (allowed !== true) return { ok: false, error: "busy" };
 
-  // RLS: السؤال منشور وعمود model_answer مسموح قراءته للطالب
+  // RLS: the question is published and the model_answer column is readable by the student.
   const { data: q } = await supabase
     .from("questions")
     .select("statement, model_answer, type")

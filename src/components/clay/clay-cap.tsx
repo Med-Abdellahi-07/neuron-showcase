@@ -1,7 +1,7 @@
 import { useUid } from "./uid";
 import type { ClayProps } from "./types";
 
-/** قبعة التخرج. home = VHome (بيت الرأس)، login = Login.html */
+/** Graduation cap. home = VHome (header house), login = Login.html. */
 export function ClayCap({ variant = "home", width, height, className }: ClayProps & { variant?: "home" | "login" }) {
   const u = useUid("cap");
   if (variant === "login") {

@@ -7,7 +7,7 @@ import { getCurrentSubjects } from "@/lib/data";
 import { QCM_COUNTS, parseQcmParams } from "@/lib/qcm";
 import { requireFeature } from "@/lib/spaces";
 
-/** خيارات تنزيل QCM. النموذج GET إلى صفحة الطباعة في تبويب جديد؛ لا جلب للأسئلة هنا. */
+/** QCM download options. The form GETs the print page in a new tab; no questions are fetched here. */
 export default async function QcmDownloadPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireUserId();
   await requireFeature("qcm_pdf");

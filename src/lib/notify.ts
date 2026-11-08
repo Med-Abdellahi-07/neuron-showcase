@@ -6,7 +6,7 @@ import { ENGLISH_CODE } from "@/lib/constants";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import { sendPush, type PushMessage, type PushKind, type PushTarget } from "@/lib/push";
 
-/** يرسل بعد انتهاء الاستجابة (لا يؤخر المدير) */
+/** Sends after the response ends (does not delay the admin). */
 export function pushLater(target: PushTarget, kind: PushKind, msg: PushMessage) {
   after(async () => {
     await sendPush(target, kind, msg);
@@ -15,7 +15,7 @@ export function pushLater(target: PushTarget, kind: PushKind, msg: PushMessage) 
 
 const sub = async (id: string | null | undefined) => (id ? await getSubjectById(id) : null);
 
-/** طلاب L2 الذين يتابعون هذه المادة كـ«مادة متبقية»: يصلهم ما يصل طلاب فضاء المادة. */
+/** L2 students following this subject as a "remaining subject": they receive what the subject's space students receive. */
 export async function followerIds(subjectId: string | null | undefined): Promise<string[]> {
   if (!MULTI_SPACE || !subjectId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
   const { data, error } = await createAdminClient().from("remaining_subjects").select("student_id").eq("subject_id", subjectId);
@@ -82,7 +82,7 @@ export function notifyAnnouncement(cohortId: string, title: string, body: string
   });
 }
 
-/** تغيير/إلغاء حصة. حصص الإنجليزية ذات المجموعة تصل لأصحاب المجموعة فقط. */
+/** Session change/cancellation. English sessions with a group go only to that group's members. */
 export async function notifyScheduleChange(s: {
   cohort_id: string;
   subject_id: string;
@@ -104,7 +104,7 @@ export async function notifyScheduleChange(s: {
   const name = subject?.code ?? "";
   const note = s.note ? ` — ${s.note}` : "";
   const cancelled = s.status === "cancelled";
-  // طلاب L2 المتابعون للمادة يصلهم التغيير أيضاً (شارة L1 في جدولهم)
+  // L2 students following the subject receive the change too (L1 badge in their timetable).
   const followers = await followerIds(s.subject_id);
   pushLater(userIds ? { userIds: [...userIds, ...followers] } : { cohortId: s.cohort_id, userIds: followers }, "schedule_change", {
     ar: { title: cancelled ? `أُلغيت حصة ${name}` : `تغيّرت حصة ${name}`, body: `${KIND_LABEL.ar[s.kind] ?? s.kind} · ${s.session_date}${note}` },

@@ -27,8 +27,8 @@ interface ExportResult {
 }
 
 /**
- * صفحة طباعة QCM (A4، أبيض وأسود، بلا تنقل). جلب الأسئلة والأجوبة هنا على الخادم فقط عبر الدالة
- * qcm_export (security definer: تستثني exam_only، وتحدّ 10 تنزيلات/24 ساعة). لا شيء يُجلب من المتصفح.
+ * QCM print page (A4, black and white, no navigation). Questions and answers are fetched here on the server only, via
+ * qcm_export (security definer: excludes exam_only, limits to 10 downloads per 24 hours). Nothing is fetched from the browser.
  */
 export default async function PrintQcmPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireUserId();
@@ -57,7 +57,7 @@ export default async function PrintQcmPage({ searchParams }: { searchParams: Pro
     const text = msg.includes("download_limit") ? t("qcm.err.limit") : msg.includes("no_questions") ? t("qcm.err.none") : t("qcm.err.generic");
     const known = msg.includes("download_limit") || msg.includes("no_questions");
     if (!known) console.error("qcm_export failed:", error?.code, msg);
-    // رمز تقني قصير (مثل PGRST202 = الدالة غير موجودة، أي لم يُشغَّل 0016) ليسهل تشخيص السبب دون كشف تفاصيل
+    // Short technical code (such as PGRST202 = function missing, i.e. 0016 was not run) so the cause is easy to diagnose without leaking details.
     const code = !known && error?.code ? String(error.code).slice(0, 12) : null;
     return (
       <main className="qcm-root">
@@ -94,7 +94,7 @@ export default async function PrintQcmPage({ searchParams }: { searchParams: Pro
           </p>
         </header>
 
-        {/* محتوى الأسئلة بالفرنسية: يُعرض LTR دائماً حتى في واجهة عربية */}
+ {/* Question content is French: always rendered LTR, even in an Arabic UI. */}
         <section aria-label={t("qcm.questions")} dir="ltr">
           {r.questions.map((q) => (
             <article key={q.n} className="qcm-q">

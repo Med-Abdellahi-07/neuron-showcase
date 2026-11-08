@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AiQcmRunner } from "@/components/ai-qcm-runner";
 import { toAiQ } from "@/lib/ai/qcm-view";
 
-/** مراجعة متباعدة لأخطائي في QCM الذكي: الأسئلة المستحقة الآن (تُعاد كأسئلة جديدة غير مُجاب عنها) */
+/** Spaced review of my AI QCM mistakes: questions due now (re-served as fresh, unanswered questions). */
 export default async function AiQcmReviewPage() {
   await requireAiFlag("ai_qcm");
   const userId = await requireUserId();
@@ -14,7 +14,7 @@ export default async function AiQcmReviewPage() {
   const supabase = await createClient();
   const { data } = await supabase.from("ai_questions").select("*").eq("user_id", userId).eq("mastered", false)
     .lte("due_at", new Date().toISOString()).order("due_at").limit(10);
-  const rows = ((data ?? []) as Record<string, unknown>[]).map((r) => ({ ...r, selected: null, is_correct: null })); // تُجاب من جديد
+  const rows = ((data ?? []) as Record<string, unknown>[]).map((r) => ({ ...r, selected: null, is_correct: null })); // Answered again from scratch.
   return (
     <div className="space-y-4">
       <Link href="/assistant/qcm" className="text-sm text-accent">← {t("aiq.title")}</Link>

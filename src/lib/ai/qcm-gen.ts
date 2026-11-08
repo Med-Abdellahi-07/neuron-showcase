@@ -37,8 +37,8 @@ async function oneBatch(need: number, sys: string, mat: Pick<Material, "pages" |
 }
 
 /**
- * يولّد `count` سؤالًا صالحًا (1..50) من مادة الدروس: دفعات متوازية ≤10 أسئلة، ثم جولة تعويض واحدة للنقص.
- * يُرجع ما صُنع (قد يقل عن count)؛ على المستدعي تقرير الحدّ الأدنى المقبول.
+ * Generates `count` valid questions (1..50) from lesson material: parallel batches of <=10 questions, then one top-up round for the shortfall.
+ * Returns what was produced (may be fewer than count); the caller decides the minimum acceptable.
  */
 export async function generateQuestions(o: {
   mat: Pick<Material, "text" | "pages" | "lessons">;
@@ -63,7 +63,7 @@ export async function generateQuestions(o: {
     );
     res.forEach(add);
   }
-  // تعويض النقص (قد تفشل دفعة أو تُسقَط أسئلة غير صالحة)
+  // Top up the shortfall (a batch may fail or invalid questions may be dropped).
   if (good.length < o.count) {
     const need = Math.min(o.count - good.length, CHUNK * 2);
     const avoid = [o.avoid, ...good.slice(-15).map((g) => `- ${g.statement.slice(0, 120)}`)].filter(Boolean).join("\n");
@@ -72,7 +72,7 @@ export async function generateQuestions(o: {
   return good;
 }
 
-/** أسئلة سبق توليدها للطالب في المادة نفسها (لتجنّب التكرار) */
+/** Questions already generated for this student in the same subject (to avoid repeats). */
 export async function recentStatements(supabase: SupabaseClient, subjectId: string): Promise<string> {
   const { data } = await supabase.from("ai_questions").select("statement").eq("subject_id", subjectId).order("created_at", { ascending: false }).limit(25);
   return (data ?? []).map((p) => `- ${String(p.statement).slice(0, 120)}`).join("\n");

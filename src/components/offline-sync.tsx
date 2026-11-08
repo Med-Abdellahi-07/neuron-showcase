@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { flushOutbox, syncSnapshot } from "@/lib/offline/sync";
 
-/** يُركَّب داخل التطبيق المسجَّل: عند كل فتح (وعند عودة الاتصال) يحفظ لقطة الجدول ويرسل النتائج المعلّقة. */
+/** Mounted inside the signed-in app: on every open (and when the connection returns) it saves the timetable snapshot and sends pending results. */
 export function OfflineSync() {
   useEffect(() => {
     if (!("indexedDB" in window)) return;

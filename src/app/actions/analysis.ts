@@ -9,7 +9,7 @@ import { flushAiStats } from "@/lib/ai/stats";
 import { LANG_NAME } from "@/lib/ai/lang";
 import { featureEnabled } from "@/lib/spaces";
 
-/** تحليل أداء الطالب: تُرسل للنموذج إحصاءات مجمّعة فقط، بلا اسم ولا بريد ولا هاتف. */
+/** Student performance analysis: only aggregated statistics are sent to the model, with no name, email or phone. */
 export async function refreshAnalysis(): Promise<{ ok: boolean; error?: "busy" | "unavailable" | "empty" }> {
   const userId = await getUserId();
   if (!userId || !(await featureEnabled("ai"))) return { ok: false, error: "unavailable" };

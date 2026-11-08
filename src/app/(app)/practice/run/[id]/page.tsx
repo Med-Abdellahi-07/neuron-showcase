@@ -47,9 +47,9 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const expired = attempt.time_limit_seconds !== null && elapsed > attempt.time_limit_seconds + 5;
   const finished = !!attempt.finished_at || expired;
 
-  // ───────── الملخص: بعد الانتهاء تُكشف الإجابات الصحيحة والشرح ─────────
+  // Summary: correct answers and explanations are revealed after finishing.
   if (finished) {
-    // انتهى الوقت دون إغلاق: أغلقها الآن كي تُكشف كل الأسئلة في المراجعة
+    // Time ran out without the attempt being closed: close it now so every question is revealed in the review.
     if (!attempt.finished_at) await supabase.rpc("finish_attempt", { p_attempt: id });
     const { data: review } = await supabase.rpc("attempt_review", { p_attempt: id });
     const items = (review ?? []) as ReviewItem[];
@@ -151,7 +151,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  // ───────── محاولة جارية ─────────
+  // Attempt in progress.
   const ids = attempt.question_ids as string[];
   const [{ data: qRows }, { data: ansRows }] = await Promise.all([
     supabase
@@ -170,7 +170,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       difficulty: r.difficulty as "easy" | "medium" | "hard",
       statement: r.statement as string,
       options: r.options as string[] | null,
-      // الحل النموذجي للمكتوب يلزم للمقارنة الذاتية؛ المكتوب لا يدخل الترتيب أصلاً
+      // The model answer for written questions is needed for self-comparison; written questions never enter the ranking.
       model_answer: r.type === "written" ? (r.model_answer as string | null) : null,
     }));
 

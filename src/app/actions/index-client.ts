@@ -7,8 +7,8 @@ import { getSpace } from "@/lib/spaces";
 import { chunkText, embedAndStore } from "@/lib/ai/indexing";
 
 /**
- * فهرسة PDF الكبير من المتصفح: النص يُستخرج هناك (pdf.js) ويصل إلى هنا دفعات صغيرة،
- * فلا تتجاوز أي استدعاءات مهلة الدالة. كل دالة تتحقق من الصلاحية ومن أن الملف في فضاء المستخدم (RLS).
+ * Large-PDF indexing from the browser: text is extracted there (pdf.js) and arrives here in small batches,
+ * so no call exceeds the function time limit. Each function checks permission and that the file is in the user's space (RLS).
  */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_PAGES_PER_BATCH = 12;

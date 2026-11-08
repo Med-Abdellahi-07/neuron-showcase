@@ -4,7 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { LayeredN } from "@/components/clay";
 import { useT } from "@/lib/i18n/client";
 
-/** شاشة البداية (VSplash.html): مرة واحدة عند فتح التطبيق (لكل جلسة متصفح)، بحد أقصى 2.5 ثانية، ولمسة تتخطّاها. */
+/** Splash screen (VSplash.html): once when the app opens (per browser session), at most 2.5 seconds, and a tap skips it. */
 const KEY = "neuron-splash";
 let dismissed = false;
 const listeners = new Set<() => void>();
@@ -25,12 +25,12 @@ function dismiss() {
   try {
     sessionStorage.setItem(KEY, "1");
   } catch {
-    /* بلا تخزين: تُخفى لهذه الصفحة فقط */
+    /* No storage: hidden for this page only. */
   }
   listeners.forEach((l) => l());
 }
 
-/** التطبيق المحلي يُخفي الشاشة فورًا: لا ننتظر 2.5 ثانية لرؤية الجدول بلا إنترنت */
+/** The local app hides the splash immediately: no waiting 2.5 seconds to see the timetable offline. */
 export const dismissSplash = dismiss;
 
 export function Splash() {

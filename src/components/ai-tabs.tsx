@@ -9,11 +9,11 @@ export interface AiTab {
   key: "ai.tab.chat" | "ai.tab.summaries" | "ai.tab.qcm";
 }
 
-/** شريط أقسام الذكاء الاصطناعي + عدّاد النقاط اليومي («تبقى لك اليوم X») */
+/** AI sections bar + daily points counter ("X left today"). */
 export function AiTabs({ tabs, pressured }: { tabs: AiTab[]; pressured: boolean }) {
   const { t } = useT();
   const path = usePathname();
-  // الصفحة الرئيسية للمساعد وصفحة المحادثة لهما واجهتهما الخاصة (بطاقات الأقسام في الرأس)
+  // The assistant home and chat pages have their own UI (section cards in the header).
   if (path === "/assistant" || /^\/assistant\/(?!summaries|qcm|analysis)/.test(path)) return null;
   return (
     <div className="mb-4 space-y-2">

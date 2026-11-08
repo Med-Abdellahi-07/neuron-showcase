@@ -1,7 +1,7 @@
 /**
- * شعار N بخمس طبقات على عمق Z.
- * splash: ‏150px، طبقات −24/−18/−12/−6/0 (VSplash). login: ‏140px، −20/−14/−8/−3/0 (Login).
- * الإطار (perspective + الأنيميشن) يتولاه المستدعي عبر className للحاوية الداخلية.
+ * Five-layer N logo at Z depth.
+ * splash: 150px, layers -24/-18/-12/-6/0 (VSplash). login: 140px, -20/-14/-8/-3/0 (Login).
+ * The frame (perspective + animation) is handled by the caller via the inner container's className.
  */
 type Layer = { z: number; stroke: string; r: number; w: number; fill?: string };
 

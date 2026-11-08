@@ -1,8 +1,8 @@
 import { finishClientIndex, indexPages, startClientIndex } from "@/app/actions/index-client";
 
 /**
- * يستخرج نص PDF في المتصفح (pdf.js عبر unpdf) ويرسله لفهرسة المساعد دفعات صغيرة (10 صفحات).
- * كل دفعة استدعاء قصير، فلا مهلة على الكتب الكبيرة. PDF ممسوح ضوئياً (بلا نص) ← يُسجَّل «لا نص» كما في الفهرسة القديمة.
+ * Extracts PDF text in the browser (pdf.js via unpdf) and sends it to assistant indexing in small batches (10 pages).
+ * Each batch is a short call, so big books never hit a timeout. A scanned PDF (no text) is recorded as "no text", as in the older server indexing.
  */
 export async function indexPdfInBrowser(
   file: Blob,

@@ -1,10 +1,10 @@
 /**
- * إحصاءات الرئيسية وصفحة «تقدّمي» — دوال صرفة تُختبر مباشرة بـ node --test.
- * كل الأرقام من جداول موجودة (attempt_answers / lesson_progress)، بلا أعمدة جديدة.
+ * Home and "Progress" statistics: pure functions tested directly with node --test.
+ * All numbers come from existing tables (attempt_answers / lesson_progress), with no new columns.
  */
 import { addDays } from "./weeks.ts";
 
-/** أيام متتالية بنشاط، تنتهي اليوم أو أمس (يوم لم ينتهِ بعد لا يكسر السلسلة). التواريخ YYYY-MM-DD. */
+/** Consecutive active days ending today or yesterday (an unfinished day does not break the streak). Dates are YYYY-MM-DD. */
 export function computeStreak(activeDays: Iterable<string>, today: string): number {
   const set = new Set(activeDays);
   let cursor = set.has(today) ? today : addDays(today, -1);
@@ -16,7 +16,7 @@ export function computeStreak(activeDays: Iterable<string>, today: string): numb
   return n;
 }
 
-/** نسبة مئوية صحيحة؛ 0 إن لم يكن هناك مقام */
+/** Whole-number percentage; 0 if there is no denominator. */
 export function pct(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 100) : 0;
 }
@@ -26,22 +26,22 @@ export interface AnswerRow {
   correct: boolean;
 }
 
-/** أول يوم في الشهر YM = YYYY-MM */
+/** First day of the month YM = YYYY-MM. */
 export const monthStart = (ym: string) => `${ym}-01`;
 
-/** آخر يوم في الشهر YM */
+/** Last day of the month YM. */
 export function monthEnd(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 }
 
-/** الشهر السابق لـ YM */
+/** The month before YM. */
 export function prevMonth(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
   return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
 }
 
-/** آخر n أشهر تنتهي بـ ym، الأحدث أولاً */
+/** The last n months ending at ym, newest first. */
 export function lastMonths(ym: string, n: number): string[] {
   const out = [ym];
   while (out.length < n) out.push(prevMonth(out[out.length - 1]));
@@ -50,12 +50,12 @@ export function lastMonths(ym: string, n: number): string[] {
 
 export interface SeriesPoint {
   day: string;
-  pct: number | null; // نسبة الإجابات الصحيحة التراكمية حتى هذا اليوم (null = لا إجابات بعد)
+  pct: number | null; // Cumulative share of correct answers up to this day (null = no answers yet).
 }
 
 /**
- * عيّنات تراكمية لنسبة الصحيح خلال الشهر: `points` نقاط موزّعة بالتساوي من أول الشهر إلى آخره.
- * القيمة عند كل نقطة = صحيح/كل الإجابات من أول الشهر حتى ذلك اليوم.
+ * Cumulative samples of the correct-answer rate over the month: `points` points spread evenly from the first day to the last.
+ * The value at each point = correct / all answers from the start of the month up to that day.
  */
 export function buildSeries(rows: AnswerRow[], ym: string, points = 9): SeriesPoint[] {
   const start = monthStart(ym);
@@ -78,7 +78,7 @@ export function buildSeries(rows: AnswerRow[], ym: string, points = 9): SeriesPo
   return out;
 }
 
-/** إحداثيات الرسم كما في VProgress: x من 30 إلى 330، y = 150 − pct×1.4 */
+/** Chart coordinates as in VProgress: x from 30 to 330, y = 150 - pct*1.4. */
 export function chartCoords(series: SeriesPoint[]): { x: number; y: number; pct: number }[] {
   const pts = series.filter((p): p is { day: string; pct: number } => p.pct !== null);
   const all = series.length - 1 || 1;
@@ -88,26 +88,26 @@ export function chartCoords(series: SeriesPoint[]): { x: number; y: number; pct:
   });
 }
 
-/** وقت بصيغة «6س 05د» من ملّي ثانية (يُترك التنسيق النصي للواجهة عبر الأجزاء) */
+/** A time like "6h 05m" from milliseconds (text formatting is left to the UI via the parts). */
 export function hm(ms: number): { h: number; m: number } {
   const total = Math.max(0, Math.round(ms / 60_000));
   return { h: Math.floor(total / 60), m: total % 60 };
 }
 
-/** أرقام السلسلة التي تستحق احتفالاً */
+/** Streak numbers that deserve a celebration. */
 export const STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 365] as const;
 
-/** رقم السلسلة إن كان معلماً يستحق الاحتفال، وإلا null */
+/** The streak number if it is a milestone worth celebrating, otherwise null. */
 export function streakMilestone(streak: number): number | null {
   return (STREAK_MILESTONES as readonly number[]).includes(streak) ? streak : null;
 }
 
-/** عدد أيام النشاط المميّزة داخل الأسبوع الذي يبدأ بـ monday (7 أيام) */
+/** Number of distinct active days within the week starting at monday (7 days). */
 export function activeDaysInWeek(activeDays: Iterable<string>, monday: string): number {
   const end = addDays(monday, 6);
   return new Set([...activeDays].filter((d) => d >= monday && d <= end)).size;
 }
 
-/** هدف الأسبوع: الدراسة في 5 أيام مختلفة على الأقل */
+/** Weekly goal: studying on at least 5 different days. */
 export const WEEK_GOAL_DAYS = 5;
 export const weekGoalPct = (days: number) => Math.min(100, Math.round((days / WEEK_GOAL_DAYS) * 100));

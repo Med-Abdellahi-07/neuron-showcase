@@ -12,9 +12,9 @@ import { pickName, type Directory, type DirectoryInstitution, type DirectoryMajo
 type Step = "institution" | "major" | "level" | "form";
 
 /**
- * دخول بأربع خطوات: المؤسسة ← التخصص ← المستوى ← نموذج الدخول.
- * الفضاء المختار يُرسل مع النموذج ويتحقق الخادم من انتماء الحساب إليه.
- * الفضاء الذي لا مشرف له (غير مفعّل) يظهر رمادياً «قريباً» ولا يُفتح.
+ * Four-step login: institution -> major -> level -> login form.
+ * The chosen space is sent with the form and the server checks the account belongs to it.
+ * A space without an admin (not activated) shows greyed out as "coming soon" and cannot be opened.
  */
 export function SpaceLogin({ directory, initialSpaceId }: { directory: Directory; initialSpaceId: string | null }) {
   const { t, locale } = useT();

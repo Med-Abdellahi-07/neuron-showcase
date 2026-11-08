@@ -7,15 +7,15 @@ export const SLOTS = [
   { n: 6, start: "15:40", end: "17:10" },
 ] as const;
 
-/** أيام الدراسة: الإثنين (1) إلى السبت (6) */
+/** Study days: Monday (1) to Saturday (6). */
 export const STUDY_DAYS = [1, 2, 3, 4, 5, 6] as const;
 
 export const SESSION_KINDS = ["cm", "td", "tp"] as const;
 export const LESSON_KINDS = ["cm", "td", "tp", "resume"] as const;
 
-/** مدة الحصة الواحدة بالساعات */
+/** Duration of one session in hours. */
 export const SESSION_HOURS = 1.5;
 export const sessionsFromHours = (hours: number) => Math.round(hours / SESSION_HOURS);
 
-/** رمز مادة الإنجليزية (لها مجموعات) */
+/** Subject code of English (it has groups). */
 export const ENGLISH_CODE = "LTR341";

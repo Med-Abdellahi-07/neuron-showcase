@@ -1,8 +1,8 @@
-/** منطق صرف لتنزيل QCM (يُختبر مباشرة بـ node --test). بلا اعتماد على البيئة. */
+/** Pure logic for QCM download (tested directly with node --test). No environment dependency. */
 
 export const QCM_MAX = 50;
-export const QCM_COUNTS = [10, 20, 30, QCM_MAX] as const; // الأخير = «الكل» بحد أقصى 50
-export const QCM_PER_TABLE = 10; // صفوف كل جدول في صفحة الأجوبة
+export const QCM_COUNTS = [10, 20, 30, QCM_MAX] as const; // The last one means "all", capped at 50.
+export const QCM_PER_TABLE = 10; // Rows per table on the answers page.
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type SP = Record<string, string | string[] | undefined>;
@@ -23,7 +23,7 @@ export interface QcmParams {
   explain: boolean;
 }
 
-/** يقرأ باراميترات الرابط ويحصرها في قيم صالحة (الخادم يعيد التحقق أيضاً داخل SQL). */
+/** Reads the URL parameters and clamps them to valid values (the server re-validates inside SQL too). */
 export function parseQcmParams(sp: SP): QcmParams {
   const diff = one(sp.difficulty);
   const rawCount = parseInt(one(sp.count), 10);
@@ -42,17 +42,17 @@ export function parseQcmParams(sp: SP): QcmParams {
   };
 }
 
-/** رقم الخيار → حرف (0→A). */
+/** Option index -> letter (0 -> A). */
 export const optionLetter = (i: number) => String.fromCharCode(65 + i);
 
-/** يقسّم قائمة أرقام الأسئلة إلى جداول من `size` صفاً (للأجوبة في عدة أعمدة). */
+/** Splits a list of question numbers into tables of `size` rows (for answers in several columns). */
 export function chunk<T>(items: T[], size = QCM_PER_TABLE): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;
 }
 
-/** تسمية نطاق الحصص: ar/fr/en تُمرَّر كنصوص جاهزة من القاموس. */
+/** Label for the lesson range: ar/fr/en are passed in as ready-made strings from the dictionary. */
 export function scopeLabel(
   p: { lessonLabel: string | null; from: number | null; to: number | null },
   words: { all: string; lessons: string; lesson: string }

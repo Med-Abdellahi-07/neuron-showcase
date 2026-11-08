@@ -12,7 +12,7 @@ import { relativeSeen } from "@/components/dashboard-bits";
 
 const PAGE = 60;
 
-/** إدارة طلاب الفضاء الحالي فقط: إنشاء فردي أو جماعي (CSV/Excel)، إعادة تعيين كلمة السر، حذف. */
+/** Manage students of the current space only: single or bulk creation (CSV/Excel), password reset, deletion. */
 export default async function StudentsPage({ searchParams }: { searchParams: Promise<{ q?: string; all?: string }> }) {
   const me = await requireManager();
   const { t } = await getT();
@@ -33,7 +33,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const people = (data ?? []) as { id: string; full_name: string; email: string | null; phone: string | null; last_seen_at: string | null }[];
   const total = count ?? people.length;
 
-  // المواد المتبقية: لفضاءات L2 فقط، من L1 لنفس التخصص (القيد الحقيقي في قاعدة البيانات)
+  // Remaining subjects: L2 spaces only, from L1 of the same major (the real constraint lives in the database).
   const isL2 = MULTI_SPACE && space?.level_code === "L2";
   type RemRow = { student_id: string; subject_id: string };
   let l1Subjects: { id: string; code: string; name: string }[] = [];
@@ -53,7 +53,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   }
   const subjName = new Map(l1Subjects.map((x) => [x.id, x]));
 
-  // مشرف L1: متابعو مواد فضائه من L2 (قراءة فقط، أسماء بلا بيانات اتصال)
+  // L1 supervisor: followers of the space's subjects coming from L2 (read-only, names without contact data).
   const { data: fol } = MULTI_SPACE ? await supabase.rpc("l1_followers") : { data: [] };
   const followers = (fol ?? []) as { student_name: string; student_space: string | null; subject_code: string; subject_name: string }[];
 

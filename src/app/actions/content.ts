@@ -25,7 +25,7 @@ const isUrl = (v: string | null) => {
     return false;
   }
 };
-/** كل كائنات الملف في Storage: الملف العادي مسار واحد، والمجزّأ part-001…part-N */
+/** All storage objects of a file: a normal file is one path, a multipart file is part-001...part-N. */
 const objectPaths = (path: string, parts: number) => (parts > 1 ? Array.from({ length: parts }, (_, i) => partPath(path, i)) : [path]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -77,7 +77,7 @@ export async function updateLesson(_prev: FormState, fd: FormData): Promise<Form
   return { message: t("content.saved") };
 }
 
-/** المدير: ينشر مباشرة. المشرف: تتحول "published" إلى "pending" عبر trigger ما لم يملك صلاحية النشر المباشر. */
+/** Admin publishes directly. Moderators: "published" becomes "pending" through a trigger unless they have direct-publish permission. */
 export async function setLessonStatus(fd: FormData) {
   await requireStaff();
   const id = text(fd, "id");
@@ -86,7 +86,7 @@ export async function setLessonStatus(fd: FormData) {
   const supabase = await createClient();
   const { data: before } = await supabase.from("lessons").select("status").eq("id", id).maybeSingle();
   const { data } = await supabase.from("lessons").update({ status }).eq("id", id).select("id, subject_id, kind, number, title, status").maybeSingle();
-  // إشعار «محتوى جديد» عند أول انتقال فعلي إلى منشور (الـtrigger قد يحوّل طلب المشرف إلى pending)
+  // "New content" notification on the first real transition to published (the trigger may turn a moderator's request into pending).
   if (data?.status === "published" && before?.status !== "published") await notifyNewLesson(data);
   revalidatePath("/", "layout");
 }
@@ -104,7 +104,7 @@ export async function deleteLesson(fd: FormData) {
   redirect("/admin/content");
 }
 
-/** تُستدعى من المتصفح بعد رفع الملف (أو كل أجزائه) مباشرة إلى Storage. */
+/** Called from the browser after the file (or all its parts) was uploaded straight to Storage. */
 export async function registerFile(input: {
   id?: string;
   lessonId: string;
@@ -118,14 +118,14 @@ export async function registerFile(input: {
 }): Promise<{ ok: boolean; id?: string; indexInBrowser?: boolean }> {
   await requireStaff();
   if (!UUID_RE.test(input.lessonId) || !["pdf", "code", "data"].includes(input.kind)) return { ok: false };
-  // المسار يجب أن يقع تحت مجلد الحصة نفسها
+  // The path must sit under the lesson's own folder.
   if (!input.path.startsWith(`${input.lessonId}/`) || input.path.includes("..")) return { ok: false };
   const parts = Math.trunc(input.partCount ?? 1);
   if (parts < 1 || parts > 2000 || (input.id && !UUID_RE.test(input.id))) return { ok: false };
   if (parts > 1 && (!/^[0-9a-f]{64}$/.test(input.sha256 ?? "") || input.partSha256?.length !== parts || !input.partSha256.every((h) => /^[0-9a-f]{64}$/.test(h)))) return { ok: false };
   const supabase = await createClient();
 
-  // المجزّأ: تأكد أن كل الأجزاء موجودة وأن مجموع أحجامها = الحجم المعلن
+  // Multipart: make sure every part exists and the sum of sizes equals the declared size.
   if (parts > 1) {
     const { data: objs } = await supabase.storage.from("lesson-files").list(input.path, { limit: parts + 5 });
     const sizes = new Map((objs ?? []).map((o) => [o.name, Number((o.metadata as { size?: number } | null)?.size ?? 0)]));
@@ -153,11 +153,11 @@ export async function registerFile(input: {
     })
     .select("id")
     .single();
-  // الفهرسة للمساعد الذكي فقط: الفضاء الأساسي لا يستدعي الذكاء الاصطناعي إطلاقاً
+  // Indexing is for the AI assistant only: spaces without the feature never call AI.
   const aiOn = (await getSpace())?.features.ai === true;
   const big = parts > 1 || input.size > INDEX_IN_BROWSER_OVER;
   if (!error && inserted && aiOn && input.kind === "pdf" && process.env.SUPABASE_SERVICE_ROLE_KEY && !big) {
-    // الفهرسة (استخراج النص + التضمين) بعد إرسال الرد، فلا ينتظر المشرف
+    // Indexing (text extraction + embeddings) runs after the response is sent, so the admin does not wait.
     after(async () => {
       try {
         await indexFile(inserted.id as string);
@@ -171,7 +171,7 @@ export async function registerFile(input: {
     return { ok: false };
   }
   revalidatePath("/", "layout");
-  // الكبير: العميل يستخرج النص بـ pdf.js ويرسله دفعات (لا تجاوز لمهلة الخادم)
+  // Large files: the client extracts text with pdf.js and sends it in batches (no server timeout).
   return { ok: true, id: inserted.id as string, indexInBrowser: aiOn && input.kind === "pdf" && big && !!process.env.SUPABASE_SERVICE_ROLE_KEY };
 }
 
@@ -187,7 +187,7 @@ export async function deleteFile(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-// ───────────── الأسئلة ─────────────
+// Questions.
 
 export interface ImportOutcome {
   inserted: number;
@@ -237,7 +237,7 @@ export async function importQuestions(raw: string): Promise<ImportOutcome> {
       model_answer: q.type === "written" ? q.model_answer : (q.model_answer ?? null),
       explanation: q.explanation ?? null,
       exam_only: q.exam_only,
-      status: "published", // trigger يحوّلها إلى pending لمن لا يملك النشر المباشر
+      status: "published", // The trigger turns this into pending for users without direct-publish permission.
     });
   });
 
@@ -276,7 +276,7 @@ export async function deleteQuestion(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** إعادة فهرسة ملف PDF يدوياً (بعد إصلاح المفاتيح مثلاً). */
+/** Manually re-index a PDF file (for example after fixing the keys). */
 export async function reindexFile(fd: FormData) {
   await requireStaff();
   if (!(await getSpace())?.features.ai) return;
@@ -290,7 +290,7 @@ export async function reindexFile(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** المدير فقط: تخصيص سؤال للاختبار المصنّف (لا يظهر في التدريب الحر ولا في تنزيل QCM) أو إلغاء التخصيص. */
+/** Admin only: assign a question to the ranked quiz (it never shows in free practice or in QCM downloads) or unassign it. */
 export async function setQuestionExamOnly(fd: FormData) {
   await requireManager();
   const id = text(fd, "id");

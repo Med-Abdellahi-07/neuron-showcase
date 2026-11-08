@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
-/** صفحات تعرض رأسها الخاص (الرئيسية، الجدول، المساعد، تقدّمي)، فيُخفى الرأس العام فوقها */
+/** Pages that render their own header (Home, Timetable, Assistant, Progress), so the global header is hidden above them. */
 const OWN_HEADER = new Set(["/", "/schedule", "/assistant", "/progress"]);
 
 export function HeaderShell({ children }: { children: React.ReactNode }) {

@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
 
-/** يحدّث «آخر ظهور» (الدالة نفسها تتجاهل التكرار خلال 10 دقائق). */
+/** Updates "last seen" (the database function itself ignores repeats within 10 minutes). */
 export async function touchSeen(): Promise<void> {
   if (!(await getUserId())) return;
   const supabase = await createClient();

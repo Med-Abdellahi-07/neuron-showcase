@@ -33,7 +33,7 @@ const hit = (r: Row): Hit => ({
   snippet: r.content.replace(/\s+/g, " ").slice(0, 200),
 });
 
-/** يفحص سلسلة RAG كاملة: الفهرس المخزَّن، التضمين، البحث الدلالي والنصي بصلاحية المستدعي (RLS). */
+/** Checks the whole RAG chain: stored index, embedding, semantic and text search with the caller's permissions (RLS). */
 export async function runLessonSearchTest(
   supabase: SupabaseClient,
   query: string,
@@ -50,7 +50,7 @@ export async function runLessonSearchTest(
     verdict: "",
   };
 
-  // 1) ما المخزَّن فعلاً (بصلاحية service_role لنرى الحقيقة بغض النظر عن RLS)
+  // 1) What is actually stored (with the service role, to see the truth regardless of RLS).
   if (rep.serviceKey) {
     try {
       const admin = createAdminClient();
@@ -90,7 +90,7 @@ export async function runLessonSearchTest(
     }
   }
 
-  // 2) التضمين ثم البحث بصلاحية المستدعي (كما يفعل الطالب)
+  // 2) Embedding then search with the caller's permissions (as a student would).
   try {
     const [v] = await geminiEmbed([query], "RETRIEVAL_QUERY");
     rep.embedding = { ok: true, dims: v.length };
@@ -101,7 +101,7 @@ export async function runLessonSearchTest(
   rep.vector = { ok: !debug.vectorError, error: debug.vectorError, rows: vector.map(hit) };
   rep.text = { ok: !debug.textError, error: debug.textError, rows: text.map(hit) };
 
-  // 3) الخلاصة
+  // 3) Conclusion.
   const ix = rep.index;
   if (!rep.serviceKey) rep.verdict = "SUPABASE_SERVICE_ROLE_KEY غير مضبوط في Vercel: لا فهرسة تلقائية ولا فحص للفهرس.";
   else if (rep.indexError) rep.verdict = `تعذّر قراءة الفهرس: ${rep.indexError}`;

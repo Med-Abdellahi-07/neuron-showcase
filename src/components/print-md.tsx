@@ -7,7 +7,7 @@ import "katex/dist/katex.min.css";
 import { MathSpan } from "@/components/math-span";
 import { normalizeMath } from "@/lib/math";
 
-/** Markdown + KaTeX + أكواد لصفحة الطباعة. المحتوى بالفرنسية فاتجاهه تلقائي. `inline`: للخيارات (بلا فقرة منفصلة). */
+/** Markdown + KaTeX + code for the print page. Content is French, so direction is automatic. `inline`: for options (no separate paragraph). */
 export function PrintMd({ children, inline = false }: { children: string; inline?: boolean }) {
   return (
     <div className={`qcm-md ${inline ? "qcm-md-inline" : ""}`} dir="auto">

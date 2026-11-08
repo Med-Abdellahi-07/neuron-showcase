@@ -23,13 +23,13 @@ export interface WindowRow {
 
 export const windowLabel = (r: WindowRow) => `${r.lesson_kind.toUpperCase()} ${r.lesson_number} — ${r.lesson_title} (p. ${r.page})`;
 
-/** مقطع يبدأ بعنوان قسم مرقّم («4. L'apprentissage…»، «2.1 …») أو عنوان Markdown */
+/** A chunk that starts with a numbered section heading ("4. L'apprentissage...", "2.1 ...") or a Markdown heading. */
 const HEADING = /^\s*(?:#{1,4}\s+\S|\d{1,2}(?:\.\d{1,2}){0,2}[.)]?\s+\p{Lu})/mu;
 const startsSection = (c: string) => HEADING.test(c.slice(0, 160));
 
 /**
- * عدد المقاطع التي يشملها «جزء» واحد = قسم واحد من الدرس: نتوقف قبل المقطع التالي الذي يبدأ بعنوان قسم جديد.
- * سقف احتياطي للأقسام الطويلة (حروف/مقاطع)، ومقطع واحد على الأقل.
+ * Number of chunks one "step" covers = one section of the lesson: stop before the next chunk that starts a new section heading.
+ * Fallback cap for long sections (characters/chunks), and at least one chunk.
  */
 export function partSize(rows: { content: string }[]): number {
   let chars = 0;
@@ -42,7 +42,7 @@ export function partSize(rows: { content: string }[]): number {
   return n;
 }
 
-/** أوامر محايدة (بالإنجليزية) تُرسل للنموذج بدل نص الزر المحلي، كي لا تجرّه إلى لغة الواجهة */
+/** Neutral commands (in English) sent to the model instead of the local button text, so it is not pulled into the UI language. */
 export const NEUTRAL_COMMAND: Record<string, string> = {
   continue: "(continue to the next part)",
   more: "(explain this part more)",
@@ -52,7 +52,7 @@ export const NEUTRAL_COMMAND: Record<string, string> = {
   solution: "(show the full solution)",
 };
 
-/** مواضع أسئلة المراجعة: موزعة بالتساوي على نطاق المقاطع. السؤال k (من 1) */
+/** Positions of review questions, spread evenly across the chunk range. Question k (1-based). */
 export function reviewPosition(k: number, total: number): number {
   if (total <= 0) return 0;
   return Math.min(total - 1, Math.floor(((k - 1) * total) / REVIEW_QUESTIONS));
@@ -74,7 +74,7 @@ export async function fetchWindow(
   return (data ?? []) as WindowRow[];
 }
 
-/** يحوّل صفوف النافذة إلى سياق ومراجع (C1..) بلا تكرار */
+/** Turns the window's rows into context and references (C1..) without duplicates. */
 export function toContext(rows: WindowRow[]): { chunks: ContextChunk[]; sources: SourceRef[]; rows: WindowRow[] } {
   const seen = new Set<number>();
   const uniq = rows.filter((r) => (seen.has(r.ord) ? false : (seen.add(r.ord), true)));
@@ -86,7 +86,7 @@ export function toContext(rows: WindowRow[]): { chunks: ContextChunk[]; sources:
 }
 
 export type { SessionLang };
-/** لغة الجلسة: الفرنسية (لغة الدروس) أو العربية أو الإنجليزية مع إبقاء المصطلحات بالفرنسية */
+/** Session language: French (the lessons' language), Arabic or English, keeping terms in French. */
 const LANG = (lang: SessionLang) => LANG_NAME[lang];
 
 export function explainNote(a: { action: GuidedAction | "free"; lang: SessionLang; part: number; parts: number; finished: boolean }): string {

@@ -45,7 +45,7 @@ export function NotificationSettings({ publicKey, initial }: { publicKey: string
         const reg = await Promise.race([navigator.serviceWorker.ready, new Promise<null>((r) => setTimeout(() => r(null), 4000))]);
         if (reg && !cancelled) setSubscribed(!!(await reg.pushManager.getSubscription()));
       } catch {
-        /* لا اشتراك */
+        /* no subscription */
       }
     })();
     return () => {

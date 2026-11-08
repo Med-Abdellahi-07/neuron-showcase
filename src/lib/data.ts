@@ -7,7 +7,7 @@ import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, ScheduleSession, Subject } from "@/lib/types";
 
-/** مواد السداسي الحالي (من الكتالوج المخزَّن مؤقتاً، بلا استعلام لكل طلب) */
+/** Current semester subjects (from the cached catalog, no per-request query). */
 export const getCurrentSubjects = cache(async (): Promise<Subject[]> => {
   const { semesters, subjects } = await getCatalog();
   const current = semesters.find((s) => s.is_current);
@@ -15,8 +15,8 @@ export const getCurrentSubjects = cache(async (): Promise<Subject[]> => {
 });
 
 /**
- * المواد المتبقية من L1 للطالب الحالي (يضيفها مشرف فضائه). RLS يعيد صفوفه هو فقط، ومحتواها للقراءة فقط.
- * غير الطلاب ← قائمة فارغة.
+ * Remaining L1 subjects for the current student (added by their space's admin). RLS returns only their own rows, and the content is read-only.
+ * Non-students -> empty list.
  */
 export const getRemainingSubjects = cache(async (): Promise<Subject[]> => {
   const profile = await getProfile();
@@ -34,14 +34,14 @@ export const getRemainingSubjects = cache(async (): Promise<Subject[]> => {
     .sort((a, b) => a.code.localeCompare(b.code));
 });
 
-/** مواد السداسي الحالي + المتبقية (للجدول والرئيسية: أسماء المواد وألوانها) */
+/** Current semester subjects + remaining ones (for the timetable and home: subject names and colors). */
 export const getScheduleSubjects = cache(async (): Promise<Subject[]> => {
   const [current, remaining] = await Promise.all([getCurrentSubjects(), getRemainingSubjects()]);
   const have = new Set(current.map((s) => s.id));
   return [...current, ...remaining.filter((s) => !have.has(s.id))];
 });
 
-/** تاريخ بداية السداسي الحالي (YYYY-MM-DD) أو null — يُقرأ مباشرة (طازجاً) لا من الكتالوج المخزَّن ساعة */
+/** Current semester start date (YYYY-MM-DD) or null; read directly (fresh), not from the catalog cached for an hour. */
 export const getSemesterStart = cache(async (): Promise<{ id: string; start: string | null } | null> => {
   const supabase = await createClient();
   const profile = await getProfile();
@@ -55,7 +55,7 @@ export const getSemesterStart = cache(async (): Promise<{ id: string; start: str
   return data ? { id: data.id as string, start: (data.start_date as string | null) ?? null } : null;
 });
 
-/** كل المواد مرتبة حسب الفصل ثم الترتيب (لنماذج المشرف) */
+/** All subjects ordered by semester then order (for admin forms). */
 export const getAllSubjects = cache(async (): Promise<Subject[]> => {
   const { semesters, subjects } = await getCatalog();
   const code = new Map(semesters.map((s) => [s.id, s.code]));
@@ -74,7 +74,7 @@ export async function getSubjectByCode(code: string): Promise<Subject | null> {
   return subjects.find((s) => s.code === code) ?? (await getRemainingSubjects()).find((s) => s.code === code) ?? null;
 }
 
-/** مجموعة الإنجليزية: لا نُخفي حصة إلا إذا اختار الطالب مجموعة مختلفة عن مجموعة الحصة */
+/** English group: a session is hidden only if the student chose a group different from the session's group. */
 export function visibleForGroup(
   session: Pick<ScheduleSession, "group_label">,
   subjectCode: string | undefined,
@@ -85,7 +85,7 @@ export function visibleForGroup(
   return session.group_label.trim().toLowerCase() === profile.english_group.trim().toLowerCase();
 }
 
-/** هل انتهت الحصة (تاريخها مضى، أو اليوم ووقت نهاية فترتها مضى)؟ */
+/** Has the session ended (its date has passed, or it is today and its slot's end time has passed)? */
 export function hasEnded(session: Pick<ScheduleSession, "session_date" | "slot">, today: string, now = nowHM()): boolean {
   if (session.session_date < today) return true;
   if (session.session_date > today) return false;

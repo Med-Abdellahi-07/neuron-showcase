@@ -1,7 +1,7 @@
 export type ChatMode = "explain" | "review" | "solve";
 
 export interface SourceRef {
-  id: string; // C1.. أو W1..
+  id: string; // C1.. or W1..
   kind: "course" | "web";
   label: string;
   lessonId?: string;
@@ -11,7 +11,7 @@ export interface SourceRef {
 
 export interface ContextChunk {
   id: string;
-  label: string; // مثال: CM 3 — Introduction (p. 4)
+  label: string; // Example: CM 3 - Introduction (p. 4)
   text: string;
 }
 

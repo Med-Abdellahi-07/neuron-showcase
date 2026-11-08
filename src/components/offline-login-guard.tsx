@@ -5,7 +5,7 @@ import { WifiOff } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import { getSnapshot } from "@/lib/offline/db";
 
-/** صفحة الدخول: بلا إنترنت وعلى الجهاز نسخة محفوظة → التحويل للتطبيق المحلي؛ وإلا رابط ظاهر لفتحه. */
+/** Login page: offline with a saved copy on the device -> redirect to the local app; otherwise show a visible link to open it. */
 export function OfflineLoginGuard() {
   const { t } = useT();
   const [has, setHas] = useState(false);

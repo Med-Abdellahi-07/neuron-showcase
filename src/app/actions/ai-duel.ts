@@ -17,9 +17,9 @@ const KNOWN = ["duel_exists", "too_many", "not_enough_questions", "bad_opponent"
 const MAX_LESSONS = 10;
 
 /**
- * Duel بأسئلة يولّدها الذكاء الاصطناعي من نص الدروس (المتحدّي يختار الزميل والمادة والحصص والعدد 5..15).
- * الأسئلة تُخزَّن بحالة private عبر create_ai_duel (service_role فقط) فلا تظهر في أي تمرين ولا للطاقم.
- * الطلب يُحسب ضمن السقف الخفي ويُلغى عند أي فشل قبل إنشاء التحدي.
+ * Duel with AI-generated questions from lesson text (the challenger picks the opponent, subject, lessons and a count of 5..15).
+ * Questions are stored as private via create_ai_duel (service_role only), so they never appear in any practice set or to staff.
+ * The request counts toward the hidden cap and is refunded on any failure before the duel is created.
  */
 export async function createAiDuel(fd: FormData) {
   const userId = await getUserId();
@@ -35,7 +35,7 @@ export async function createAiDuel(fd: FormData) {
   if (!UUID_RE.test(opponent) || !subject) redirect("/practice/duel?err=generic");
 
   const supabase = await createClient();
-  // بلا حصص محددة: نأخذ حصص المادة المنشورة (حتى 10، موزّعة)
+  // No lessons selected: use the subject's published lessons (up to 10, spread out).
   if (!lessonIds.length) {
     const { data } = await supabase.from("lessons").select("id").eq("subject_id", subject.id).eq("status", "published").order("number").limit(60);
     const all = (data ?? []).map((l) => l.id as string);

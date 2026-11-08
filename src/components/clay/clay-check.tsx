@@ -1,7 +1,7 @@
 import { useUid } from "./uid";
 import type { ClayProps } from "./types";
 
-/** ring = كرة خضراء (تقدّمي)، tile = أيقونة QCM في الرئيسية، quiz = «ولّد لي QCM» */
+/** ring = green ball (progress), tile = QCM icon on the home page, quiz = "Generate a QCM for me". */
 export function ClayCheck({ variant = "ring", width, height, className }: ClayProps & { variant?: "ring" | "tile" | "quiz" }) {
   const u = useUid("chk");
   if (variant === "tile") {

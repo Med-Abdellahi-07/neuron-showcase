@@ -2,7 +2,7 @@ import { useUid } from "./uid";
 
 export type MedalKind = "streak" | "duel" | "goals" | "locked";
 
-/** وسام: streak (ذهبي برقم)، duel (وردي ببرق)، goals (أخضر بعلامة)، locked (مقفل) */
+/** Medal: streak (gold, with a number), duel (pink, with a bolt), goals (green, with a check), locked. */
 export function Medal({ kind, value, label, className, style }: { kind: MedalKind; value?: number | string; label: string; className?: string; style?: React.CSSProperties }) {
   const u = useUid("med");
   return (

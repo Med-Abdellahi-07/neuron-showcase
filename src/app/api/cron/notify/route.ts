@@ -24,8 +24,8 @@ function authorized(req: Request): boolean {
 
 
 /**
- * المهمة اليومية (Vercel Cron على خطة Hobby: مرة يومياً؛ أو GitHub Actions احتياطاً).
- * آمنة للتكرار: notification_log يمنع إرسال الإشعار نفسه مرتين.
+ * Daily job (Vercel Cron on the Hobby plan: once a day; GitHub Actions as a backup).
+ * Safe to repeat: notification_log prevents sending the same notification twice.
  */
 export async function GET(req: Request) {
   if (!authorized(req)) return new Response("unauthorized", { status: 401 });
@@ -36,16 +36,16 @@ export async function GET(req: Request) {
   const today = todayISO();
   const tomorrow = addDays(today, 1);
 
-  /** يعيد true إن لم يكن قد أُرسل من قبل، ويسجّله (فشل التسجيل = لا إرسال، لتفادي التكرار) */
+  /** Returns true if it was not sent before, and records it (a logging failure means no send, to avoid duplicates). */
   async function once(userId: string, kind: string, ref: string): Promise<boolean> {
     const { error } = await admin.from("notification_log").insert({ user_id: userId, kind, ref });
     return !error;
   }
 
-  // 1) مباريات انتهت مهلتها
+  // 1) Duels whose deadline passed.
   await admin.rpc("duel_sweep");
 
-  // 2) حصة غداً — لا دراسة يوم الأحد: مساء السبت لا يُرسل شيئاً، ومساء الأحد يُرسل حصص الإثنين
+  // 2) Session tomorrow. No classes on Sunday: Saturday evening sends nothing, Sunday evening sends Monday's sessions.
   if (isStudyDay(tomorrow)) try {
     const { subjects } = await getAllSpacesCatalog();
     const code = new Map(subjects.map((s) => [s.id, s.code]));
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
       .neq("status", "cancelled");
     if (sessions?.length) {
       const cohorts = [...new Set(sessions.map((s) => s.cohort_id as string))];
-      // طلاب L2 المتابعون لمواد L1: يصلهم تذكير حصصها أيضاً
+      // L2 students following L1 subjects also receive those sessions' reminders.
       const { data: follows } = !MULTI_SPACE ? { data: [] } : await admin.from("remaining_subjects").select("student_id, subject_id").in("subject_id", [...new Set(sessions.map((s) => s.subject_id as string))]);
       const followMap = new Map<string, Set<string>>();
       for (const f of follows ?? []) followMap.set(f.student_id as string, (followMap.get(f.student_id as string) ?? new Set()).add(f.subject_id as string));
@@ -90,7 +90,7 @@ export async function GET(req: Request) {
     console.error("cron lesson_tomorrow failed:", (e as Error).message);
   }
 
-  // 3) تذكير المراجعة الذكية (مرة يومياً لمن لديه مستحقات)
+  // 3) Smart review reminder (once a day for anyone with due items).
   try {
     const { data: due } = await admin.rpc("review_reminder_targets");
     for (const d of (due ?? []) as { user_id: string; due: number }[]) {
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
     console.error("cron review failed:", (e as Error).message);
   }
 
-  // 4) Duel: تذكير الخصم قبل انتهاء المهلة بـ 12 ساعة، وإعلام الطرفين بالنتيجة عند انتهاء المهلة
+  // 4) Duel: remind the opponent 12 hours before the deadline and tell both players the result when it expires.
   try {
     const soon = new Date(Date.now() + 12 * 3600_000).toISOString();
     const { data: ending } = await admin.from("duels").select("id, opponent_id").eq("status", "open").lte("expires_at", soon);

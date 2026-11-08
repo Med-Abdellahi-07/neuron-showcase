@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 
 /**
- * بطاقة تميل عند اللمس أو تحريك المؤشر (Tilt3D.html): ‏rotateX/rotateY حتى ±9°/±7° مع scale(1.02)،
- * وانعكاس ضوء دائري يتبع الإصبع. على الهاتف تميل أيضاً مع حركة الجهاز (gyro).
- * الحركة بـ transform/opacity فقط، وتُعطَّل عند prefers-reduced-motion.
+ * Card that tilts on touch or pointer move (Tilt3D.html): rotateX/rotateY up to +-9deg/+-7deg with scale(1.02),
+ * and a circular light reflection following the finger. On phones it also tilts with device motion (gyro).
+ * Motion uses transform/opacity only and is disabled under prefers-reduced-motion.
  */
 export function Tilt({
   children,
@@ -14,7 +14,7 @@ export function Tilt({
 }: {
   children: React.ReactNode;
   className?: string;
-  /** لون ظل الارتفاع عند اللمس */
+  /** Elevation shadow color on touch. */
   glow?: string;
 }) {
   const card = useRef<HTMLDivElement>(null);
@@ -65,7 +65,7 @@ export function Tilt({
     active.current = false;
     apply(0, 0, false);
   };
-  // iOS يطلب إذناً صريحاً لقراءة الحسّاس، ولا يُطلب إلا من لمسة المستخدم
+  // iOS requires explicit permission to read the sensor, and only from a user gesture.
   const onDown = () => {
     const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
     if (typeof D.requestPermission === "function") D.requestPermission().catch(() => {});

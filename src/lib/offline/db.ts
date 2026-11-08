@@ -47,7 +47,7 @@ export const getPack = (id: string) => run<OfflinePack | undefined>(PACKS, "read
 export const listPacks = () => run<OfflinePack[]>(PACKS, "readonly", (s) => s.getAll());
 export const removePack = (id: string) => run(PACKS, "readwrite", (s) => s.delete(id));
 
-/** نتيجة QCM محلية: تُحفظ في السجل المحلي وفي صندوق الإرسال حتى تصل للخادم */
+/** Local QCM result: stored in the local history and in the outbox until it reaches the server. */
 export async function addScore(x: OfflineScore): Promise<void> {
   await run(SCORES, "readwrite", (s) => s.add(x));
   const queued: OutboxScore = { ...x, clientId: crypto.randomUUID() };
@@ -60,7 +60,7 @@ export const removeFromOutbox = (clientId: string) => run(OUTBOX, "readwrite", (
 export const saveSnapshot = (x: OfflineSnapshot) => run(SNAPSHOT, "readwrite", (s) => s.put(x, "main"));
 export const getSnapshot = () => run<OfflineSnapshot | undefined>(SNAPSHOT, "readonly", (s) => s.get("main"));
 
-/** صاحب البيانات على هذا الجهاز: آخر مستخدم سجّل دخوله */
+/** Owner of the data on this device: the last user who signed in. */
 export const getOwner = () => run<string | undefined>(META, "readonly", (s) => s.get("owner"));
 export const setOwner = (userId: string) => run(META, "readwrite", (s) => s.put(userId, "owner"));
 
@@ -72,7 +72,7 @@ export async function addRecent(l: Omit<RecentLesson, "at">): Promise<void> {
 }
 export const listRecent = async () => (await run<RecentLesson[]>(RECENT, "readonly", (s) => s.getAll())).sort((a, b) => b.at - a.at);
 
-/** يمسح كل بيانات المستخدم من الجهاز (الخروج أو تبديل الحساب). قشرة التطبيق العامة (كود فقط) تبقى. */
+/** Wipes all user data from the device (logout or account switch). The shared app shell (code only) stays. */
 export async function wipeAll(): Promise<void> {
   const db = await open();
   try {
@@ -89,7 +89,7 @@ export async function wipeAll(): Promise<void> {
   try {
     for (const k of await caches.keys()) if (k.startsWith("neuron-data")) await caches.delete(k);
   } catch {
-    /* الكاش غير متاح */
+    /* Cache unavailable. */
   }
 }
 

@@ -22,7 +22,7 @@ function backWithError(message: string | undefined, lesson?: string): never {
   redirect(`/practice?${qs}`);
 }
 
-/** تدريب حر أو اختبار مصنّف: تُختار الأسئلة وتُنشأ المحاولة في قاعدة البيانات، ثم ينتقل الطالب إليها. */
+/** Free practice or ranked quiz: questions are picked and the attempt is created in the database, then the student is redirected to it. */
 export async function startAttempt(fd: FormData) {
   const userId = await getUserId();
   if (!userId) redirect("/login");
@@ -32,7 +32,7 @@ export async function startAttempt(fd: FormData) {
   const lessonRaw = str(fd, "lesson");
   const lesson = UUID_RE.test(lessonRaw) ? lessonRaw : null;
   const subjectCode = str(fd, "subject");
-  const subject = subjectCode ? ((await getSubjectByCode(subjectCode)) ?? undefined) : undefined; // يشمل المواد المتبقية من L1
+  const subject = subjectCode ? ((await getSubjectByCode(subjectCode)) ?? undefined) : undefined; // Includes remaining L1 subjects.
   const type = ["mcq", "written"].includes(str(fd, "type")) ? str(fd, "type") : "mixed";
   const difficulty = ["easy", "medium", "hard"].includes(str(fd, "difficulty")) ? str(fd, "difficulty") : null;
 
@@ -55,7 +55,7 @@ export async function startAttempt(fd: FormData) {
   redirect(`/practice/run/${data}`);
 }
 
-/** جلسة مراجعة الأسئلة المستحقة اليوم. */
+/** Review session for questions due today. */
 export async function startReview() {
   const userId = await getUserId();
   if (!userId) redirect("/login");
@@ -85,7 +85,7 @@ export interface AnswerResult {
 
 export type AnswerResponse = { ok: true; result: AnswerResult } | { ok: false; error: "expired" | "finished" | "failed" };
 
-/** يُصحَّح السؤال وتُحسب نقاطه في قاعدة البيانات؛ المتصفح لا يحدد الصحة ولا النقاط. */
+/** The question is graded and scored in the database; the browser decides neither correctness nor points. */
 export async function answerQuestion(input: {
   attemptId: string;
   questionId: string;
@@ -114,7 +114,7 @@ export async function answerQuestion(input: {
   return { ok: true, result: data as AnswerResult };
 }
 
-/** إنهاء المحاولة (مثلاً عند انتهاء الوقت). */
+/** Finish the attempt (for example when time runs out). */
 export async function finishAttempt(attemptId: string): Promise<boolean> {
   if (!UUID_RE.test(attemptId)) return false;
   const userId = await getUserId();
