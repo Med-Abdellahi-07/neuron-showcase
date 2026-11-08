@@ -1,7 +1,7 @@
--- Neuron — المرحلة 4 (3/4): الإشعارات (Web Push).
--- يُنفَّذ بعد 0011. آمن للتنفيذ أكثر من مرة.
+-- Neuron - phase 4 (3/4): notifications (Web Push).
+-- Run after 0011. Safe to run more than once.
 
--- اشتراكات الجهاز: كل جهاز/متصفح صف. المستخدم يدير اشتراكاته فقط؛ الإرسال من الخادم (service_role).
+-- Device subscriptions: one row per device/browser. Users manage only their own subscriptions; sending is done by the server (service_role).
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade default auth.uid(),
@@ -13,7 +13,7 @@ create table if not exists public.push_subscriptions (
 );
 create index if not exists push_subs_user_idx on public.push_subscriptions(user_id);
 
--- تفضيلات الأنواع (الافتراضي: الكل مفعّل). الاشتراك نفسه يتحكم فيه زر «تفعيل الإشعارات» لكل جهاز.
+-- Per-type preferences (default: all enabled). The subscription itself is controlled by the "enable notifications" button on each device.
 create table if not exists public.notification_prefs (
   user_id uuid primary key references public.profiles(id) on delete cascade default auth.uid(),
   lesson_tomorrow boolean not null default true,
@@ -25,7 +25,7 @@ create table if not exists public.notification_prefs (
   updated_at timestamptz not null default now()
 );
 
--- سجل الإرسال المجدول لمنع التكرار (حصة غداً: مرة لكل حصة؛ تذكير المراجعة: مرة يومياً)
+-- Log of scheduled sends to prevent duplicates (session tomorrow: once per session; review reminder: once a day)
 create table if not exists public.notification_log (
   user_id uuid not null references public.profiles(id) on delete cascade,
   kind text not null,
@@ -44,13 +44,13 @@ create policy push_own on public.push_subscriptions for all to authenticated
 drop policy if exists prefs_own on public.notification_prefs;
 create policy prefs_own on public.notification_prefs for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
--- notification_log: بلا سياسات (الخادم فقط)
+-- notification_log: no policies (server only)
 
 revoke all on public.push_subscriptions, public.notification_prefs, public.notification_log from anon, authenticated;
 grant select, insert, update, delete on public.push_subscriptions, public.notification_prefs to authenticated;
 grant all on public.push_subscriptions, public.notification_prefs, public.notification_log to service_role;
 
--- الطلاب الذين لديهم مراجعات مستحقة (للتذكير اليومي) — للخادم فقط
+-- Students with reviews due (for the daily reminder) - server only
 create or replace function public.review_reminder_targets() returns table(user_id uuid, due integer)
 language sql stable security definer set search_path = public as $$
   select r.user_id, count(*)::integer

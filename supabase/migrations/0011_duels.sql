@@ -1,12 +1,12 @@
--- Neuron — المرحلة 4 (2/4): Duel (مواجهة غير متزامنة).
--- يُنفَّذ بعد 0010. آمن للتنفيذ أكثر من مرة.
+-- Neuron - phase 4 (2/4): Duel (asynchronous head-to-head).
+-- Run after 0010. Safe to run more than once.
 --
--- مبادئ الأمان:
---  • الجداول مغلقة تماماً على المتصفح (RLS مفعّل + لا GRANT): كل شيء عبر دوال security definer.
---  • أسئلة Duel تُرسل بلا الإجابة الصحيحة. لا يُكشف أي تصحيح لأحد (ولا للمتحدّي نفسه) قبل أن ينتهي
---    الطرفان أو تنتهي المهلة، فلا تتسرّب إجابات المتحدّي للخصم ولا الإجابات الصحيحة.
---  • دورة الحياة: challenger_turn (المتحدّي يجيب) ← open (بانتظار الخصم 48 ساعة) ← completed | expired.
---    انتهاء مهلة الـ48 ساعة = فوز المتحدّي. تحدّ لم يُكمله المتحدّي خلال 24 ساعة يُلغى بلا نتيجة.
+-- Security principles:
+--  - The tables are completely closed to the browser (RLS enabled + no GRANT): everything goes through security definer functions.
+--  - Duel questions are sent without the correct answer. No grading is revealed to anyone (not even the challenger) until
+--    both sides finish or the deadline passes, so the challenger's answers and the correct answers cannot leak.
+--  - Lifecycle: challenger_turn (challenger answers) -> open (waiting for the opponent, 48 hours) -> completed | expired.
+--    If the 48-hour deadline passes, the challenger wins. A duel the challenger does not finish within 24 hours is cancelled with no result.
 
 create table if not exists public.duels (
   id uuid primary key default gen_random_uuid(),
@@ -57,12 +57,12 @@ create table if not exists public.duel_answers (
 alter table public.duels enable row level security;
 alter table public.duel_players enable row level security;
 alter table public.duel_answers enable row level security;
--- بلا سياسات للمستخدم عمداً: الوصول عبر الدوال فقط.
+-- No user policies on purpose: access is through functions only.
 revoke all on public.duels, public.duel_players, public.duel_answers from anon, authenticated;
 grant all on public.duels, public.duel_players, public.duel_answers to service_role;
 
--- ───────────────────────── مساعدات داخلية ─────────────────────────
--- إنهاء ما انتهت مهلته: open → expired بفوز المتحدّي؛ challenger_turn قديم → cancelled.
+-- ───────────────────────── Internal helpers ─────────────────────────
+-- Close what timed out: open -> expired with the challenger winning; stale challenger_turn -> cancelled.
 create or replace function public.duel_sweep() returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -74,7 +74,7 @@ begin
     where status = 'challenger_turn' and created_at < now() - interval '24 hours';
 end $$;
 
--- ───────────────────────── إنشاء تحدٍّ ─────────────────────────
+-- ───────────────────────── Create a duel ─────────────────────────
 create or replace function public.create_duel(
   p_opponent uuid, p_subject uuid, p_lessons uuid[] default '{}', p_count integer default 8
 ) returns uuid
@@ -95,7 +95,7 @@ begin
   p_lessons := coalesce(p_lessons, '{}');
   p_count := least(greatest(coalesce(p_count, 8), 5), 15);
 
-  -- حماية من الإزعاج: تحدٍّ واحد جارٍ مع كل زميل، و10 تحديات جديدة كحد أقصى في اليوم
+  -- Spam protection: one active duel per classmate, and at most 10 new duels per day
   if exists (select 1 from public.duels d
              where d.status in ('challenger_turn', 'open')
                and ((d.challenger_id = uid and d.opponent_id = p_opponent)
@@ -120,8 +120,8 @@ begin
   return new_id;
 end $$;
 
--- ───────────────────────── أسئلتي في التحدي (بلا الإجابة الصحيحة) ─────────────────────────
--- أول استدعاء للاعب يبدأ ساعته. الخصم لا يقدر على الجلوس قبل أن يفتح المتحدّي التحدي.
+-- ───────────────────────── My questions in the duel (without the correct answer) ─────────────────────────
+-- A player's first call starts their clock. The opponent cannot sit down before the challenger has opened the duel.
 create or replace function public.duel_questions(p_duel uuid) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -156,7 +156,7 @@ begin
     ), '[]'::jsonb));
 end $$;
 
--- ───────────────────────── تسجيل إجابة (بلا كشف النتيجة) ─────────────────────────
+-- ───────────────────────── Record an answer (without revealing the result) ─────────────────────────
 create or replace function public.duel_answer(p_duel uuid, p_question uuid, p_selected integer)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -197,7 +197,7 @@ begin
 
   select max(answered_at) into last_t from public.duel_answers where duel_id = d.id and user_id = uid;
   elapsed := greatest(0, (extract(epoch from (now() - coalesce(last_t, me.started_at))) * 1000)::integer);
-  -- لا يُحتسب انقطاع طويل (إغلاق التطبيق) أكثر من دقيقتين للسؤال الواحد
+  -- A long interruption (closing the app) is not counted beyond two minutes per question
   elapsed := least(elapsed, 120000);
 
   base := public.base_points(q.difficulty);
@@ -236,11 +236,11 @@ begin
     end if;
   end if;
 
-  -- عمداً: لا نُرجع صحة الإجابة ولا النقاط
+  -- On purpose: we return neither correctness nor points
   return jsonb_build_object('ok', true, 'repeat', false, 'finished', finished);
 end $$;
 
--- ───────────────────────── قائمة تحدياتي ─────────────────────────
+-- ───────────────────────── My duels list ─────────────────────────
 create or replace function public.my_duels() returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare uid uuid := auth.uid();
@@ -258,7 +258,7 @@ begin
                           where p.id = case when d.challenger_id = uid then d.opponent_id else d.challenger_id end),
         'my_finished', me.finished_at is not null,
         'my_answered', me.answered,
-        -- النتيجة لا تظهر إلا بعد اكتمال التحدي أو انتهاء مهلته
+        -- The result is shown only after the duel completes or its deadline passes
         'result', case when d.status in ('completed', 'expired') then
             jsonb_build_object('won', d.winner_id = uid, 'draw', d.is_draw) else null end
       ) as row
@@ -270,7 +270,7 @@ begin
   ), '[]'::jsonb);
 end $$;
 
--- ───────────────────────── نتيجة التحدي (بعد اكتماله فقط) ─────────────────────────
+-- ───────────────────────── Duel result (only after completion) ─────────────────────────
 create or replace function public.duel_result(p_duel uuid) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -293,7 +293,7 @@ begin
         'user_id', pl.user_id, 'name', pr.full_name, 'finished', pl.finished_at is not null,
         'answered', pl.answered, 'correct', pl.correct, 'points', pl.points, 'total_ms', pl.total_ms))
       from public.duel_players pl join public.profiles pr on pr.id = pl.user_id where pl.duel_id = d.id),
-    -- الإجابات الصحيحة والشرح يظهران الآن فقط (انتهى الطرفان أو المهلة)
+    -- Correct answers and explanations are shown only now (both sides finished or the deadline passed)
     'questions', (select jsonb_agg(jsonb_build_object(
         'id', q.id, 'statement', q.statement, 'options', q.options, 'correct_index', q.correct_index,
         'explanation', q.explanation,
@@ -304,8 +304,8 @@ begin
       from unnest(d.question_ids) with ordinality as t(qid, ord) join public.questions q on q.id = t.qid));
 end $$;
 
--- ───────────────────────── السجل (انتصارات/هزائم) ─────────────────────────
--- مستقل عن الترتيب. يعدّ completed وexpired (انتهاء المهلة فوز للمتحدّي). المخفيّون من الترتيب لا يظهرون للآخرين.
+-- ───────────────────────── Record (wins/losses) ─────────────────────────
+-- Independent of the ranking. Counts completed and expired (an expired duel is a win for the challenger). Players hidden from the ranking are not shown to others.
 create or replace function public.duel_record() returns table(user_id uuid, full_name text, wins integer, losses integer, draws integer, is_me boolean)
 language plpgsql stable security definer set search_path = public as $$
 declare uid uuid := auth.uid();
@@ -325,7 +325,7 @@ begin
   order by 3 desc, 4 asc, p.full_name;
 end $$;
 
--- زملاء الدفعة لاختيار الخصم (الاسم فقط)
+-- Cohort classmates for choosing an opponent (name only)
 create or replace function public.cohort_mates() returns table(id uuid, full_name text)
 language sql stable security definer set search_path = public as $$
   select p.id, p.full_name from public.profiles p

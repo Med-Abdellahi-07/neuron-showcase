@@ -1,13 +1,13 @@
--- جلسات موجّهة (شرح/مراجعة/حل تمرين): نطاق متعدد الحصص وحالة التقدم، ودالة نافذة المقاطع بالترتيب.
+-- Guided sessions (explain / review / solve an exercise): multi-lesson scope, progress state, and a function returning chunks in order.
 alter table public.conversations add column if not exists lesson_ids uuid[] not null default '{}';
 alter table public.conversations add column if not exists question_id uuid references public.questions(id) on delete set null;
-alter table public.conversations add column if not exists cursor integer not null default 0;   -- شرح: فهرس أول مقطع في الجزء الحالي
-alter table public.conversations add column if not exists total integer not null default 0;    -- عدد مقاطع النطاق عند البدء
-alter table public.conversations add column if not exists step integer not null default 0;     -- مراجعة: رقم السؤال الحالي (6 = انتهت)
+alter table public.conversations add column if not exists cursor integer not null default 0; -- explain: index of the first chunk of the current part
+alter table public.conversations add column if not exists total integer not null default 0; -- number of chunks in the scope at the start
+alter table public.conversations add column if not exists step integer not null default 0; -- review: current question number (6 = finished)
 alter table public.conversations add column if not exists guided boolean not null default false;
 
--- مقاطع نطاق (حصص محددة أو كل حصص المادة) بترتيب الدرس: CM ثم TD ثم TP ثم Résumé، فالرقم، فالصفحة.
--- security invoker: RLS يطبَّق، فلا يرى الطالب إلا الحصص المنشورة.
+-- Chunks of a scope (selected lessons or all of the subject's lessons) in lesson order: CM, then TD, then TP, then Résumé, then number, then page.
+-- security invoker: RLS applies, so a student only sees published lessons.
 create or replace function public.lesson_window(
   p_subject uuid, p_lessons uuid[], p_start integer, p_limit integer
 ) returns table (

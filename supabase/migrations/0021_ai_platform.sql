@@ -1,10 +1,10 @@
--- 0021: منصة الذكاء الاصطناعي الشخصي (الدفعة أ)
--- نقاط يومية لكل طالب، أعلام ذكاء اصطناعي لكل فضاء، ملخصات شخصية، QCM شخصي، مزوّدون جدد في العدّاد.
--- idempotent: آمن للتشغيل أكثر من مرة. لا يغيّر أي بيانات موجودة (عدا تفعيل الأعلام لفضاء IAA L2 عند أول تشغيل فقط).
+-- 0021: personal AI platform (batch A)
+-- Daily points per student, AI flags per space, personal summaries, personal QCM, new providers in the usage counter.
+-- Idempotent: safe to run more than once. Changes no existing data (except enabling the flags for the IAA L2 space on the first run only).
 
--- ───────── 1) أعلام الذكاء الاصطناعي وحصة النقاط لكل فضاء ─────────
--- ai_features: ai_chat, ai_summary, ai_qcm, ai_duel, ai_tools. المفتاح غير الموجود = معطّل.
--- ميزة الخطة «ai» تبقى المفتاح الرئيسي: إن عُطّلت تتعطّل كل الأعلام.
+-- ───────── 1) AI flags and point quota per space ─────────
+-- ai_features: ai_chat, ai_summary, ai_qcm, ai_duel, ai_tools. A missing key = disabled.
+-- The "ai" plan feature stays the master switch: if it is disabled, all the flags are disabled.
 alter table public.cohorts add column if not exists ai_features jsonb not null default '{}'::jsonb;
 alter table public.cohorts add column if not exists ai_daily_points integer not null default 30;
 do $$ begin
@@ -13,7 +13,7 @@ do $$ begin
   end if;
 end $$;
 
--- الإطلاق التدريجي: مفعّل لـ IAA L2 فقط (مرة واحدة: لا نلمس فضاءً ضُبطت أعلامه من قبل)
+-- Gradual rollout: enabled for IAA L2 only (once: a space whose flags were already set is not touched)
 update public.cohorts c
    set ai_features = '{"ai_chat":true,"ai_summary":true,"ai_qcm":true,"ai_duel":true,"ai_tools":true}'::jsonb
   from public.majors m
@@ -29,7 +29,7 @@ language sql stable security definer set search_path = public as $$
   select coalesce(public.ai_flag(public.my_cohort(), p_flag), false)
 $$;
 
--- ───────── 2) تكلفة كل عملية بالنقاط + سجل الاستهلاك + وضع الضغط ─────────
+-- ───────── 2) Cost of each operation in points + usage ledger + pressure mode ─────────
 create table if not exists public.ai_costs (
   kind text primary key,
   points integer not null check (points >= 0),
@@ -52,7 +52,7 @@ create table if not exists public.ai_ledger (
 create index if not exists ai_ledger_user_day on public.ai_ledger(user_id, day);
 create index if not exists ai_ledger_cohort_day on public.ai_ledger(cohort_id, day);
 
--- «وضع الضغط»: معامل يُخفّض الحصص (1 = عادي). يكتبه الخادم (service_role) فقط.
+-- "Pressure mode": a factor that lowers the quotas (1 = normal). Written only by the server (service_role).
 create table if not exists public.ai_settings (
   id boolean primary key default true check (id),
   pressure numeric not null default 1 check (pressure >= 0.1 and pressure <= 1),
@@ -71,7 +71,7 @@ revoke all on public.ai_costs, public.ai_ledger, public.ai_settings from anon, a
 grant select on public.ai_costs, public.ai_ledger to authenticated;
 grant all on public.ai_costs, public.ai_ledger, public.ai_settings to service_role;
 
--- حجز النقاط ذرّياً. يُرجع {ok, reason: disabled|quota|busy|auth|unknown, remaining, limit, ledger_id}
+-- Reserve points atomically. Returns {ok, reason: disabled|quota|busy|auth|unknown, remaining, limit, ledger_id}
 create or replace function public.ai_spend(p_kind text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -98,13 +98,13 @@ begin
   return jsonb_build_object('ok', true, 'remaining', eff_limit - used - cost, 'limit', eff_limit, 'ledger_id', lid);
 end $$;
 
--- استرجاع نقاط عملية فشلت (الخادم فقط: لا يستطيع الطالب منح نفسه نقاطاً)
+-- Refund the points of a failed operation (server only: a student cannot grant themselves points)
 create or replace function public.ai_refund(p_ledger_id bigint) returns void
 language sql security definer set search_path = public as $$
   delete from public.ai_ledger where id = p_ledger_id
 $$;
 
--- الرصيد المتبقي اليوم (للعدّاد) + الأعلام المفعّلة لفضائي
+-- Points remaining today (for the counter) + the flags enabled for my space
 create or replace function public.ai_balance() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
@@ -124,7 +124,7 @@ begin
       'ai_tools', public.ai_flag(coh, 'ai_tools')));
 end $$;
 
--- ───────── 3) المشرف العام: ضبط الأعلام والحصة + إحصاءات الاستهلاك ─────────
+-- ───────── 3) Super admin: set flags and quota + usage statistics ─────────
 create or replace function public.set_space_ai(p_cohort uuid, p_flags jsonb, p_points integer) returns void
 language plpgsql security definer set search_path = public as $$
 declare k text; clean jsonb := '{}'::jsonb;
@@ -151,7 +151,7 @@ begin
     group by l.cohort_id, c.name, l.day order by l.day desc, c.name;
 end $$;
 
--- مزوّدون جدد في عدّاد الاستهلاك اليومي
+-- New providers in the daily usage counter
 do $$ declare cn text; begin
   for cn in select conname from pg_constraint
             where conrelid = 'public.ai_provider_daily'::regclass and contype = 'c'
@@ -174,7 +174,7 @@ begin
   delete from public.ai_provider_daily where day < (now() at time zone 'utc')::date - 60;
 end $$;
 
--- آخر خطأ لكل مزوّد: يقبل المزوّدين الجدد
+-- Latest error per provider: accepts the new providers
 do $$ declare cn text; begin
   for cn in select conname from pg_constraint
             where conrelid = 'public.ai_last_error'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%provider%' loop
@@ -194,9 +194,9 @@ begin
     set status = excluded.status, reason = excluded.reason, message = excluded.message, at = excluded.at;
 end $$;
 
--- ───────── 4) الملخصات الشخصية ─────────
+-- ───────── 4) Personal summaries ─────────
 create or replace function public.ai_lessons_ok(p_ids uuid[]) returns boolean
-language sql stable set search_path = public as $$  -- invoker: تُطبَّق RLS فلا يمرّ إلا درس يستطيع الطالب قراءته
+language sql stable set search_path = public as $$ -- invoker: RLS applies, so only a lesson the student can read goes through
   select coalesce(cardinality(p_ids), 0) between 1 and 6
      and not exists (select 1 from unnest(p_ids) x where not exists (select 1 from public.lessons l where l.id = x))
 $$;
@@ -228,7 +228,7 @@ revoke all on public.ai_summaries from anon, authenticated;
 grant select, insert, delete on public.ai_summaries to authenticated;
 grant all on public.ai_summaries to service_role;
 
--- ───────── 5) QCM شخصي بالذكاء الاصطناعي ─────────
+-- ───────── 5) Personal AI QCM ─────────
 create table if not exists public.ai_qcm_sets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -288,10 +288,10 @@ create policy ai_questions_insert on public.ai_questions for insert to authentic
               and selected is null and is_correct is null and report_status is null);
 revoke all on public.ai_qcm_sets, public.ai_questions from anon, authenticated;
 grant select, insert, delete on public.ai_qcm_sets to authenticated;
-grant select, insert on public.ai_questions to authenticated; -- لا update مباشر: التصحيح والإبلاغ عبر دوال
+grant select, insert on public.ai_questions to authenticated; -- no direct update: grading and reporting go through functions
 grant all on public.ai_qcm_sets, public.ai_questions to service_role;
 
--- تصحيح إجابة: الخادم يحسب الصحة (لا يثق بالعميل) ويجدول المراجعة المتباعدة. لا يدخل أي ترتيب مصنّف.
+-- Grade an answer: the server computes correctness (it never trusts the client) and schedules spaced review. It enters no ranked leaderboard.
 create or replace function public.ai_answer_question(p_question uuid, p_selected integer) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare r public.ai_questions%rowtype; good boolean; new_streak integer;
@@ -310,7 +310,7 @@ begin
   return jsonb_build_object('correct', good, 'correct_index', r.correct_index, 'explanation', r.explanation);
 end $$;
 
--- المراجعة المتباعدة لأخطائي: إعادة إجابة سؤال مُستحق (يُسمح بالتكرار)
+-- Spaced review of my mistakes: re-answer a due question (repeats are allowed)
 create or replace function public.ai_report_question(p_question uuid, p_note text default null) returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -320,7 +320,7 @@ begin
   if not found then raise exception 'not_found'; end if;
 end $$;
 
--- المشرف يرى الأسئلة المُبلَّغ عنها لمواد فضائه فقط، بلا هوية الطالب
+-- A moderator sees reported questions for their own space's subjects only, without the student's identity
 create or replace function public.reported_ai_questions() returns table(
   id uuid, subject_code text, statement text, options jsonb, correct_index integer, explanation text,
   page integer, note text, reported_at timestamptz, status text
@@ -343,8 +343,8 @@ begin
   if not found then raise exception 'not_found'; end if;
 end $$;
 
--- ───────── صلاحيات الدوال ─────────
--- (في Supabase تُمنح الدوال الجديدة لـ authenticated افتراضياً: نسحب صراحةً ما لا يُستدعى من العميل)
+-- ───────── Function privileges ─────────
+-- (In Supabase, new functions are granted to authenticated by default: we explicitly revoke what the client must not call)
 revoke all on function public.ai_refund(bigint) from authenticated;
 revoke all on function public.ai_flag(uuid, text), public.my_ai_flag(text), public.ai_spend(text), public.ai_refund(bigint),
   public.ai_balance(), public.set_space_ai(uuid, jsonb, integer), public.ai_space_usage(integer),

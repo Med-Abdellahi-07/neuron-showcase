@@ -1,30 +1,30 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- 0018 — عزل الفضاءات في قاعدة البيانات (RLS) وقفل ميزات الخطة على الخادم
+-- 0018 - space isolation in the database (RLS) and server-side enforcement of plan features
 --
--- المبدأ: كل ما يخص فضاءً (المواد، الدروس، الملفات، الأسئلة، الجدول، الإعلانات، التسجيلات، الحسابات…) لا يظهر
--- لغيره، ولا يُكتب فيه من غيره، حتى لو حاول المستخدم استدعاء الواجهة البرمجية مباشرة. الحصر يتم عبر my_cohort():
--- فضاء المستخدم الحالي (والمشرف العام «يدخل» فضاءً بتغيير cohort_id في ملفه، فيعمل بصلاحيات مشرفه داخله فقط).
--- ما يتجاوز الفضاء الواحد (إحصائيات الجامعة، إنشاء الفضاءات والحسابات) يمرّ عبر service_role من إجراءات خادم
--- تتحقق من أن المستدعي مشرف عام، أو عبر دوال security definer تتحقق من الدور.
+-- Principle: everything belonging to a space (subjects, lessons, files, questions, timetable, announcements, recordings, accounts...) is not visible
+-- to any other space and cannot be written from another space, even if a user calls the API directly. Scoping is done through my_cohort():
+-- the current user's space (the super admin "enters" a space by changing cohort_id in their profile, and then acts with space-admin rights inside it only).
+-- Anything beyond a single space (university statistics, creating spaces and accounts) goes through service_role from server actions
+-- that verify the caller is the super admin, or through security definer functions that check the role.
 --
--- ميزات الخطة (cohorts.features) تُفرض هنا أيضاً: الدوال والسياسات ترفض الميزة المعطّلة (feature_disabled).
+-- Plan features (cohorts.features) are enforced here too: functions and policies reject a disabled feature (feature_disabled).
 --
--- يُنفَّذ بعد 0017. آمن لإعادة التشغيل (idempotent). لا تُعد تشغيل 0002.
+-- Run after 0017. Idempotent. Never re-run 0002.
 -- ════════════════════════════════════════════════════════════════════════════
 
--- ───────────────────────── 1) الفضاءات والحسابات ─────────────────────────
+-- ───────────────────────── 1) Spaces and accounts ─────────────────────────
 drop policy if exists cohorts_read on public.cohorts;
 create policy cohorts_read on public.cohorts for select to authenticated
   using (id = public.my_cohort() or public.is_admin());
--- cohorts_admin (كل شيء للمشرف العام) من 0001 كما هي
+-- cohorts_admin (everything for the super admin) from 0001 is unchanged
 
--- مشرف الفضاء يقرأ ملفات طلاب فضائه (إدارة الحسابات)؛ الطالب والمشرف العادي كما كانا (ملفه وحده)
+-- A space admin reads the profiles of their space's students (account management); students and regular moderators are unchanged (their own profile only)
 drop policy if exists profiles_read_space on public.profiles;
 create policy profiles_read_space on public.profiles for select to authenticated
   using (public.is_space_admin() and cohort_id = public.my_cohort());
 
--- ───────────────────────── 2) المحتوى الدراسي ─────────────────────────
--- الفصول
+-- ───────────────────────── 2) Study content ─────────────────────────
+-- Semesters
 drop policy if exists semesters_read on public.semesters;
 drop policy if exists semesters_admin on public.semesters;
 create policy semesters_read on public.semesters for select to authenticated
@@ -33,7 +33,7 @@ create policy semesters_admin on public.semesters for all to authenticated
   using (public.is_manager() and cohort_id = public.my_cohort())
   with check (public.is_manager() and cohort_id = public.my_cohort());
 
--- المواد
+-- Subjects
 drop policy if exists subjects_read on public.subjects;
 drop policy if exists subjects_admin on public.subjects;
 create policy subjects_read on public.subjects for select to authenticated
@@ -42,7 +42,7 @@ create policy subjects_admin on public.subjects for all to authenticated
   using (public.is_manager() and cohort_id = public.my_cohort())
   with check (public.is_manager() and cohort_id = public.my_cohort());
 
--- الحصص (الدروس)
+-- Sessions (lessons)
 drop policy if exists lessons_read on public.lessons;
 drop policy if exists lessons_insert on public.lessons;
 drop policy if exists lessons_update on public.lessons;
@@ -61,7 +61,7 @@ create policy lessons_delete on public.lessons for delete to authenticated
   using (public.subject_cohort(subject_id) = public.my_cohort()
          and (public.is_manager() or (public.is_staff() and created_by = auth.uid() and status <> 'published')));
 
--- ملفات الحصص
+-- Lesson files
 drop policy if exists lesson_files_read on public.lesson_files;
 drop policy if exists lesson_files_insert on public.lesson_files;
 drop policy if exists lesson_files_delete on public.lesson_files;
@@ -76,7 +76,7 @@ create policy lesson_files_delete on public.lesson_files for delete to authentic
          and (public.is_manager() or (public.is_staff() and exists (
               select 1 from public.lessons l where l.id = lesson_id and l.created_by = auth.uid()))));
 
--- مقاطع الدروس (RAG): للميزة «ai» فقط، ولفضاء المستخدم فقط
+-- Lesson chunks (RAG): for the "ai" feature only, and for the user's own space only
 drop policy if exists chunks_read on public.lesson_chunks;
 create policy chunks_read on public.lesson_chunks for select to authenticated
   using (public.lesson_cohort(lesson_id) = public.my_cohort()
@@ -84,7 +84,7 @@ create policy chunks_read on public.lesson_chunks for select to authenticated
          and exists (select 1 from public.lessons l
                      where l.id = lesson_chunks.lesson_id and (l.status = 'published' or public.is_staff())));
 
--- الأسئلة (الصلاحية على الأعمدة من 0003 كما هي: لا قراءة لـ correct_index/explanation من المتصفح)
+-- Questions (column privileges from 0003 unchanged: correct_index/explanation cannot be read from the browser)
 drop policy if exists questions_read on public.questions;
 drop policy if exists questions_insert on public.questions;
 drop policy if exists questions_update on public.questions;
@@ -105,7 +105,7 @@ create policy questions_delete on public.questions for delete to authenticated
   using (public.subject_cohort(subject_id) = public.my_cohort()
          and (public.is_manager() or (public.is_staff() and created_by = auth.uid() and status <> 'published')));
 
--- التمارين المكتوبة تتطلب ميزة «written» في فضاء المادة (حتى لو أُرسلت مباشرة إلى الواجهة البرمجية)
+-- Written exercises require the "written" feature in the subject's space (even if sent straight to the API)
 create or replace function public.questions_plan_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -120,7 +120,7 @@ create trigger trg_questions_plan before insert or update of type on public.ques
   for each row execute function public.questions_plan_guard();
 revoke all on function public.questions_plan_guard() from public, anon;
 
--- ───────────────────────── 3) الجدول والإعلانات والتسجيلات ─────────────────────────
+-- ───────────────────────── 3) Timetable, announcements and recordings ─────────────────────────
 drop policy if exists schedule_read on public.schedule_sessions;
 drop policy if exists schedule_write on public.schedule_sessions;
 create policy schedule_read on public.schedule_sessions for select to authenticated
@@ -139,7 +139,7 @@ create policy announcements_admin on public.announcements for all to authenticat
   using (public.is_manager() and cohort_id = public.my_cohort())
   with check (public.is_manager() and cohort_id = public.my_cohort());
 
--- التسجيلات: ميزة «recordings»
+-- Recordings: the "recordings" feature
 drop policy if exists recordings_read on public.recordings;
 drop policy if exists recordings_insert on public.recordings;
 drop policy if exists recordings_update on public.recordings;
@@ -170,7 +170,7 @@ create policy marks_write on public.recording_marks for all to authenticated
   using (public.is_staff() and exists (select 1 from public.recordings r where r.id = recording_id and r.cohort_id = public.my_cohort()))
   with check (public.is_staff() and exists (select 1 from public.recordings r where r.id = recording_id and r.cohort_id = public.my_cohort()));
 
--- ───────────────────────── 4) المساعد الذكي: ميزة «ai» ─────────────────────────
+-- ───────────────────────── 4) The AI assistant: the "ai" feature ─────────────────────────
 drop policy if exists conv_own on public.conversations;
 create policy conv_own on public.conversations for all to authenticated
   using (user_id = auth.uid())
@@ -186,10 +186,10 @@ create policy analysis_write on public.student_analysis for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid() and public.my_feature('ai'));
 
--- ───────────────────────── 5) تخزين ملفات الحصص ─────────────────────────
--- مسار الملف: <lesson_id>/<اسم>. فضاء الملف = فضاء الحصة التي في اسم المجلد (يُحسب في الدالة أدناه، وتعيد null لأي مسار آخر).
--- القراءة لمن في فضاء الحصة فقط (الطالب: ملفات مسجّلة لحصة منشورة؛ الطاقم: ما في فضائه ولو لم يُسجَّل بعد،
--- لأن رفع Storage يقرأ الصف بعد إدراجه)؛ الرفع لطاقم فضاء الحصة فقط.
+-- ───────────────────────── 5) Lesson file storage ─────────────────────────
+-- File path: <lesson_id>/<name>. A file's space = the space of the lesson named by the folder (computed in the function below, which returns null for any other path).
+-- Reading is limited to people in the lesson's space (student: files registered for a published lesson; staff: anything in their space even if not yet registered,
+-- because a Storage upload reads the row after inserting it); uploading is limited to the lesson space's staff.
 create or replace function public.storage_path_cohort(p_name text) returns uuid
 language sql stable security definer set search_path = public as $$
   select case
@@ -221,9 +221,9 @@ create policy lesson_files_storage_delete on storage.objects for delete to authe
          and public.storage_path_cohort(name) = public.my_cohort()
          and (public.is_manager() or owner = auth.uid()));
 
--- ───────────────────────── 6) دوال التدريب: الفضاء + الميزات ─────────────────────────
--- start_attempt: الأسئلة من مواد فضاء الطالب فقط (الدالة security definer فلا يحميها RLS، فالحصر صريح هنا).
---   ranked ← ميزة arena. review ← ميزة review. المكتوب ← ميزة written (وإلا يُفرض QCM).
+-- ───────────────────────── 6) Practice functions: space + features ─────────────────────────
+-- start_attempt: questions only from the student's own space subjects (the function is security definer so RLS does not protect it; the scoping is explicit here).
+--   ranked -> arena feature. review -> review feature. written -> written feature (otherwise QCM is forced).
 create or replace function public.start_attempt(
   p_mode text,
   p_subject uuid default null,
@@ -257,7 +257,7 @@ begin
   if not public.my_feature('written') then p_type := 'mcq'; end if;
 
   if p_mode = 'ranked' then
-    -- أنهِ المحاولات المصنّفة المنتهية الوقت، وأعد الجارية
+    -- Finish ranked attempts that timed out, and return the one in progress
     update public.attempts set finished_at = now()
       where user_id = uid and mode = 'ranked' and finished_at is null
         and now() > started_at + make_interval(secs => time_limit_seconds + 10);
@@ -303,7 +303,7 @@ begin
         join public.subjects sj on sj.id = q.subject_id and sj.cohort_id = coh
         left join public.lessons l on l.id = q.lesson_id
         where q.status = 'published'
-          and not q.exam_only -- مخصّصة للاختبار المصنّف فقط: لا تظهر في التدريب الحر
+          and not q.exam_only -- reserved for the ranked quiz only: not shown in free practice
           and (p_lesson is null or q.lesson_id = p_lesson)
           and (p_lesson is not null or p_subject is null or q.subject_id = p_subject)
           and (p_difficulty is null or q.difficulty = p_difficulty)
@@ -326,7 +326,7 @@ begin
   return new_id;
 end $$;
 
--- الترتيب: ميزة ranking، وضمن فضاء الطالب وفصله الحالي
+-- Ranking: the ranking feature, within the student's space and current semester
 create or replace function public.leaderboard(p_scope text, p_tz text default 'UTC')
 returns table (
   user_id uuid, full_name text, points numeric, answered integer, correct integer,
@@ -381,7 +381,7 @@ begin
   order by 7, 2;
 end $$;
 
--- Duel: ميزة duel، ومادة من فضاء اللاعب
+-- Duel: the duel feature, and a subject from the player's space
 create or replace function public.create_duel(
   p_opponent uuid, p_subject uuid, p_lessons uuid[] default '{}', p_count integer default 8
 ) returns uuid
@@ -403,7 +403,7 @@ begin
   p_lessons := coalesce(p_lessons, '{}');
   p_count := least(greatest(coalesce(p_count, 8), 5), 15);
 
-  -- حماية من الإزعاج: تحدٍّ واحد جارٍ مع كل زميل، و10 تحديات جديدة كحد أقصى في اليوم
+  -- Spam protection: one active duel per classmate, and at most 10 new duels per day
   if exists (select 1 from public.duels d
              where d.status in ('challenger_turn', 'open')
                and ((d.challenger_id = uid and d.opponent_id = p_opponent)
@@ -456,7 +456,7 @@ begin
   order by 3 desc, 4 asc, p.full_name;
 end $$;
 
--- ───────────────────────── 7) QCM PDF: ميزة qcm_pdf + حصر الفضاء ─────────────────────────
+-- ───────────────────────── 7) QCM PDF: the qcm_pdf feature + space scoping ─────────────────────────
 create or replace function public.qcm_export(
   p_subject uuid default null,
   p_lesson uuid default null,
@@ -487,7 +487,7 @@ begin
   if p_difficulty is not null and p_difficulty not in ('easy', 'medium', 'hard') then p_difficulty := null; end if;
   lim := least(greatest(coalesce(p_count, 20), 1), 50);
 
-  -- يمنع سباقاً بين طلبين متزامنين لنفس الطالب
+  -- Prevents a race between two simultaneous requests from the same student
   perform pg_advisory_xact_lock(hashtext('qcm_export:' || uid::text));
   select count(*) into used from public.qcm_downloads
     where user_id = uid and created_at > now() - interval '24 hours';
@@ -538,7 +538,7 @@ begin
   );
 end $$;
 
--- ───────────────────────── 8) الذكاء الاصطناعي: ميزة ai ─────────────────────────
+-- ───────────────────────── 8) AI: the ai feature ─────────────────────────
 create or replace function public.ai_take(
   p_kind text, p_window_limit integer, p_window_seconds integer, p_day_limit integer
 ) returns boolean
@@ -605,8 +605,8 @@ begin
   return res;
 end $$;
 
--- ───────────────────────── 9) إحصائيات الفضاء (مدير الفضاء) ─────────────────────────
--- كانت للمشرف العام على كل الدفعة؛ تصبح لمدير الفضاء الحالي (مشرف الفضاء أو المشرف العام داخله) على فضائه فقط.
+-- ───────────────────────── 9) Space statistics (space manager) ─────────────────────────
+-- Used to be for the super admin across the whole cohort; now for the current space's manager (space admin or super admin inside it) over their own space only.
 create or replace function public.admin_students() returns table(
   id uuid, full_name text, last_seen_at timestamptz, answers_7d integer, attempts_total integer,
   accuracy numeric, lessons_studied integer, duels_played integer)
@@ -674,7 +674,7 @@ begin
   limit least(greatest(p_limit, 1), 50);
 end $$;
 
--- ───────────────────────── 10) تذكير المراجعة (الخادم فقط): للفضاءات التي فيها ميزة review ─────────────────────────
+-- ───────────────────────── 10) Review reminder (server only): for spaces with the review feature ─────────────────────────
 create or replace function public.review_reminder_targets() returns table(user_id uuid, due integer)
 language sql stable security definer set search_path = public as $$
   select r.user_id, count(*)::integer

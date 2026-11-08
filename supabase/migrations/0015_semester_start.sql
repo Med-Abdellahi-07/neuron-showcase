@@ -1,15 +1,15 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- 0015 — تاريخ بداية السداسي (لترقيم الأسابيع الدراسية)
---   • semesters.start_date : تاريخ بداية السداسي (اختياري). الأسبوع 1 = الأسبوع (من الإثنين)
---     الذي يحتوي هذا التاريخ. يعدّله المدير من لوحة المشرف ← الجدول.
---   • قيمة S3 = 2026-10-12 (الأسبوع 1 = الإثنين 12 إلى السبت 17 أكتوبر 2026).
--- آمن لإعادة التشغيل (idempotent). لا جداول جديدة: لا حاجة إلى GRANT أو سياسات جديدة
--- (الجدول semesters كما هو: قراءة للمسجّلين، كتابة للمدير فقط بسياسة semesters_admin).
--- لا تُعد تشغيل 0002.
+-- 0015 - semester start date (for study-week numbering)
+--   - semesters.start_date: the semester start date (optional). Week 1 = the week (from Monday)
+--     containing this date. The admin edits it from the admin panel -> timetable.
+--   - S3 value = 2026-10-12 (week 1 = Monday 12 to Saturday 17 October 2026).
+-- Idempotent. No new tables: no new GRANT or policies are needed
+-- (the semesters table is unchanged: readable by enrolled users, writable only by the admin through the semesters_admin policy).
+-- Never re-run 0002.
 -- ════════════════════════════════════════════════════════════════════════════
 
 alter table public.semesters add column if not exists start_date date;
 
--- يضبط القيمة الأولية لـ S3 فقط إن لم تكن مضبوطة (لا يكتب فوق تعديل المدير)
+-- Sets the initial S3 value only if it is not already set (never overwrites an admin edit)
 update public.semesters set start_date = date '2026-10-12'
 where code = 'S3' and start_date is null;

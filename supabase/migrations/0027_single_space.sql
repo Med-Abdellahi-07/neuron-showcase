@@ -1,7 +1,7 @@
--- 0027: العودة إلى فضاء واحد (IAA L2). لا حذف لأي جدول أو بيانات أو حسابات.
--- يبقي IAA L2 نشطاً بالخطة الكاملة وكل الميزات، ويجعل بقية الفضاءات غير نشطة (مخفية من public_directory).
--- idempotent: التشغيل المتكرر لا يغيّر شيئاً (النسخة الاحتياطية تُحفظ مرة واحدة فقط).
--- التراجع (rollback): انظر الملف 0027_single_space_down.sql.txt وقسم الـ spec.
+-- 0027: back to a single space (IAA L2). No table, data or account is deleted.
+-- Keeps IAA L2 active with the full plan and all features, and makes the other spaces inactive (hidden from public_directory).
+-- Idempotent: re-running changes nothing (the backup is saved only once).
+-- Rollback: see 0027_single_space_down.sql.txt and the spec section.
 
 create table if not exists public.single_space_backup (
   kind text not null check (kind in ('cohort', 'admin_profile')),
@@ -13,7 +13,7 @@ create table if not exists public.single_space_backup (
   saved_at timestamptz not null default now(),
   primary key (kind, id)
 );
-alter table public.single_space_backup enable row level security;  -- لا سياسات: للخدمة/المحرر فقط
+alter table public.single_space_backup enable row level security; -- no policies: for the service role / SQL editor only
 
 do $$
 declare
@@ -26,17 +26,17 @@ begin
     raise exception '0027: فضاء IAA L2 غير موجود';
   end if;
 
-  -- نسخة احتياطية لحالة الفضاءات (لا تُستبدل إن وُجدت)
+  -- Backup of the spaces' state (not replaced if it exists)
   insert into public.single_space_backup (kind, id, is_active, plan, features)
   select 'cohort', c.id, c.is_active, c.plan, c.features from public.cohorts c
   on conflict (kind, id) do nothing;
 
-  -- نسخة احتياطية لفضاء المشرفين الحالي
+  -- Backup of the moderators' current space
   insert into public.single_space_backup (kind, id, cohort_id)
   select 'admin_profile', p.id, p.cohort_id from public.profiles p where p.role = 'admin'
   on conflict (kind, id) do nothing;
 
-  -- IAA L2: نشط، خطة كاملة، كل الميزات
+  -- IAA L2: active, full plan, all features
   update public.cohorts
      set is_active = true,
          plan = 'full',
@@ -44,9 +44,9 @@ begin
                     || '{"ai":true,"arena":true,"ranking":true,"duel":true,"review":true,"recordings":true,"qcm_pdf":true,"written":true,"chat":true}'::jsonb
    where id = iaa;
 
-  -- بقية الفضاءات: غير نشطة فقط (لا حذف)
+  -- All other spaces: only made inactive (nothing is deleted)
   update public.cohorts set is_active = false where id <> iaa and is_active;
 
-  -- المشرف العام يعمل داخل IAA L2 (RLS تعتمد cohort_id)
+  -- The super admin works inside IAA L2 (RLS relies on cohort_id)
   update public.profiles set cohort_id = iaa where role = 'admin' and cohort_id is distinct from iaa;
 end $$;

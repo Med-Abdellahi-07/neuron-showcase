@@ -1,9 +1,9 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- 0019 — لوحات الإحصاء: الجامعة (المشرف العام) والفضاء (مدير الفضاء)
--- بعد 0018. آمن لإعادة التشغيل. إحصاءات مجمّعة فقط (لا محتوى محادثات ولا إجابات فردية).
+-- 0019 - statistics dashboards: university (super admin) and space (space manager)
+-- After 0018. Safe to re-run. Aggregated statistics only (no conversation content and no individual answers).
 -- ══════════════════════════════════════════════════════════════════════════
 
--- لوحة فضاء واحد: تعيد الفضاء الحالي للمستخدم فقط (مدير الفضاء أو المشرف العام داخل فضائه)
+-- Single-space dashboard: returns only the user's current space (space manager or super admin inside their space)
 create or replace function public.space_dashboard() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
@@ -37,7 +37,7 @@ begin
   return res;
 end $$;
 
--- لوحة الجامعة: صف لكل فضاء + آخر نشاط لكل مشرف. للمشرف العام فقط.
+-- University dashboard: one row per space + the last activity of each moderator. Super admin only.
 create or replace function public.admin_overview() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare res jsonb;

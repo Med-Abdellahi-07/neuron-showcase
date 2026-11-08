@@ -1,9 +1,9 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- 0020 — المواد المتبقية من L1 + حد حجم PDF + استهلاك التخزين
--- بعد 0019. آمن لإعادة التشغيل. لا يمس أي بيانات موجودة.
+-- 0020 - remaining L1 subjects + PDF size limit + storage usage
+-- After 0019. Safe to re-run. Touches no existing data.
 -- ══════════════════════════════════════════════════════════════════════════
 
--- ───────── 1) جدول المواد المتبقية ─────────
+-- ───────── 1) Remaining subjects table ─────────
 create table if not exists public.remaining_subjects (
   student_id uuid not null references public.profiles(id) on delete cascade,
   subject_id uuid not null references public.subjects(id) on delete cascade,
@@ -13,20 +13,20 @@ create table if not exists public.remaining_subjects (
 );
 create index if not exists remaining_subjects_subject_idx on public.remaining_subjects(subject_id);
 
--- فضاء طالب (security definer كي لا تتعثر السياسات بـ RLS على profiles)
+-- A student's space (security definer so policies are not tripped up by RLS on profiles)
 create or replace function public.profile_cohort(p_user uuid) returns uuid
 language sql stable security definer set search_path = public as $$
   select cohort_id from public.profiles where id = p_user
 $$;
 
--- هل الطالب الحالي يتابع هذه المادة (متبقية من L1)؟
+-- Does the current student follow this subject (remaining from L1)?
 create or replace function public.follows_subject(p_subject uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.remaining_subjects r where r.student_id = auth.uid() and r.subject_id = p_subject)
 $$;
 
--- القيود في قاعدة البيانات (تسري على أي مصدر، حتى service role):
---   الطالب طالب فعلاً في فضاء L2، والمادة من فضاء L1 لنفس التخصص. لا L1→L2 ولا تخصص آخر.
+-- Database constraints (apply to any source, even the service role):
+--   The student is actually in an L2 space, and the subject belongs to an L1 space of the same major. No L1->L2 only, no other major.
 create or replace function public.remaining_subjects_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
@@ -48,7 +48,7 @@ drop trigger if exists remaining_subjects_guard_trg on public.remaining_subjects
 create trigger remaining_subjects_guard_trg before insert or update on public.remaining_subjects
   for each row execute function public.remaining_subjects_guard();
 
--- انتقال الطالب إلى فضاء/تخصص آخر ← تسقط مواده المتبقية (لم تعد صالحة)
+-- A student who moves to another space/major loses their remaining subjects (they are no longer valid)
 create or replace function public.profiles_clear_remaining() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -70,7 +70,7 @@ grant all on public.remaining_subjects to service_role;
 drop policy if exists remaining_read on public.remaining_subjects;
 drop policy if exists remaining_insert on public.remaining_subjects;
 drop policy if exists remaining_delete on public.remaining_subjects;
--- الطالب يقرأ مواده؛ مدير فضاء الطالب (L2) يقرأ ويضيف ويزيل. مدير L1 لا يصل للجدول (له l1_followers أدناه).
+-- A student reads their own subjects; the manager of the student's (L2) space reads, adds and removes. An L1 manager cannot reach the table (they have l1_followers below).
 create policy remaining_read on public.remaining_subjects for select to authenticated
   using (student_id = auth.uid() or (public.is_manager() and public.profile_cohort(student_id) = public.my_cohort()));
 create policy remaining_insert on public.remaining_subjects for insert to authenticated
@@ -78,7 +78,7 @@ create policy remaining_insert on public.remaining_subjects for insert to authen
 create policy remaining_delete on public.remaining_subjects for delete to authenticated
   using (public.is_manager() and public.profile_cohort(student_id) = public.my_cohort());
 
--- مشرف L1: قائمة (قراءة فقط) بطلاب L2 الذين يتابعون مواد فضائه. أسماء فقط، بلا بريد/هاتف.
+-- L1 moderator: a read-only list of the L2 students who follow their space's subjects. Names only, no email/phone.
 create or replace function public.l1_followers() returns table(
   student_name text, student_space text, subject_code text, subject_name text, since timestamptz)
 language plpgsql stable security definer set search_path = public as $$
@@ -97,7 +97,7 @@ grant execute on function public.l1_followers() to authenticated, service_role;
 revoke all on function public.profile_cohort(uuid), public.follows_subject(uuid) from public, anon;
 grant execute on function public.profile_cohort(uuid), public.follows_subject(uuid) to authenticated, service_role;
 
--- ───────── 2) قراءة محتوى المواد المتبقية (القراءة فقط، المنشور فقط) ─────────
+-- ───────── 2) Reading remaining-subject content (read-only, published only) ─────────
 drop policy if exists subjects_read on public.subjects;
 create policy subjects_read on public.subjects for select to authenticated
   using (cohort_id = public.my_cohort() or public.follows_subject(id));
@@ -114,7 +114,7 @@ create policy lesson_files_read on public.lesson_files for select to authenticat
          or exists (select 1 from public.lessons l
                     where l.id = lesson_id and l.status = 'published' and public.follows_subject(l.subject_id)));
 
--- الأسئلة: المتبقية تظهر QCM فقط ما لم تكن خطة فضاء L1 تتيح المكتوب (ميزات الفضاء الأصلي للمادة)
+-- Questions: remaining subjects show QCM only unless the L1 space's plan allows written (the subject's original space features)
 drop policy if exists questions_read on public.questions;
 create policy questions_read on public.questions for select to authenticated
   using ((public.subject_cohort(subject_id) = public.my_cohort() and (status = 'published' or public.is_staff()))
@@ -137,17 +137,17 @@ create policy lesson_files_storage_read on storage.objects for select to authent
                     where f.storage_path = storage.objects.name and l.status = 'published'
                       and public.follows_subject(l.subject_id))));
 
--- ───────── 3) التدريب: أسئلة QCM الحرة للمواد المتبقية أيضاً ─────────
--- نفس start_attempt الحالية (0018) مع تعديل واحد في فرع «free»: المادة من فضائي أو متبقية (QCM فقط).
--- المصنّف والمراجعة يبقيان على مواد فضائي وحده.
+-- ───────── 3) Practice: free QCM questions for remaining subjects too ─────────
+-- Same current start_attempt (0018) with one change in the "free" branch: the subject is from my space or a remaining one (QCM only).
+-- Ranked and review stay on my own space's subjects only.
 do $$
 declare def text;
 begin
   select pg_get_functiondef(p.oid) into def from pg_proc p
     where p.proname = 'start_attempt' and p.pronamespace = 'public'::regnamespace;
   if def is null then raise exception 'start_attempt missing: run 0018 first'; end if;
-  if def like '%follows_subject%' then return; end if; -- مُطبَّق من قبل
-  -- تعبير نمطي يتسامح مع اختلاف المسافات/نهايات الأسطر (قد يختلف النص المخزَّن عن الملف)
+  if def like '%follows_subject%' then return; end if; -- already applied
+  -- A regular expression tolerant of whitespace/line-ending differences (the stored text may differ from the file)
   def := regexp_replace(def,
     $q$join\s+public\.subjects\s+sj\s+on\s+sj\.id\s*=\s*q\.subject_id\s+and\s+sj\.cohort_id\s*=\s*coh(\s+left\s+join\s+public\.lessons\s+l\s+on\s+l\.id\s*=\s*q\.lesson_id)$q$,
     $q$join public.subjects sj on sj.id = q.subject_id and (sj.cohort_id = coh or (public.follows_subject(sj.id) and q.type = 'mcq'))\1$q$);
@@ -155,8 +155,8 @@ begin
   execute def;
 end $$;
 
--- ───────── 4) التخزين: حد حجم PDF واستهلاك التخزين ─────────
--- 15MB كحد أقصى لأي ملف حصة (PDF وغيره): في الجدول (يرفض أي مصدر) وفي دلو التخزين نفسه.
+-- ───────── 4) Storage: PDF size limit and storage usage ─────────
+-- 15MB maximum for any lesson file (PDF or other): in the table (rejects any source) and in the storage bucket itself.
 create or replace function public.lesson_files_size_guard() returns trigger
 language plpgsql as $$
 begin
@@ -173,7 +173,7 @@ do $$ begin
   end if;
 end $$;
 
--- استهلاك التخزين الكلي ولكل فضاء (مجموع أحجام ملفات الحصص المسجّلة). للمشرف العام فقط.
+-- Total storage usage and per space (sum of registered lesson file sizes). Super admin only.
 create or replace function public.storage_usage() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare res jsonb;

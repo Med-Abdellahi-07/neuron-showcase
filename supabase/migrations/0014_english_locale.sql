@@ -1,13 +1,13 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- 0014 — اللغة الإنجليزية كلغة ثالثة للواجهة
---   • profiles.locale  : كان مقيَّداً بـ ('ar','fr') ← يصبح ('ar','fr','en')
---   • conversations.lang (لغة الجلسات الموجّهة): كان ('fr','ar') ← ('fr','ar','en')
--- آمن لإعادة التشغيل (idempotent). لا جداول جديدة، فلا حاجة إلى GRANT أو سياسات جديدة:
--- الأعمدة نفسها وصلاحياتها وسياسات RLS على الجدولين كما هي.
--- لا تُعد تشغيل 0002.
+-- 0014 - English as the third interface language
+--   - profiles.locale: was restricted to ('ar','fr'), now ('ar','fr','en')
+--   - conversations.lang (language of guided sessions): was ('fr','ar'), now ('fr','ar','en')
+-- Idempotent. No new tables, so no new GRANT or policies are needed:
+-- the columns, their privileges and the RLS policies on both tables are unchanged.
+-- Never re-run 0002.
 -- ════════════════════════════════════════════════════════════════════════════
 
--- يحذف أي قيد CHECK على العمود (مهما كان اسمه التلقائي) ثم يضيف القيد الجديد باسم ثابت
+-- Drops any CHECK constraint on the column (whatever its automatic name) and then adds the new one under a fixed name
 do $$
 declare
   r record;

@@ -1,22 +1,22 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- 0016 — تنزيل QCM كملف PDF (طباعة) + أسئلة «للاختبار المصنّف فقط»
---   • questions.exam_only  : سؤال لا يظهر في التدريب الحر ولا في تنزيل QCM، ويظهر في الاختبار المصنّف فقط.
---       القيمة الافتراضية false. يعدّلها المدير من لوحة الأسئلة أو عمود اختياري في الرفع الجماعي.
---   • start_attempt        : التدريب الحر يستثني exam_only (الاختبار المصنّف كما هو).
---   • qcm_downloads        : سجل التنزيلات لتحديد 10 تنزيلات لكل طالب خلال 24 ساعة. مغلق على المتصفح تماماً
---                            (RLS مفعّل بلا سياسات + سحب كل الصلاحيات)، لا تصل إليه إلا دالة qcm_export.
---   • qcm_export(...)      : تُجلب الأسئلة والأجوبة على الخادم فقط. لا select على questions من المتصفح.
---       QCM منشورة فقط، بلا exam_only، بنفس فلاتر التدريب (مادة/حصة/نطاق/صعوبة)، 1..50 سؤالاً، خلط اختياري،
---       والشرح يُرجَع فقط إن طُلب. تعيد الإجابة الصحيحة (هذا هو الغرض: صفحة الأجوبة في آخر الملف).
--- آمن لإعادة التشغيل (idempotent). لا تُعد تشغيل 0002.
+-- 0016 - QCM download as a PDF (print) + "ranked quiz only" questions
+--   - questions.exam_only: a question hidden from free practice and QCM downloads, shown in the ranked quiz only.
+--       Default false. The admin edits it from the questions panel or an optional column in the bulk upload.
+--   - start_attempt: free practice excludes exam_only (the ranked quiz is unchanged).
+--   - qcm_downloads: download log used to limit each student to 10 downloads per 24 hours. Completely closed to the browser
+--                    (RLS enabled with no policies + all privileges revoked); only the qcm_export function reaches it.
+--   - qcm_export(...): questions and answers are fetched on the server only. No select on questions from the browser.
+--       Published QCM only, without exam_only, with the same filters as practice (subject/lesson/range/difficulty), 1..50 questions, optional shuffle,
+--       and the explanation is returned only if requested. It returns the correct answer (that is the point: the answers page at the end of the file).
+-- Idempotent. Never re-run 0002.
 -- ════════════════════════════════════════════════════════════════════════════
 
 alter table public.questions add column if not exists exam_only boolean not null default false;
 
--- الصلاحية على الأعمدة صريحة منذ 0003؛ العمود الجديد غير حسّاس (لا إجابة ولا شرح) ويحتاجه عرض المدير
+-- Column privileges have been explicit since 0003; the new column is not sensitive (no answer or explanation) and the admin view needs it
 grant select (exam_only) on public.questions to authenticated;
 
--- ───────────────────────── التدريب الحر يستثني exam_only ─────────────────────────
+-- ───────────────────────── Free practice excludes exam_only ─────────────────────────
 create or replace function public.start_attempt(
   p_mode text,
   p_subject uuid default null,
@@ -45,7 +45,7 @@ begin
   if p_type not in ('mcq', 'written', 'mixed') then p_type := 'mixed'; end if;
 
   if p_mode = 'ranked' then
-    -- أنهِ المحاولات المصنّفة المنتهية الوقت، وأعد الجارية
+    -- Finish ranked attempts that timed out, and return the one in progress
     update public.attempts set finished_at = now()
       where user_id = uid and mode = 'ranked' and finished_at is null
         and now() > started_at + make_interval(secs => time_limit_seconds + 10);
@@ -88,7 +88,7 @@ begin
         from public.questions q
         left join public.lessons l on l.id = q.lesson_id
         where q.status = 'published'
-          and not q.exam_only -- مخصّصة للاختبار المصنّف فقط: لا تظهر في التدريب الحر
+          and not q.exam_only -- reserved for the ranked quiz only: not shown in free practice
           and (p_lesson is null or q.lesson_id = p_lesson)
           and (p_lesson is not null or p_subject is null or q.subject_id = p_subject)
           and (p_difficulty is null or q.difficulty = p_difficulty)
@@ -111,7 +111,7 @@ begin
   return new_id;
 end $$;
 
--- ───────────────────────── سجل التنزيلات (مغلق على المتصفح) ─────────────────────────
+-- ───────────────────────── Download log (closed to the browser) ─────────────────────────
 create table if not exists public.qcm_downloads (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -123,7 +123,7 @@ alter table public.qcm_downloads enable row level security;
 revoke all on public.qcm_downloads from anon, authenticated;
 grant all on public.qcm_downloads to service_role;
 
--- ───────────────────────── جلب أسئلة التنزيل ─────────────────────────
+-- ───────────────────────── Fetch questions for download ─────────────────────────
 create or replace function public.qcm_export(
   p_subject uuid default null,
   p_lesson uuid default null,
@@ -151,7 +151,7 @@ begin
   if p_difficulty is not null and p_difficulty not in ('easy', 'medium', 'hard') then p_difficulty := null; end if;
   lim := least(greatest(coalesce(p_count, 20), 1), 50);
 
-  -- يمنع سباقاً بين طلبين متزامنين لنفس الطالب
+  -- Prevents a race between two simultaneous requests from the same student
   perform pg_advisory_xact_lock(hashtext('qcm_export:' || uid::text));
   select count(*) into used from public.qcm_downloads
     where user_id = uid and created_at > now() - interval '24 hours';

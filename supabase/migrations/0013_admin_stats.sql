@@ -1,8 +1,8 @@
--- Neuron — المرحلة 4 (4/4): إحصائيات المدير.
--- يُنفَّذ بعد 0012. آمن للتنفيذ أكثر من مرة.
--- إحصائيات مجمّعة فقط. المدير والمشرفون لا يقرأون conversations/messages (سياسات 0005 تحصرها بصاحبها).
+-- Neuron - phase 4 (4/4): admin statistics.
+-- Run after 0012. Safe to run more than once.
+-- Aggregated statistics only. Admins and moderators do not read conversations/messages (the 0005 policies restrict them to their owner).
 
--- آخر ظهور (يُحدَّث مرة كل 10 دقائق كحد أقصى من المتصفح)
+-- Last seen (updated at most once every 10 minutes from the browser)
 alter table public.profiles add column if not exists last_seen_at timestamptz;
 
 create or replace function public.touch_seen() returns void
@@ -11,7 +11,7 @@ language sql security definer set search_path = public as $$
   where id = auth.uid() and (last_seen_at is null or last_seen_at < now() - interval '10 minutes')
 $$;
 
--- عدّاد استهلاك المزوّدين يومياً (Gemini / Groq / Tavily) مقابل حدودهم
+-- Daily provider consumption (Gemini / Groq / Tavily) against their limits
 create table if not exists public.ai_provider_daily (
   day date not null,
   provider text not null check (provider in ('gemini', 'groq', 'tavily')),
@@ -35,7 +35,7 @@ begin
   delete from public.ai_provider_daily where day < (now() at time zone 'utc')::date - 60;
 end $$;
 
--- ───────────────────────── دوال المدير ─────────────────────────
+-- ───────────────────────── Admin functions ─────────────────────────
 create or replace function public.admin_students() returns table(
   id uuid, full_name text, last_seen_at timestamptz, answers_7d integer, attempts_total integer,
   accuracy numeric, lessons_studied integer, duels_played integer)
@@ -55,7 +55,7 @@ begin
   order by p.last_seen_at desc nulls last, p.full_name;
 end $$;
 
--- متوسط الدفعة في كل مادة (نسبة الإجابات الصحيحة) وعدد المشاركين
+-- Cohort average per subject (share of correct answers) and number of participants
 create or replace function public.admin_subject_stats() returns table(
   subject_id uuid, code text, name text, students integer, answers integer, accuracy numeric)
 language plpgsql stable security definer set search_path = public as $$
@@ -72,8 +72,8 @@ begin
   order by s.sort;
 end $$;
 
--- الحصص الأضعف عند أغلبية الطلاب: طالب «ضعيف» في حصة = دقته < 50% بعد 3 إجابات على الأقل فيها.
--- الحصة «ضعيفة» إن ضعف فيها أكثر من نصف من أجاب (اثنان على الأقل).
+-- Weakest lessons for most students: a student is "weak" in a lesson if accuracy < 50% after at least 3 answers in it.
+-- A lesson is "weak" if more than half of those who answered are weak in it (at least two).
 create or replace function public.admin_weak_lessons(p_limit integer default 12) returns table(
   lesson_id uuid, kind text, number integer, title text, subject_code text,
   students integer, weak_students integer, accuracy numeric)
@@ -105,7 +105,7 @@ begin
   limit least(greatest(p_limit, 1), 50);
 end $$;
 
--- استهلاك الذكاء الاصطناعي يومياً: عدد الاستدعاءات لكل مزوّد (14 يوماً)، مع إخفاقاته
+-- Daily AI usage: number of calls per provider (14 days), with failures
 create or replace function public.admin_ai_daily(p_days integer default 14) returns table(
   day date, provider text, calls integer, failures integer)
 language plpgsql stable security definer set search_path = public as $$
@@ -117,7 +117,7 @@ begin
   order by d.day desc, d.provider;
 end $$;
 
--- استهلاك اليوم حسب النوع (من ai_usage): محادثة/بحث/تصحيح/تحليل/جدول، مع عدد الطلاب المستعملين
+-- Today's usage by type (from ai_usage): chat/search/correction/analysis/schedule, with the number of students using each
 create or replace function public.admin_ai_kinds() returns table(
   kind text, today integer, last_30d integer, users_today integer)
 language plpgsql stable security definer set search_path = public as $$

@@ -1,15 +1,15 @@
--- 0023: دردشة جماعية عامة لكل فضاء (بعد 0022، idempotent).
--- • غرفة واحدة لكل فضاء، لا يراها إلا أعضاؤه (الحصر عبر my_cohort() داخل الدوال؛ الجدول مغلق على المتصفح).
--- • الطالب يحذف رسائله هو؛ طاقم الفضاء (مشرف/مشرف فضاء/مشرف عام داخل فضائه) يحذف أي رسالة ويكتم المسيء.
--- • ميزة «chat» قابلة للتفعيل لكل فضاء من /admin/spaces؛ تُفعَّل الآن في الفضاءات ذات الخطة full فقط.
--- • حدّ إرسال: 12 رسالة/دقيقة و300/يوم لكل طالب. النص 1..1000 حرف.
+-- 0023: general group chat for each space (after 0022, idempotent).
+-- - One room per space, visible only to its members (scoping through my_cohort() inside the functions; the table is closed to the browser).
+-- - Students delete their own messages; space staff (moderator/space admin/super admin inside their space) delete any message and mute abusers.
+-- - The "chat" feature can be enabled per space from /admin/spaces; it is enabled now only for spaces on the full plan.
+-- - Send limit: 12 messages/minute and 300/day per student. Text 1..1000 characters.
 
--- ───────────────────────── 1) الميزة ─────────────────────────
+-- ───────────────────────── 1) The feature ─────────────────────────
 update public.plans set features = features || '{"chat":true}'::jsonb where code = 'full' and not (features ? 'chat');
 update public.plans set features = features || '{"chat":false}'::jsonb where code = 'basic' and not (features ? 'chat');
 update public.cohorts set features = features || '{"chat":true}'::jsonb where plan = 'full' and not (features ? 'chat');
 
--- ───────────────────────── 2) الجداول (مغلقة على المتصفح) ─────────────────────────
+-- ───────────────────────── 2) Tables (closed to the browser) ─────────────────────────
 create table if not exists public.space_messages (
   id bigint generated always as identity primary key,
   cohort_id uuid not null references public.cohorts(id) on delete cascade,
@@ -35,8 +35,8 @@ alter table public.space_mutes enable row level security;
 revoke all on public.space_messages, public.space_mutes from anon, authenticated;
 grant all on public.space_messages, public.space_mutes to service_role;
 
--- ───────────────────────── 3) الدوال ─────────────────────────
--- قراءة: p_after = الجديد بعد معرّف (للتحديث الدوري)، p_before = الأقدم قبل معرّف، وإلا آخر p_limit رسالة. الترتيب تصاعدي.
+-- ───────────────────────── 3) Functions ─────────────────────────
+-- Read: p_after = newer than an id (for periodic refresh), p_before = older than an id, otherwise the latest p_limit messages. Ascending order.
 create or replace function public.space_chat_list(p_after bigint default null, p_before bigint default null, p_limit integer default 40)
 returns jsonb
 language plpgsql stable security definer set search_path = public as $$
@@ -104,7 +104,7 @@ begin
   return nid;
 end $$;
 
--- حذف: صاحب الرسالة، أو طاقم الفضاء نفسه
+-- Delete: the message owner, or the space's own staff
 create or replace function public.space_chat_delete(p_id bigint) returns boolean
 language plpgsql security definer set search_path = public as $$
 declare
@@ -120,7 +120,7 @@ begin
   return n > 0;
 end $$;
 
--- كتم عضو لعدد ساعات (0 = رفع الكتم). للطاقم فقط، داخل فضائه، ولا يُكتم الطاقم.
+-- Mute a member for a number of hours (0 = unmute). Staff only, inside their own space; staff cannot be muted.
 create or replace function public.space_chat_mute(p_user uuid, p_hours integer) returns boolean
 language plpgsql security definer set search_path = public as $$
 declare

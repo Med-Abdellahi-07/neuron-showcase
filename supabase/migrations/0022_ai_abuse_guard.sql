@@ -1,6 +1,6 @@
--- 0022: إلغاء نقاط الطالب الظاهرة وحلّ محلّها «سقف خفي» ضد الإساءة (بعد 0021، idempotent)
--- القرار النهائي (neuron-ai-plan.md): لا حد ظاهر ولا عدّاد. افتراضياً 200 طلب/يوم و10/دقيقة لكل طالب، تعدّلها من /admin/ai.
--- عند التجاوز: «خذ استراحة قصيرة» + تنبيه للمشرف العام. وضع الضغط (pressure) يبقى كما هو. إضافة علم ai_exam.
+-- 0022: replace the visible student points with a hidden abuse cap (after 0021, idempotent)
+-- Final decision (neuron-ai-plan.md): no visible limit and no counter. Default 200 requests/day and 10/minute per student, adjustable from /admin/ai.
+-- On overrun: "take a short break" + an alert to the super admin. Pressure mode stays as is. Adds the ai_exam flag.
 
 alter table public.ai_settings add column if not exists daily_cap integer not null default 200;
 alter table public.ai_settings add column if not exists minute_cap integer not null default 10;
@@ -11,14 +11,14 @@ do $$ begin
   end if;
 end $$;
 
--- ai_exam: علم الاختبار الكتابي (الدفعة ب). مفعّل مع بقية الأعلام لـ IAA L2 فقط.
+-- ai_exam: the written-exam flag (batch B). Enabled with the other flags for IAA L2 only.
 update public.ai_costs set flag = 'ai_exam' where kind = 'exam';
 update public.cohorts c set ai_features = c.ai_features || '{"ai_exam":true}'::jsonb
   from public.majors m
  where m.id = c.major_id and m.code = 'IAA' and c.level_code = 'L2'
    and c.ai_features ? 'ai_chat' and not (c.ai_features ? 'ai_exam');
 
--- تنبيهات الإساءة: مرة واحدة لكل طالب/يوم/نوع. تُقرأ عبر دالة المشرف العام فقط.
+-- Abuse alerts: once per student/day/type. Readable only through the super admin function.
 create table if not exists public.ai_alerts (
   id bigint generated always as identity primary key,
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -32,7 +32,7 @@ alter table public.ai_alerts enable row level security;
 revoke all on public.ai_alerts from anon, authenticated;
 grant all on public.ai_alerts to service_role;
 
--- الحجز: يحسب الطلبات (لا نقاط). reason: disabled | break | busy | auth | unknown. alert=true عند أول تجاوز في اليوم.
+-- Reservation: counts requests (not points). reason: disabled | break | busy | auth | unknown. alert=true on the first overrun of the day.
 create or replace function public.ai_spend(p_kind text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -55,7 +55,7 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'break', 'alert', ins > 0);
   end if;
   if day_n >= eff then
-    if day_n < cap_d then  -- سبب الرفض وضع الضغط لا الإساءة
+    if day_n < cap_d then -- the reason for refusal is pressure mode, not abuse
       return jsonb_build_object('ok', false, 'reason', 'busy', 'alert', false);
     end if;
     insert into public.ai_alerts (user_id, cohort_id, kind) values (uid, coh, 'daily') on conflict do nothing;
@@ -66,7 +66,7 @@ begin
   return jsonb_build_object('ok', true, 'ledger_id', lid);
 end $$;
 
--- لا رصيد للطالب: الأعلام وحالة الضغط فقط
+-- No balance for the student: only the flags and the pressure state
 create or replace function public.ai_balance() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare uid uuid := auth.uid(); coh uuid := public.my_cohort(); pr numeric;
@@ -81,7 +81,7 @@ begin
       'ai_tools', public.ai_flag(coh, 'ai_tools'), 'ai_exam', public.ai_flag(coh, 'ai_exam')));
 end $$;
 
--- أعلام الفضاء (بلا نقاط). تُستبدل الدالة ذات الثلاثة معاملات.
+-- Space flags (no points). The three-parameter function is replaced.
 drop function if exists public.set_space_ai(uuid, jsonb, integer);
 create or replace function public.set_space_ai(p_cohort uuid, p_flags jsonb) returns void
 language plpgsql security definer set search_path = public as $$
@@ -95,7 +95,7 @@ begin
   if not found then raise exception 'not_found'; end if;
 end $$;
 
--- سقوف الإساءة: قراءة وتعديل (المشرف العام فقط)
+-- Abuse caps: read and edit (super admin only)
 create or replace function public.ai_get_limits() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 begin
@@ -110,7 +110,7 @@ begin
   update public.ai_settings set daily_cap = p_daily, minute_cap = p_minute, updated_at = now() where id;
 end $$;
 
--- أكثر الحسابات استهلاكاً (طلبات اليوم و7 أيام) وآخر التنبيهات
+-- Heaviest accounts (requests today and over 7 days) and the latest alerts
 create or replace function public.ai_top_users(p_limit integer default 10) returns table(
   user_id uuid, full_name text, space_name text, today bigint, week bigint, last_at timestamptz
 ) language plpgsql stable security definer set search_path = public as $$

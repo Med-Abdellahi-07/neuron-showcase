@@ -1,7 +1,7 @@
--- Neuron — المرحلة 1 (النواة)
--- يُنفَّذ مرة واحدة من Supabase → SQL Editor.
+-- Neuron - phase 1 (core)
+-- Run once from Supabase -> SQL Editor.
 
--- ───────────────────────── الدفعات والمستخدمون ─────────────────────────
+-- ───────────────────────── Cohorts and users ─────────────────────────
 create table if not exists public.cohorts (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
@@ -22,7 +22,7 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
--- ───────────────────────── دوال مساعدة للصلاحيات ─────────────────────────
+-- ───────────────────────── Permission helper functions ─────────────────────────
 create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((select role = 'admin' from public.profiles where id = auth.uid()), false)
@@ -43,7 +43,7 @@ language sql stable security definer set search_path = public as $$
   select cohort_id from public.profiles where id = auth.uid()
 $$;
 
--- منع الطالب/المشرف من تغيير دوره أو دفعته أو صلاحياته (service role لا يخضع لهذا: auth.uid() = null)
+-- Prevent students/moderators from changing their own role, cohort or permissions (the service role is exempt: auth.uid() is null)
 create or replace function public.protect_profile_fields() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -63,7 +63,7 @@ drop trigger if exists trg_protect_profile_fields on public.profiles;
 create trigger trg_protect_profile_fields before update on public.profiles
   for each row execute function public.protect_profile_fields();
 
--- ───────────────────────── المنهج (مشترك بين الدفعات) ─────────────────────────
+-- ───────────────────────── Curriculum (shared across cohorts) ─────────────────────────
 create table if not exists public.semesters (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
@@ -137,7 +137,7 @@ create table if not exists public.questions (
 );
 create index if not exists questions_filter_idx on public.questions(subject_id, lesson_id, difficulty);
 
--- قاعدة النشر: المشرف بلا صلاحية "نشر مباشر" تتحول منشوراته إلى "بانتظار الموافقة"
+-- Publishing rule: a moderator without the "publish directly" permission has their posts set to "pending approval"
 create or replace function public.enforce_publish_rule() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -157,7 +157,7 @@ drop trigger if exists trg_questions_publish on public.questions;
 create trigger trg_questions_publish before insert or update on public.questions
   for each row execute function public.enforce_publish_rule();
 
--- ───────────────────────── خاص بالدفعة ─────────────────────────
+-- ───────────────────────── Cohort-specific data ─────────────────────────
 create table if not exists public.schedule_sessions (
   id uuid primary key default gen_random_uuid(),
   cohort_id uuid not null references public.cohorts(id) on delete cascade,
@@ -187,7 +187,7 @@ create table if not exists public.announcements (
 );
 create index if not exists announcements_idx on public.announcements(cohort_id, created_at desc);
 
--- ───────────────────────── خاص بالطالب ─────────────────────────
+-- ───────────────────────── Student-specific data ─────────────────────────
 create table if not exists public.lesson_progress (
   user_id uuid not null references public.profiles(id) on delete cascade default auth.uid(),
   lesson_id uuid not null references public.lessons(id) on delete cascade,
@@ -223,7 +223,7 @@ create policy profiles_admin_write on public.profiles for insert to authenticate
 create policy profiles_admin_delete on public.profiles for delete to authenticated
   using (public.is_admin());
 
--- semesters / subjects: قراءة للجميع، كتابة للمدير
+-- semesters / subjects: readable by everyone, writable by the admin
 create policy semesters_read on public.semesters for select to authenticated using (true);
 create policy semesters_admin on public.semesters for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
@@ -277,11 +277,11 @@ create policy announcements_read on public.announcements for select to authentic
 create policy announcements_admin on public.announcements for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
--- lesson_progress: كل طالب يرى ويعدّل بياناته فقط
+-- lesson_progress: each student sees and edits only their own data
 create policy progress_own on public.lesson_progress for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
--- ───────────────────────── التخزين (ملفات الحصص) ─────────────────────────
+-- ───────────────────────── Storage (session files) ─────────────────────────
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('lesson-files', 'lesson-files', false, 52428800)
 on conflict (id) do nothing;
@@ -296,7 +296,7 @@ create policy lesson_files_storage_insert on storage.objects for insert to authe
 create policy lesson_files_storage_delete on storage.objects for delete to authenticated
   using (bucket_id = 'lesson-files' and (public.is_admin() or owner = auth.uid()));
 
--- ───────────────────────── بيانات أولية ─────────────────────────
+-- ───────────────────────── Seed data ─────────────────────────
 insert into public.cohorts (name) values ('Promo IA 2026') on conflict (name) do nothing;
 
 insert into public.semesters (code, name, is_current) values
