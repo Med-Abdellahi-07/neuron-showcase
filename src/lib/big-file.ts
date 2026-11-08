@@ -1,6 +1,6 @@
-/** رفع/ضم الملفات الكبيرة: الملف >45MB يُقسَم في المتصفح إلى أجزاء ≤45MB (حد Supabase لكل كائن = 50MB). */
+/** Large-file upload/join: files over 45MB are split in the browser into parts of at most 45MB (Supabase's per-object limit is 50MB). */
 export const PART_SIZE = 45 * 1024 * 1024;
-export const INDEX_IN_BROWSER_OVER = 8 * 1024 * 1024; // PDF أكبر من هذا يُفهرس من المتصفح (دفعات قصيرة)
+export const INDEX_IN_BROWSER_OVER = 8 * 1024 * 1024; // PDFs larger than this are indexed from the browser (short batches).
 
 export const partPath = (prefix: string, i: number) => `${prefix}/part-${String(i + 1).padStart(3, "0")}`;
 export const partCountFor = (size: number) => Math.max(1, Math.ceil(size / PART_SIZE));
@@ -10,7 +10,7 @@ export async function sha256Hex(data: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** بصمة الملف المجزّأ = sha256 لتسلسل بصمات الأجزاء (لا نحمّل 100MB+ في الذاكرة دفعة واحدة) */
+/** Hash of a multipart file = sha256 of the concatenated part hashes (so 100MB+ never has to sit in memory at once). */
 export async function manifestHash(partHashes: string[]): Promise<string> {
   return sha256Hex(new TextEncoder().encode(partHashes.join("")).buffer as ArrayBuffer);
 }
@@ -27,7 +27,7 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     signal?.addEventListener("abort", () => { clearTimeout(t); rej(new Cancelled()); }, { once: true });
   });
 
-/** إعادة محاولة تلقائية (3 مرات، تراجع تصاعدي) لجزء واحد؛ الإلغاء يقطع فوراً */
+/** Automatic retry (3 times, exponential backoff) for a single part; cancelling stops immediately. */
 export async function withRetry<T>(fn: () => Promise<T>, signal?: AbortSignal, tries = 4): Promise<T> {
   let last: unknown;
   for (let a = 0; a < tries; a++) {
@@ -43,7 +43,7 @@ export async function withRetry<T>(fn: () => Promise<T>, signal?: AbortSignal, t
   throw last;
 }
 
-/** PUT/POST مباشر إلى Storage عبر XHR: تقدّم حقيقي + إلغاء. لا يمرّ بأي دالة على Vercel. */
+/** Direct PUT/POST to Storage over XHR: real progress + cancel. Never goes through a Vercel function. */
 export function xhrUpload(
   url: string,
   body: Blob,
@@ -70,7 +70,7 @@ export function xhrUpload(
   });
 }
 
-/** يجلب الأجزاء (روابط موقّعة) ويضمّها في Blob واحد مع التحقق من البصمات إن وُجدت */
+/** Fetches the parts (signed URLs) and joins them into one Blob, verifying hashes when present. */
 export async function fetchJoined(
   urls: string[],
   opts: { hashes?: string[] | null; type?: string; onProgress?: (done: number, total: number) => void; signal?: AbortSignal }

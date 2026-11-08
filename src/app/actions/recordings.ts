@@ -12,7 +12,7 @@ import type { FormState } from "./auth";
 const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** المشرف: ينتظر الموافقة ما لم يملك النشر المباشر (trigger). المدير: ينشر فوراً. */
+/** Moderators wait for approval unless they can publish directly (trigger). Admin publishes immediately. */
 export async function createRecording(_prev: FormState, fd: FormData): Promise<FormState> {
   const me = await requireStaff();
   const { t } = await getT();

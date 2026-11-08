@@ -6,7 +6,7 @@ import { SPACE_SELECT, toSpace, type Feature, type Space, type SpaceRow } from "
 
 export * from "@/lib/space-model";
 
-/** فضاء المستخدم الحالي (مرة واحدة لكل طلب). المشرف العام: الفضاء الذي «دخله». */
+/** The current user's space (once per request). Super admin: the space they "entered". */
 export const getSpace = cache(async (): Promise<Space | null> => {
   const profile = await getProfile();
   if (!profile?.cohort_id) return null;
@@ -20,7 +20,7 @@ export async function featureEnabled(feature: Feature): Promise<boolean> {
   return (await getSpace())?.features[feature] === true;
 }
 
-/** للصفحات: ميزة مقفولة ← إعادة للرئيسية (لا تُعرض الصفحة ولا تُنفَّذ أي استعلامات). */
+/** For pages: feature disabled -> redirect to Home (the page does not render and no queries run). */
 export async function requireFeature(feature: Feature): Promise<void> {
   if (!(await featureEnabled(feature))) redirect("/");
 }

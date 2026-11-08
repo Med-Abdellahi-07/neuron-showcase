@@ -35,21 +35,21 @@ const ADM = await mk("ADM", "admin");
 
 const sel = (u) => q(u, "select code, start_date::text as d from public.semesters order by code");
 ok("S3 = 2026-10-12", (await sel(A)).find((r) => r.code === "S3")?.d === "2026-10-12");
-ok("S4 بلا تاريخ (null)", (await sel(A)).find((r) => r.code === "S4")?.d === null);
-ok("الطالب يقرأ التاريخ", (await sel(A)).length >= 2);
-// الطالب لا يعدّل (RLS: صفر صفوف)
+ok("S4 has no date (null)", (await sel(A)).find((r) => r.code === "S4")?.d === null);
+ok("a student reads the date", (await sel(A)).length >= 2);
+// A student cannot edit (RLS: zero rows)
 const r1 = await q(A, "update public.semesters set start_date='2026-01-01' where code='S3' returning id");
-ok("الطالب لا يعدّل تاريخ السداسي", r1.length === 0 && (await sel(A)).find((r) => r.code === "S3").d === "2026-10-12");
-// المدير يعدّل
+ok("a student cannot edit the semester date", r1.length === 0 && (await sel(A)).find((r) => r.code === "S3").d === "2026-10-12");
+// The admin can edit
 const r2 = await q(ADM, "update public.semesters set start_date='2026-10-19' where code='S3' returning id");
-ok("المدير يعدّل التاريخ", r2.length === 1 && (await sel(A)).find((r) => r.code === "S3").d === "2026-10-19");
-ok("المدير يمسحه (null)", (await q(ADM, "update public.semesters set start_date=null where code='S4' returning id")).length === 1);
-// إعادة تشغيل 0015 لا تكتب فوق تعديل المدير (S3 = 19 أكتوبر)، لكنها تملأ الفارغ
+ok("the admin edits the date", r2.length === 1 && (await sel(A)).find((r) => r.code === "S3").d === "2026-10-19");
+ok("the admin clears it (null)", (await q(ADM, "update public.semesters set start_date=null where code='S4' returning id")).length === 1);
+// Re-running 0015 does not overwrite the admin's edit (S3 = 19 October), but it fills in an empty value
 await db.exec(fs.readFileSync(M + "0015_semester_start.sql", "utf8"));
-ok("إعادة تشغيل 0015 لا تكتب فوق تعديل المدير", (await sel(A)).find((r) => r.code === "S3").d === "2026-10-19");
+ok("re-running 0015 does not overwrite the admin's edit", (await sel(A)).find((r) => r.code === "S3").d === "2026-10-19");
 await db.query("update public.semesters set start_date=null where code='S3'");
 await db.exec(fs.readFileSync(M + "0015_semester_start.sql", "utf8"));
-ok("وتملأ S3 الفارغ بـ 2026-10-12", (await sel(A)).find((r) => r.code === "S3").d === "2026-10-12");
-ok("S4 تبقى فارغة", (await sel(A)).find((r) => r.code === "S4").d === null);
-console.log(`\n${pass} ناجح، ${fail} فاشل`);
+ok("and fills the empty S3 with 2026-10-12", (await sel(A)).find((r) => r.code === "S3").d === "2026-10-12");
+ok("S4 stays empty", (await sel(A)).find((r) => r.code === "S4").d === null);
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

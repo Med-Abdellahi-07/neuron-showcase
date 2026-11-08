@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** كتلة رمادية نابضة تشغل مكان المحتوى حتى يصل. تحترم تفضيل تقليل الحركة. */
+/** Pulsing gray block that fills the content's place until it arrives. Respects the reduced-motion preference. */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
@@ -10,7 +10,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
   );
 }
 
-/** غلاف يُعلِم قارئات الشاشة بأن المحتوى قيد التحميل. */
+/** Wrapper that tells screen readers the content is loading. */
 export function PageSkeleton({ children, className = "space-y-5" }: { children: ReactNode; className?: string }) {
   return (
     <div aria-busy="true" aria-live="polite" className={className}>

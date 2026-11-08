@@ -10,7 +10,7 @@ import { useT } from "@/lib/i18n/client";
 
 type State = "idle" | "busy" | "saved" | "error";
 
-/** زر «تنزيل للمشاهدة بدون نت» في صفحة الحصة: PDF + الأسئلة + ملخصات الطالب تُحفظ في IndexedDB */
+/** "Download for offline viewing" button on the lesson page: PDF + questions + the student's summaries are saved in IndexedDB. */
 export function OfflineButton({ lessonId, withQuestions }: { lessonId: string; withQuestions: boolean }) {
   const { t } = useT();
   const [state, setState] = useState<State>("idle");
@@ -30,7 +30,7 @@ export function OfflineButton({ lessonId, withQuestions }: { lessonId: string; w
       if (!res.ok) throw new Error(res.error);
       const pdfs = await Promise.all(
         res.pack.pdfs.map(async (f) => {
-          if (f.parts) return { name: f.name, blob: await fetchJoined(f.parts, { hashes: f.hashes }) }; // مجزّأ: ضمّ الأجزاء
+          if (f.parts) return { name: f.name, blob: await fetchJoined(f.parts, { hashes: f.hashes }) }; // Multipart: join the parts.
           const r = await fetch(f.url);
           if (!r.ok) throw new Error("pdf");
           return { name: f.name, blob: await r.blob() };
@@ -42,7 +42,7 @@ export function OfflineButton({ lessonId, withQuestions }: { lessonId: string; w
         return;
       }
       await savePack({ ...res.pack, pdfs, savedAt: Date.now() });
-      try { await navigator.storage?.persist?.(); } catch { /* اختياري */ }
+      try { await navigator.storage?.persist?.(); } catch { /* optional */ }
       if (res.qNote) setNote(t(res.qNote === "limit" ? "off.qLimit" : res.qNote === "none" || res.qNote === "off" ? "off.qNone" : "off.qErr"));
       setState("saved");
     } catch {

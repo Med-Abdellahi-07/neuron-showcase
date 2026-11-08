@@ -10,7 +10,7 @@ function randomHex(bytes: number) {
   return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** يولّد مفاتيح VAPID وسرّ Cron في المتصفح/الخادم دون أي طرفية. تُنسخ مباشرة إلى Vercel ولا تُلصق في أي دردشة. */
+/** Generates VAPID keys and the Cron secret in the browser/server with no terminal. Copy them straight into Vercel, never paste into a chat. */
 export function VapidGenerator() {
   const { t } = useT();
   const [vars, setVars] = useState<{ name: string; value: string }[] | null>(null);
@@ -35,7 +35,7 @@ export function VapidGenerator() {
       setCopied(name);
       setTimeout(() => setCopied(null), 1500);
     } catch {
-      /* المستخدم ينسخ يدوياً */
+      /* The user copies manually. */
     }
   }
 

@@ -1,8 +1,8 @@
-// Neuron service worker v3 — يعمل التطبيق بدون إنترنت.
-//  • عند التثبيت: يحمّل قشرة /offline كاملة (HTML + كل JS/CSS + الخطوط + الأيقونات + manifest) في كاش خاص بنسخة البناء.
-//  • النسخة الجديدة لا تحذف القديمة إلا بعد اكتمال تحميل قشرتها (install يفشل كلياً إن نقص أي ملف فتبقى القديمة).
-//  • /_next/static (ثابتة بالهاش): الكاش أولاً. التنقّل: الشبكة أولاً بمهلة 3 ثوانٍ ثم القشرة المحلية.
-//  • الصفحات الخاصة بالمستخدم لا تُخزَّن أبداً. /offline لا تحوي بيانات (تقرأ من IndexedDB على الجهاز).
+// Neuron service worker v3 - lets the app work without internet.
+//   - On install: downloads the full /offline shell (HTML + all JS/CSS + fonts + icons + manifest) into a per-build cache.
+//   - A new version deletes the old one only after its shell is fully downloaded (install fails entirely if any file is missing, so the old one keeps working).
+//   - /_next/static (hashed, immutable): cache first. Navigation: network first with a 3 s timeout, then the local shell.
+//   - User-specific pages are never cached. /offline holds no data (it reads from IndexedDB on the device).
 importScripts("/sw-build.js");
 
 const BUILD = self.NEURON_BUILD || "dev";
@@ -11,7 +11,7 @@ const OFFLINE_URL = "/offline";
 const EXTRA = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/favicon.ico"];
 const NAV_TIMEOUT_MS = 3000;
 
-/** كل مسارات /_next/static المذكورة في HTML الصفحة (وسوم script/link وبيانات RSC المضمّنة) */
+/** All /_next/static paths referenced in the page HTML (script/link tags and embedded RSC data) */
 function extractAssets(html) {
   const out = new Set();
   for (const m of html.matchAll(/\/_next\/static\/[^"'\\\s)<>]+/g)) out.add(decodeURIComponent(m[0].replace(/&amp;/g, "&")));
@@ -37,7 +37,7 @@ self.addEventListener("install", (event) => {
         await cache.put(OFFLINE_URL, res);
         const assets = new Set([...extractAssets(html), ...EXTRA]);
         await Promise.all([...assets].map((u) => put(cache, u)));
-        // خطوط وصور داخل ملفات CSS
+        // Fonts and images inside CSS files
         const fonts = new Set();
         for (const u of assets) {
           if (!u.endsWith(".css")) continue;
@@ -48,10 +48,10 @@ self.addEventListener("install", (event) => {
           }
         }
         await Promise.all([...fonts].map((u) => put(cache, u)));
-        // اكتمل التحميل: الآن فقط نتجاوز الانتظار فتحلّ النسخة محل القديمة
+        // Download complete: only now skip waiting so the new version replaces the old one
         await self.skipWaiting();
       } catch (e) {
-        await caches.delete(SHELL); // لا قشرة ناقصة أبداً؛ تبقى النسخة القديمة تعمل
+        await caches.delete(SHELL); // Never keep a partial shell; the old version keeps working
         throw e;
       }
     })()
@@ -89,12 +89,12 @@ function fetchWithTimeout(request, ms) {
 
 async function navigation(request, url) {
   if (url.pathname === OFFLINE_URL) return (await shell()) || fetch(request);
-  // ?online=1 (زر «العودة إلى التطبيق») بلا مهلة؛ وفشله يعيد إلى القشرة المحلية
+  // ?online=1 ("back to the app" button) has no timeout; if it fails we fall back to the local shell
   const patient = url.searchParams.get("online") === "1";
   try {
     const res = await fetchWithTimeout(request, patient ? 0 : NAV_TIMEOUT_MS);
     if (res.status >= 500) throw new Error("server " + res.status);
-    // أجاب بتحويل (غالباً إلى /login لتعذّر تجديد الجلسة) والجهاز غير متصل فعلياً: التطبيق المحلي أفضل
+    // The server answered with a redirect (usually to /login because the session could not be refreshed) while the device is actually offline: the local app is better
     if (res.type === "opaqueredirect" && self.navigator && self.navigator.onLine === false) throw new Error("redirect-offline");
     return res;
   } catch {

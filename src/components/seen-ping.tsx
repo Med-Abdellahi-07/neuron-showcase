@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { touchSeen } from "@/app/actions/seen";
 
-/** يُسجّل «آخر ظهور» مرة كل 10 دقائق كحد أقصى لكل تبويب (لإحصاءات نشاط الطلاب عند المدير). */
+/** Records "last seen" at most once every 10 minutes per tab (for the admin's student activity stats). */
 export function SeenPing() {
   useEffect(() => {
     try {
@@ -11,7 +11,7 @@ export function SeenPing() {
       if (Date.now() - last < 10 * 60_000) return;
       sessionStorage.setItem("neuron-seen", String(Date.now()));
     } catch {
-      /* التخزين غير متاح: نرسل على أي حال */
+      /* Storage unavailable: send anyway. */
     }
     void touchSeen();
   }, []);

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { SPACE_SELECT, toSpace } from "@/lib/spaces";
 
-/** قائمة الفضاءات للتبديل السريع (للمشرف العام فقط) */
+/** Space list for quick switching (super admin only). */
 export async function getSpaceOptions(): Promise<{ id: string; label: string }[]> {
   const supabase = await createClient();
   const { data } = await supabase.from("cohorts").select(SPACE_SELECT).order("name");

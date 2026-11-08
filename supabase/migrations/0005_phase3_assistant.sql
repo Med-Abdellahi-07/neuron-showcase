@@ -1,19 +1,19 @@
--- Neuron — المرحلة 3: المساعد الذكي (RAG، محادثات، تصحيح المكتوب، تحليل الطالب).
--- يُنفَّذ بعد 0001–0004 من Supabase → SQL Editor. آمن للتنفيذ أكثر من مرة.
+-- Neuron - phase 3: the AI assistant (RAG, conversations, written-answer correction, student analysis).
+-- Run after 0001-0004 from Supabase -> SQL Editor. Safe to run more than once.
 --
--- الخصوصية: لا يُخزَّن هنا أي شيء يُرسل إلى مزوّدي الذكاء الاصطناعي سوى محتوى الدروس والأسئلة
--- ونصوص المحادثة التي يكتبها الطالب نفسه. لا تُرسل الأسماء ولا البريد ولا الهاتف.
+-- Privacy: nothing sent to AI providers is stored here except lesson content, questions
+-- and the chat text the student typed. Names, emails and phone numbers are never sent.
 
--- ───────────────────────── 0) pgvector (قبل تغيير الصلاحيات الافتراضية) ─────────────────────────
--- يجب إنشاء الامتداد أولاً: الدوال التي تُنشأ بعد سحب الصلاحية الافتراضية لا تكون قابلة للتنفيذ.
+-- ───────────────────────── 0) pgvector (before changing default privileges) ─────────────────────────
+-- The extension must be created first: functions created after the default privilege is revoked are not executable.
 create schema if not exists extensions;
 create extension if not exists vector with schema extensions;
 grant usage on schema extensions to authenticated, service_role;
 grant execute on all functions in schema extensions to authenticated, service_role;
 
--- ───────────────────────── 1) تضييق الدوال المساعدة عن anon ─────────────────────────
--- الدوال تُنشأ افتراضياً قابلة للتنفيذ من PUBLIC (ومنها anon). نسحبها ونمنحها للأدوار التي تحتاجها فقط.
--- ping() تبقى متاحة لـ anon عمداً (0004).
+-- ───────────────────────── 1) Restrict helper functions from anon ─────────────────────────
+-- Functions are executable by PUBLIC (including anon) by default. We revoke that and grant only to the roles that need them.
+-- ping() stays available to anon on purpose (0004).
 do $$
 declare f record;
 begin
@@ -27,12 +27,12 @@ begin
   end loop;
 end $$;
 
--- الدوال التي ستُنشأ لاحقاً لا تكون عامة افتراضياً (كل ملف يمنح صراحةً ما يحتاجه)
+-- Functions created later are not public by default (each file explicitly grants what it needs)
 alter default privileges for role postgres revoke execute on functions from public;
 alter default privileges for role postgres in schema public revoke execute on functions from anon;
 
 
--- ───────────────────────── 3) مقاطع الدروس (RAG) ─────────────────────────
+-- ───────────────────────── 3) Lesson chunks (RAG) ─────────────────────────
 alter table public.lesson_files add column if not exists indexed_at timestamptz;
 alter table public.lesson_files add column if not exists index_error text;
 
@@ -52,7 +52,7 @@ create index if not exists lesson_chunks_subject_idx on public.lesson_chunks(sub
 create index if not exists lesson_chunks_file_idx on public.lesson_chunks(file_id);
 create index if not exists lesson_chunks_tsv_idx on public.lesson_chunks using gin(tsv);
 
--- ───────────────────────── 4) المحادثات ─────────────────────────
+-- ───────────────────────── 4) Conversations ─────────────────────────
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade default auth.uid(),
@@ -78,7 +78,7 @@ create table if not exists public.messages (
 );
 create index if not exists messages_conv_idx on public.messages(conversation_id, created_at);
 
--- ───────────────────────── 5) تصحيح المكتوب وتحليل الطالب ─────────────────────────
+-- ───────────────────────── 5) Written-answer correction and student analysis ─────────────────────────
 alter table public.attempt_answers add column if not exists ai_score smallint check (ai_score between 0 and 100);
 alter table public.attempt_answers add column if not exists ai_feedback text;
 
@@ -89,7 +89,7 @@ create table if not exists public.student_analysis (
   generated_at timestamptz not null default now()
 );
 
--- ───────────────────────── 6) حدود الاستعمال (خفية) ─────────────────────────
+-- ───────────────────────── 6) Usage limits (hidden) ─────────────────────────
 create table if not exists public.ai_usage (
   id bigint generated always as identity primary key,
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -129,7 +129,7 @@ create policy analysis_read on public.student_analysis for select to authenticat
 drop policy if exists analysis_write on public.student_analysis;
 create policy analysis_write on public.student_analysis for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
--- ai_usage: بلا سياسات للمستخدم؛ تُكتب عبر الدالة ai_take فقط
+-- ai_usage: no user policies; written only through the ai_take function
 
 -- ───────────────────────── GRANT ─────────────────────────
 revoke all on public.lesson_chunks, public.conversations, public.messages,
@@ -141,10 +141,10 @@ grant select, insert, update, delete on public.student_analysis to authenticated
 grant all on public.lesson_chunks, public.conversations, public.messages,
              public.student_analysis, public.ai_usage to service_role;
 
--- ───────────────────────── الدوال ─────────────────────────
+-- ───────────────────────── Functions ─────────────────────────
 
--- حد الاستعمال: يُسجَّل الاستدعاء ويُرجع true، أو يُرجع false إن تجاوز الحدّ.
--- (النافذة القصيرة تمنع الإفراط، واليومية تحمي الحصة المجانية.)
+-- Usage limit: the call is recorded and true is returned, or false if the limit is exceeded.
+-- (The short window prevents abuse; the daily one protects the free quota.)
 create or replace function public.ai_take(
   p_kind text, p_window_limit integer, p_window_seconds integer, p_day_limit integer
 ) returns boolean
@@ -165,14 +165,14 @@ begin
   return true;
 end $$;
 
--- عدّاد عام (كل الطلاب) لحماية حصة البحث المجانية في Tavily
+-- Global counter (all students) protecting Tavily's free search quota
 create or replace function public.ai_global_count(p_kind text, p_days integer) returns integer
 language sql stable security definer set search_path = public as $$
   select count(*)::integer from public.ai_usage
   where kind = p_kind and at > now() - make_interval(days => p_days)
 $$;
 
--- بحث دلالي في مقاطع الدروس المنشورة (RLS يطبَّق لأن الدالة security invoker)
+-- Semantic search over published lesson chunks (RLS applies because the function is security invoker)
 create or replace function public.match_chunks(
   p_embedding extensions.vector(768), p_subject uuid default null, p_lesson uuid default null, p_k integer default 6
 ) returns table (
@@ -193,7 +193,7 @@ language sql stable set search_path = public, extensions as $$
   limit least(greatest(p_k, 1), 20)
 $$;
 
--- بحث نصي احتياطي إذا تعذّر التضمين
+-- Fallback text search when embedding is unavailable
 create or replace function public.search_chunks_text(
   p_query text, p_subject uuid default null, p_lesson uuid default null, p_k integer default 6
 ) returns table (
@@ -214,7 +214,7 @@ language sql stable set search_path = public as $$
   limit least(greatest(p_k, 1), 20)
 $$;
 
--- حفظ تصحيح الذكاء الاصطناعي على إجابة مكتوبة (بعد submit_answer)
+-- Save the AI correction of a written answer (after submit_answer)
 create or replace function public.record_ai_grade(
   p_attempt uuid, p_question uuid, p_score integer, p_feedback text
 ) returns void
@@ -225,7 +225,7 @@ begin
     where attempt_id = p_attempt and question_id = p_question and user_id = auth.uid() and qtype = 'written';
 end $$;
 
--- إحصاءات الطالب لتحليل أدائه (مجمّعة، بلا بيانات شخصية). المدير فقط يطلبها لغيره.
+-- Student statistics for performance analysis (aggregated, no personal data). Only the admin may request them for someone else.
 create or replace function public.my_stats(p_user uuid default null) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
@@ -271,7 +271,7 @@ begin
   return res;
 end $$;
 
--- ───────────────────────── صلاحيات الدوال الجديدة ─────────────────────────
+-- ───────────────────────── Privileges of the new functions ─────────────────────────
 revoke all on function public.ai_take(text, integer, integer, integer) from public, anon;
 revoke all on function public.ai_global_count(text, integer) from public, anon;
 revoke all on function public.match_chunks(extensions.vector, uuid, uuid, integer) from public, anon;
@@ -285,8 +285,8 @@ grant execute on function public.search_chunks_text(text, uuid, uuid, integer) t
 grant execute on function public.record_ai_grade(uuid, uuid, integer, text) to authenticated, service_role;
 grant execute on function public.my_stats(uuid) to authenticated, service_role;
 
--- حماية الإجابات الصحيحة (من 0003) تبقى كما هي: لا نمنح select على correct_index/explanation.
--- (تأكيد: إن أعاد أحد تنفيذ 0002 فنفّذ الأمرين أدناه)
+-- The correct-answer protection from 0003 stays as is: no select is granted on correct_index/explanation.
+-- (Reminder: if someone re-runs 0002, run the two statements below)
 revoke select on public.questions from authenticated;
 grant select (id, subject_id, lesson_id, type, difficulty, statement, options, model_answer,
               status, created_by, created_at) on public.questions to authenticated;

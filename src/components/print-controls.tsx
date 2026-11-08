@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Printer, ArrowLeft } from "lucide-react";
 
-/** يفتح نافذة الطباعة تلقائياً بعد تحميل الخطوط والمعادلات، مع زر احتياطي (بعض المتصفحات تمنع الطباعة بلا لمسة). */
+/** Opens the print dialog automatically after fonts and formulas load, with a fallback button (some browsers block printing without a tap). */
 export function PrintControls({
   title,
   printLabel,
@@ -27,11 +27,11 @@ export function PrintControls({
       try {
         await document.fonts?.ready;
       } catch {
-        /* لا شيء */
+        /* nothing to do */
       }
       await new Promise((r) => setTimeout(r, 500));
       if (!cancelled) {
-        document.title = title; // اسم الملف المقترح عند «حفظ كـ PDF»
+        document.title = title; // Suggested file name for "Save as PDF".
         window.print();
       }
     })();

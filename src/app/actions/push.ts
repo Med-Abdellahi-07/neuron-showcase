@@ -13,7 +13,7 @@ export interface SubInput {
   auth: string;
 }
 
-/** خدمات الدفع المعروفة فقط (يمنع توجيه الخادم إلى عنوان اعتباطي يختاره مستخدم). */
+/** Known push services only (prevents pointing the server at an arbitrary address chosen by a user). */
 const PUSH_HOSTS = [/(^|\.)googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
 function knownPushHost(endpoint: string): boolean {
   try {
@@ -29,7 +29,7 @@ const okSub = (s: SubInput) =>
   typeof s.p256dh === "string" && s.p256dh.length > 20 && s.p256dh.length <= 200 &&
   typeof s.auth === "string" && s.auth.length > 8 && s.auth.length <= 100;
 
-/** حفظ اشتراك هذا الجهاز. نستعمل service role لأن endpoint فريد وقد يكون مسجّلاً سابقاً باسم مستخدم آخر على الجهاز نفسه. */
+/** Save this device's subscription. Uses the service role because the endpoint is unique and may have been registered earlier by another user on the same device. */
 export async function savePushSubscription(sub: SubInput, userAgent: string): Promise<{ ok: boolean }> {
   const userId = await getUserId();
   if (!userId || !okSub(sub)) return { ok: false };
@@ -62,7 +62,7 @@ export async function savePushPrefs(prefs: Record<string, boolean>): Promise<{ o
   return { ok: !error };
 }
 
-/** إشعار تجريبي للمستخدم نفسه (يتجاوز تفضيل النوع ليتحقق من الجهاز). */
+/** Test notification to the user themselves (bypasses the type preference to verify the device). */
 export async function sendTestPush(): Promise<{ ok: boolean; reason?: "not_configured" | "no_device" | "failed" }> {
   const userId = await getUserId();
   if (!userId) return { ok: false, reason: "failed" };
@@ -78,7 +78,7 @@ export async function sendTestPush(): Promise<{ ok: boolean; reason?: "not_confi
   return { ok: false, reason: r.recipients === 0 ? "no_device" : "failed" };
 }
 
-/** المدير: يولّد مفاتيح VAPID على الخادم (بلا طرفية). المفتاح الخاص يُعرض مرة واحدة ولا يُخزَّن. */
+/** Admin: generates VAPID keys on the server (no terminal needed). The private key is shown once and never stored. */
 export async function generateVapidKeys(): Promise<{ publicKey: string; privateKey: string }> {
   await requireAdmin();
   return webpush.generateVAPIDKeys();

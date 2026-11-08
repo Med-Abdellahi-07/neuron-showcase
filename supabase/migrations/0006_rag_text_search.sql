@@ -1,5 +1,5 @@
--- بحث نصي احتياطي أكثر تسامحاً: كلمات السؤال تُربط بـ OR (لا AND)، فيكفي تطابق كلمة مميزة
--- مثل «apprentissage supervisé» حتى لو كان السؤال يحوي كلمات أخرى («selon le cours»).
+-- More tolerant fallback text search: the question words are joined with OR (not AND), so one distinctive word is enough to match,
+-- e.g. "apprentissage supervisé" even if the question contains other words ("selon le cours").
 create or replace function public.search_chunks_text(
   p_query text, p_subject uuid default null, p_lesson uuid default null, p_k integer default 6
 ) returns table (

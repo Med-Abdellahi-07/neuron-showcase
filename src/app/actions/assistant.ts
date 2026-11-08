@@ -20,8 +20,8 @@ export interface Exercise {
 export type CreateChatResult = { ok: true; id: string } | { ok: false; error: "invalid" | "failed" };
 
 /**
- * محادثة موجَّهة جديدة: مادة ثم حصة واحدة أو عدة حصص أو كل حصص المادة.
- * lessonIds فارغة = كل حصص المادة. لا يبدأ المساعد هنا؛ الواجهة تطلب "start" بعد الانتقال.
+ * New guided conversation: a subject, then one lesson, several lessons or all of the subject's lessons.
+ * Empty lessonIds means every lesson of the subject. The assistant does not speak here; the UI requests "start" after navigation.
  */
 export async function createChat(input: {
   mode: string;
@@ -85,7 +85,7 @@ export async function createChat(input: {
   return { ok: true, id: data.id as string };
 }
 
-/** تمارين بنك الأسئلة المنشورة ضمن النطاق (الحصص المختارة أو كل المادة). لا تُرجع الإجابات. */
+/** Published question-bank exercises within scope (selected lessons or the whole subject). Answers are not returned. */
 export async function listExercises(subjectCode: string, lessonIds: string[]): Promise<Exercise[]> {
   const userId = await getUserId();
   if (!userId || !(await featureEnabled("ai"))) return [];

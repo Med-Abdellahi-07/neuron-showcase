@@ -11,8 +11,8 @@ export interface Mark {
 }
 
 /**
- * مشغّل التسجيل داخل الموقع. لا يُحمَّل شيء من YouTube/Drive قبل ضغط «تشغيل» (خصوصية + سرعة على الهاتف)،
- * وYouTube عبر youtube-nocookie. العلامات الزمنية (إن وُجدت) تنقل التشغيل إلى اللحظة المختارة.
+ * In-site recording player. Nothing is loaded from YouTube/Drive before "Play" is tapped (privacy + speed on phones),
+ * and YouTube goes through youtube-nocookie. Timestamps (if any) jump playback to the chosen moment.
  */
 export function RecordingPlayer({ provider, videoId, title, marks = [] }: { provider: Provider; videoId: string; title: string; marks?: Mark[] }) {
   const { t } = useT();

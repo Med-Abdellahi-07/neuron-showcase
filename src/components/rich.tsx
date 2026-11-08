@@ -7,7 +7,7 @@ import "katex/dist/katex.min.css";
 import { MathSpan } from "@/components/math-span";
 import { normalizeMath } from "@/lib/math";
 
-/** يعرض Markdown مع معادلات KaTeX وأكواد. المحتوى الدراسي بالفرنسية، لذا dir=auto. */
+/** Renders Markdown with KaTeX formulas and code. Study content is French, so dir=auto. */
 export function Rich({ children }: { children: string }) {
   return (
     <div className="rich text-sm leading-7" dir="auto">

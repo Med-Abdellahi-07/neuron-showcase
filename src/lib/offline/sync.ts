@@ -1,7 +1,7 @@
 import { getOwner, getSnapshot, listOutbox, removeFromOutbox, saveSnapshot, setOwner, wipeAll } from "./db";
 import type { OfflineSnapshot } from "./types";
 
-/** يحفظ لقطة الجدول؛ إن تغيّر صاحب الجهاز تُمسح كل البيانات القديمة أولًا. */
+/** Saves the timetable snapshot; if the device owner changed, all old data is wiped first. */
 export async function syncSnapshot(): Promise<OfflineSnapshot | null> {
   const r = await fetch("/api/offline-snapshot", { cache: "no-store", credentials: "same-origin" });
   if (!r.ok) return null;
@@ -13,7 +13,7 @@ export async function syncSnapshot(): Promise<OfflineSnapshot | null> {
   return snap;
 }
 
-/** يرسل النتائج المعلّقة؛ ما عولج يُحذف من الصندوق. */
+/** Sends pending results; whatever was handled is removed from the outbox. */
 export async function flushOutbox(): Promise<number> {
   const items = await listOutbox();
   if (!items.length) return 0;

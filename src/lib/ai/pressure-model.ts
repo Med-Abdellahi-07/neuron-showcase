@@ -7,7 +7,7 @@ export const dailyLimit = (p: LlmName): number => {
   return Number.isFinite(v) && v > 0 ? v : DEFAULT_LIMITS[p];
 };
 
-/** نسبة الاستهلاك → معامل الحصة */
+/** Usage ratio -> quota factor. */
 export function pressureFor(ratio: number): number {
   if (ratio >= 0.9) return 0.3;
   if (ratio >= 0.8) return 0.5;

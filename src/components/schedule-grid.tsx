@@ -20,35 +20,35 @@ export interface AdminProps {
 }
 
 interface Props {
-  /** طالب: قراءة فقط. مشرف: الضغط على خانة يفتح الإدارة والإضافة */
+  /** Student: read-only. Admin: tapping a cell opens management and add. */
   mode: "student" | "admin";
   monday: string;
-  /** وقت الخادم الابتدائي (يتجدد في المتصفح كل نصف دقيقة) */
+  /** Initial server time (refreshed in the browser every half minute). */
   today: string;
   nowHM: string;
   tz: string;
   sessions: GridSession[];
   initialView?: ScheduleView;
   admin?: AdminProps;
-  /** الطالب: تنقّل الأسابيع (يظهر تحت العنوان في الرأس) */
+  /** Student: week navigation (shown under the title in the header). */
   weekNav?: React.ReactNode;
-  /** النسخة المحلية بلا إنترنت: بلا روابط لصفحات الخادم، والرجوع يُدار من الأب */
+  /** Local offline copy: no links to server pages, and back navigation is handled by the parent. */
   offline?: { onBack: () => void; backLabel: string };
 }
 
 interface Sel {
   date: string;
   slot: number;
-  /** الطالب يرى الحصة المضغوطة فقط؛ المشرف يرى كل حصص الخانة */
+  /** A student sees the compact session only; an admin sees every session in the cell. */
   sessionId?: string;
 }
 
 const dayKey = (n: number) => `day.${n}` as DictKey;
 const cellKey = (date: string, slot: number) => `${date}|${slot}`;
-/** يوم الأسبوع 1..6 (الإثنين..السبت) لتاريخ ISO؛ الأحد لا دراسة فيه فيُعامل كالسبت */
+/** Day of week 1..6 (Monday..Saturday) for an ISO date; Sunday has no classes, so it is treated like Saturday. */
 const weekday = (iso: string) => Math.min(6, new Date(`${iso}T00:00:00Z`).getUTCDay() || 7);
 
-/** التاريخ والوقت الحاليان بتوقيت التطبيق (لا نعتمد على توقيت جهاز الطالب) */
+/** Current date and time in the app's time zone (we do not rely on the student's device clock). */
 function clock(tz: string) {
   const d = new Date();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
@@ -64,7 +64,7 @@ function useNow(tz: string, initial: { today: string; hm: string }) {
       try {
         if (safe) setNow(clock(tz));
       } catch {
-        /* منطقة زمنية غير صالحة: نبقي وقت الخادم */
+        /* Invalid time zone: keep the server time. */
       }
     };
     const id = setInterval(tick, 30_000);
@@ -78,7 +78,7 @@ function useNow(tz: string, initial: { today: string; hm: string }) {
   return now;
 }
 
-/** كتلة حصة داخل خانة أو قائمة اليوم */
+/** A session block inside a cell or the day list. */
 function SessionBlock({
   s,
   now,
@@ -139,7 +139,7 @@ function SessionBlock({
   );
 }
 
-/** تفاصيل حصة واحدة داخل النافذة */
+/** Details of one session inside the dialog. */
 function SessionDetails({ s, mode, offline }: { s: GridSession; mode: "student" | "admin"; offline?: boolean }) {
   const { t, locale } = useT();
   const slot = SLOTS.find((x) => x.n === s.slot);
@@ -201,7 +201,7 @@ function SessionDetails({ s, mode, offline }: { s: GridSession; mode: "student" 
   );
 }
 
-/** نموذج إضافة حصة في خانة محددة (للمشرف) */
+/** Add-session form for a specific cell (admin). */
 function AddForm({ admin, date, slot }: { admin: AdminProps; date: string; slot: number }) {
   const { t } = useT();
   const id = `${date}-${slot}`;

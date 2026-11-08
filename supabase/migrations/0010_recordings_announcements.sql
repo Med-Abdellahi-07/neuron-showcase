@@ -1,10 +1,10 @@
--- Neuron — المرحلة 4 (1/4): التسجيلات + انتهاء الإعلانات.
--- يُنفَّذ بعد 0009 من Supabase → SQL Editor. آمن للتنفيذ أكثر من مرة.
--- (لا تُعد تنفيذ 0002 أبداً.)
+-- Neuron - phase 4 (1/4): recordings + announcement expiry.
+-- Run after 0009 from Supabase -> SQL Editor. Safe to run more than once.
+-- (Never re-run 0002.)
 
--- ───────────────────────── التسجيلات (الحصص عن بعد) ─────────────────────────
--- خاصة بالدفعة. تُربط بحصة (lesson_id اختياري) أو بـ (مادة + نوع + تاريخ).
--- provider: youtube (نخزّن معرّف الفيديو فقط ونشغّله عبر youtube-nocookie) أو drive (رابط معاينة).
+-- ───────────────────────── Recordings (remote sessions) ─────────────────────────
+-- Cohort-specific. Linked to a lesson (optional lesson_id) or to (subject + type + date).
+-- provider: youtube (only the video id is stored and played through youtube-nocookie) or drive (preview link).
 create table if not exists public.recordings (
   id uuid primary key default gen_random_uuid(),
   cohort_id uuid not null references public.cohorts(id) on delete cascade,
@@ -23,7 +23,7 @@ create table if not exists public.recordings (
 create index if not exists recordings_subject_idx on public.recordings(cohort_id, subject_id, rec_date desc);
 create index if not exists recordings_lesson_idx on public.recordings(lesson_id) where lesson_id is not null;
 
--- الفهرس الزمني (علامات داخل الفيديو): البنية جاهزة الآن والواجهة لاحقاً.
+-- Time index (markers inside the video): the structure is ready now, the UI comes later.
 create table if not exists public.recording_marks (
   id uuid primary key default gen_random_uuid(),
   recording_id uuid not null references public.recordings(id) on delete cascade,
@@ -61,7 +61,7 @@ drop policy if exists marks_write on public.recording_marks;
 create policy marks_write on public.recording_marks for all to authenticated
   using (public.is_staff()) with check (public.is_staff());
 
--- نظام الموافقة نفسه: المشرف بلا "نشر مباشر" تتحول منشوراته إلى "بانتظار الموافقة"
+-- Same approval system: a moderator without "publish directly" has their posts set to "pending approval"
 drop trigger if exists trg_recordings_publish on public.recordings;
 create trigger trg_recordings_publish before insert or update on public.recordings
   for each row execute function public.enforce_publish_rule();
@@ -70,12 +70,12 @@ revoke all on public.recordings, public.recording_marks from anon;
 grant select, insert, update, delete on public.recordings, public.recording_marks to authenticated;
 grant all on public.recordings, public.recording_marks to service_role;
 
--- ───────────────────────── الإعلانات: تاريخ انتهاء اختياري ─────────────────────────
+-- ───────────────────────── Announcements: optional expiry date ─────────────────────────
 alter table public.announcements add column if not exists expires_at timestamptz;
 
--- الطالب لا يرى المنتهي؛ المشرف/المدير يرى الكل
+-- Students do not see expired ones; moderators/admins see everything
 drop policy if exists announcements_read on public.announcements;
 create policy announcements_read on public.announcements for select to authenticated
   using (public.is_staff() or (cohort_id = public.my_cohort() and (expires_at is null or expires_at > now())));
 
--- الإعلانات تُكتب من المدير فقط (سياسة announcements_admin من 0001 ما زالت سارية)
+-- Announcements are written by the admin only (the announcements_admin policy from 0001 still applies)

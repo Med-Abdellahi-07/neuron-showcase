@@ -6,7 +6,7 @@ export async function getLocale(): Promise<Locale> {
   return value && LOCALES.includes(value) ? value : DEFAULT_LOCALE;
 }
 
-/** مترجم للمكوّنات الخادمة. */
+/** Translator for server components. */
 export async function getT() {
   const locale = await getLocale();
   const dict = dictionaries[locale];

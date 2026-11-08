@@ -20,8 +20,8 @@ export interface GenQuestion {
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 /**
- * تحقق آلي من بنية سؤال ولّده النموذج قبل عرضه: عبارة، 4 خيارات مختلفة غير فارغة، إجابة صحيحة واحدة (0-3)، شرح،
- * ورقم صفحة يُقبل فقط إن كان موجوداً فعلاً في مقاطع الدرس المذكور (وإلا يُترك فارغاً بدل صفحة مخترعة).
+ * Automatic structure check of a model-generated question before showing it: a stem, 4 distinct non-empty options, exactly one correct answer (0-3), an explanation,
+ * and a page number accepted only if it really exists in the cited lesson's chunks (otherwise left empty instead of an invented page).
  */
 export function validateGenerated(raw: RawQuestion[], mat: Pick<Material, "pages" | "lessons">): GenQuestion[] {
   const out: GenQuestion[] = [];

@@ -24,7 +24,7 @@ export default async function NotificationsAdminPage() {
     devices = data?.length ?? 0;
     users = new Set((data ?? []).map((r) => r.user_id as string)).size;
   } catch {
-    /* المفتاح غير مضبوط */
+    /* Key not configured */
   }
 
   return (

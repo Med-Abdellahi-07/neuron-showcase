@@ -1,7 +1,7 @@
 import { daysSince } from "@/lib/dates";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 
-/** «آخر نشاط» نسبي بنص مترجم (يُمرَّر t من المستدعي) */
+/** Relative "last activity" with translated text (t is passed in by the caller). */
 export function relativeSeen(iso: string | null, t: (k: DictKey) => string): string {
   if (!iso) return t("stats.never");
   const d = daysSince(iso);

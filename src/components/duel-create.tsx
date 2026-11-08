@@ -15,7 +15,7 @@ export interface DuelLesson {
   title: string;
 }
 
-/** اختيار زميل + مادة + (اختيارياً) حصص محددة + عدد الأسئلة. */
+/** Pick a classmate + subject + (optionally) specific lessons + question count. */
 export function DuelCreate({
   mates,
   subjects,

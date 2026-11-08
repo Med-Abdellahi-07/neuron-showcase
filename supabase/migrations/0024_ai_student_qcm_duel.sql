@@ -1,11 +1,11 @@
--- 0024: QCM بالذكاء الاصطناعي بعدد حر (1..50) + Duel بأسئلة يولّدها الذكاء الاصطناعي (بعد 0023، idempotent).
--- • ai_qcm_sets.question_count: من (5,10,20) إلى 1..50.
--- • ai_costs: نوع 'duel' (علم ai_duel) ليُحسب طلب توليد Duel ضمن السقف الخفي.
--- • أسئلة Duel المولَّدة تُخزَّن في questions بحالة جديدة 'private': لا يقرؤها الطلاب ولا الطاقم ولا تدخل أي تمرين أو QCM أو ترتيب
---   (كل المحددات تشترط published)، وتصل للاعبي التحدي فقط عبر دوال duel_* (security definer) كما تصل أسئلة المشرف.
--- • create_ai_duel: للخادم فقط (service_role)، لأن من يستدعيها يحدد الأسئلة والأجوبة؛ التحقق من الهوية والفضاء يتم داخلها.
+-- 0024: AI QCM with a free count (1..50) + Duel with AI-generated questions (after 0023, idempotent).
+-- - ai_qcm_sets.question_count: from (5,10,20) to 1..50.
+-- - ai_costs: a 'duel' type (ai_duel flag) so a Duel generation request counts toward the hidden cap.
+-- - Generated Duel questions are stored in questions with a new status 'private': students and staff cannot read them and they enter no exercise, QCM or ranking
+--   (every selector requires published); they reach only the duel's players through the duel_* functions (security definer), as admin questions do.
+-- - create_ai_duel: server only (service_role), because whoever calls it chooses the questions and answers; identity and space checks happen inside it.
 
--- ───────────────────────── 1) عدد حر في ai_qcm_sets ─────────────────────────
+-- ───────────────────────── 1) Free count in ai_qcm_sets ─────────────────────────
 do $$
 declare r record;
 begin
@@ -17,11 +17,11 @@ begin
 end $$;
 alter table public.ai_qcm_sets add constraint ai_qcm_sets_question_count_check check (question_count between 1 and 50);
 
--- ───────────────────────── 2) تكلفة Duel ─────────────────────────
+-- ───────────────────────── 2) Duel cost ─────────────────────────
 insert into public.ai_costs (kind, points, flag) values ('duel', 1, 'ai_duel') on conflict (kind) do nothing;
 
--- ───────────────────────── 3) حالة 'private' للأسئلة + إخفاؤها عن الطاقم ─────────────────────────
--- (تحافظ السياسة على فرع «المواد المتبقية» من 0020 كما هو؛ التغيير الوحيد: الطاقم لا يرى private)
+-- ───────────────────────── 3) 'private' status for questions + hide them from staff ─────────────────────────
+-- (The policy keeps the "remaining subjects" branch from 0020 as is; the only change: staff cannot see private)
 do $$
 declare r record;
 begin
@@ -39,7 +39,7 @@ create policy questions_read on public.questions for select to authenticated
          or (status = 'published' and public.follows_subject(subject_id)
              and (type = 'mcq' or public.cohort_feature(public.subject_cohort(subject_id), 'written'))));
 
--- ───────────────────────── 4) تنظيف أسئلة Duel القديمة (أكثر من 90 يومًا) ─────────────────────────
+-- ───────────────────────── 4) Clean up old Duel questions (older than 90 days) ────────────────────────
 create or replace function public.duel_sweep() returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -52,8 +52,8 @@ begin
   delete from public.questions where status = 'private' and created_at < now() - interval '90 days';
 end $$;
 
--- ───────────────────────── 5) إنشاء Duel بأسئلة مولَّدة (service_role فقط) ─────────────────────────
--- p_questions: [{"statement","options":[4],"correct_index":0-3,"explanation","lesson":uuid|null}] بين 5 و15 سؤالًا.
+-- ───────────────────────── 5) Create a Duel with generated questions (service_role only) ─────────────────────────
+-- p_questions: [{"statement","options":[4],"correct_index":0-3,"explanation","lesson":uuid|null}] between 5 and 15 questions.
 create or replace function public.create_ai_duel(
   p_uid uuid, p_opponent uuid, p_subject uuid, p_lessons uuid[], p_questions jsonb
 ) returns uuid

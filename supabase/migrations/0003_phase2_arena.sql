@@ -1,10 +1,10 @@
--- Neuron — المرحلة 2: Arena والترتيب والأخطاء والمراجعة بتباعد.
--- يُنفَّذ بعد 0001 و0002 من Supabase → SQL Editor. آمن للتنفيذ أكثر من مرة.
+-- Neuron - phase 2: Arena, ranking, mistakes and spaced review.
+-- Run after 0001 and 0002 from Supabase -> SQL Editor. Safe to run more than once.
 --
--- مبدأ الأمان: الطالب يقرأ بياناته فقط، ولا يكتب في هذه الجداول مباشرة.
--- كل التصحيح والتنقيط يحدث داخل الدوال أدناه (security definer)، فلا يمكن تزوير النقاط من المتصفح.
+-- Security principle: a student reads only their own data and never writes to these tables directly.
+-- All grading and scoring happens inside the security definer functions below, so points cannot be forged from the browser.
 
--- ───────────────────────── الجداول ─────────────────────────
+-- ───────────────────────── Tables ─────────────────────────
 create table if not exists public.attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade default auth.uid(),
@@ -38,7 +38,7 @@ create table if not exists public.attempt_answers (
   bonus_points numeric(5, 2) not null default 0,
   points numeric(5, 2) not null default 0,
   elapsed_ms integer not null default 0,
-  is_counted boolean not null default false, -- يدخل الترتيب (ranked + أول إجابة لهذا السؤال)
+  is_counted boolean not null default false, -- counts toward the ranking (ranked + first answer to this question)
   answered_at timestamptz not null default now(),
   unique (attempt_id, question_id)
 );
@@ -49,7 +49,7 @@ create index if not exists answers_first_idx on public.attempt_answers(user_id, 
 create table if not exists public.review_queue (
   user_id uuid not null references public.profiles(id) on delete cascade default auth.uid(),
   question_id uuid not null references public.questions(id) on delete cascade,
-  stage smallint not null default 0 check (stage between 0 and 3), -- 0=يوم، 1=3 أيام، 2=أسبوع، 3=أسبوعان
+  stage smallint not null default 0 check (stage between 0 and 3), -- 0 = 1 day, 1 = 3 days, 2 = 1 week, 3 = 2 weeks
   due_at timestamptz not null,
   mastered boolean not null default false,
   wrong_count integer not null default 1,
@@ -59,7 +59,7 @@ create table if not exists public.review_queue (
 );
 create index if not exists review_due_idx on public.review_queue(user_id, due_at) where not mastered;
 
--- ───────────────────────── RLS: قراءة الطالب لبياناته فقط ─────────────────────────
+-- ───────────────────────── RLS: a student reads only their own data ─────────────────────────
 alter table public.attempts enable row level security;
 alter table public.attempt_answers enable row level security;
 alter table public.review_queue enable row level security;
@@ -74,22 +74,22 @@ drop policy if exists review_read_own on public.review_queue;
 create policy review_read_own on public.review_queue for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
 
--- ───────────────────────── الصلاحيات (GRANT) ─────────────────────────
--- قراءة فقط للمستخدمين؛ الكتابة عبر الدوال وservice_role فقط.
+-- ───────────────────────── Privileges (GRANT) ─────────────────────────
+-- Read-only for users; writes go through functions and service_role only.
 revoke all on public.attempts, public.attempt_answers, public.review_queue from anon, authenticated;
 grant select on public.attempts, public.attempt_answers, public.review_queue to authenticated;
 grant all on public.attempts, public.attempt_answers, public.review_queue to service_role;
 
--- منع قراءة الإجابة الصحيحة والشرح مباشرة من المتصفح (وإلا يمكن لأي طالب تقني استخراج
--- إجابات الاختبار المصنّف عبر مفتاح anon). الإجابة تُكشف فقط بعد التسجيل عبر submit_answer.
--- ملاحظة: لم يعد ممكناً استعمال select("*") على questions؛ حدّد الأعمدة صراحةً.
+-- Block reading the correct answer and explanation straight from the browser (otherwise any technical student could extract
+-- the ranked quiz answers with the anon key). The answer is revealed only after recording through submit_answer.
+-- Note: select("*") on questions is no longer possible; name the columns explicitly.
 revoke select on public.questions from authenticated;
 grant select (id, subject_id, lesson_id, type, difficulty, statement, options, model_answer,
               status, created_by, created_at) on public.questions to authenticated;
 
--- ───────────────────────── ثوابت التنقيط ─────────────────────────
--- نقاط الصعوبة: سهل 1، متوسط 2، صعب 3. مكافأة السرعة حتى +50% من النقاط الأساسية،
--- تتناقص خطياً من الكاملة (إجابة فورية) إلى صفر عند بلوغ زمن مرجعي: 30/45/60 ثانية.
+-- ───────────────────────── Scoring constants ─────────────────────────
+-- Difficulty points: easy 1, medium 2, hard 3. Speed bonus up to +50% of the base points,
+-- decreasing linearly from full (instant answer) to zero at a reference time of 30/45/60 seconds.
 create or replace function public.base_points(p_difficulty text) returns smallint
 language sql immutable as $$
   select case p_difficulty when 'easy' then 1 when 'medium' then 2 else 3 end::smallint
@@ -100,7 +100,7 @@ language sql immutable as $$
   select case p_difficulty when 'easy' then 30 when 'medium' then 45 else 60 end
 $$;
 
--- ───────────────────────── إنهاء محاولة ─────────────────────────
+-- ───────────────────────── Finish an attempt ─────────────────────────
 create or replace function public.finish_attempt(p_attempt uuid) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -115,11 +115,11 @@ begin
   return jsonb_build_object('total', a.total, 'answered', a.answered, 'correct', a.correct, 'points', a.points);
 end $$;
 
--- ───────────────────────── بدء محاولة ─────────────────────────
--- ranked: شروط ثابتة (20 سؤال QCM، 20 دقيقة، صعوبة مختلطة). لا تُعاد القرعة بتحديث الصفحة:
---         إن وُجدت محاولة مصنّفة جارية غير منتهية الوقت تُعاد نفسها.
--- review: الأسئلة المستحقة للمراجعة اليوم.
--- free: حسب خيارات الطالب.
+-- ───────────────────────── Start an attempt ─────────────────────────
+-- ranked: fixed rules (20 QCM questions, 20 minutes, mixed difficulty). The draw is not repeated on page refresh:
+--         an in-progress ranked attempt that has not timed out is returned as is.
+-- review: the questions due for review today.
+-- free: according to the student's options.
 create or replace function public.start_attempt(
   p_mode text,
   p_subject uuid default null,
@@ -148,7 +148,7 @@ begin
   if p_type not in ('mcq', 'written', 'mixed') then p_type := 'mixed'; end if;
 
   if p_mode = 'ranked' then
-    -- أنهِ المحاولات المصنّفة المنتهية الوقت، وأعد الجارية
+    -- Finish ranked attempts that timed out, and return the one in progress
     update public.attempts set finished_at = now()
       where user_id = uid and mode = 'ranked' and finished_at is null
         and now() > started_at + make_interval(secs => time_limit_seconds + 10);
@@ -213,11 +213,11 @@ begin
   return new_id;
 end $$;
 
--- ───────────────────────── تسجيل إجابة (التصحيح والتنقيط) ─────────────────────────
--- QCM: p_selected = رقم الخيار. مكتوب: p_self_correct = نتيجة المقارنة الذاتية مع الحل النموذجي.
--- الزمن يُقاس في الخادم (الفرق عن آخر إجابة أو بداية المحاولة). في الاختبار المصنّف هذا هو المعتمد وحده
--- (لا تظهر الإجابات أثناءه فلا يضيع وقت في قراءة الشرح). في التدريب الحر يمكن للمتصفح إرسال زمنه
--- الفعلي p_client_ms لاستبعاد وقت قراءة الشرح، بشرط ألا يتجاوز زمن الخادم. الاستدعاء مكرراً يعيد النتيجة نفسها.
+-- ───────────────────────── Record an answer (grading and scoring) ─────────────────────────
+-- QCM: p_selected = option index. Written: p_self_correct = result of the self-comparison with the model answer.
+-- Time is measured on the server (difference from the last answer or the attempt start). In the ranked quiz this is the only value used
+-- (answers are not shown during it, so no time is lost reading the explanation). In free practice the browser may send its
+-- actual time p_client_ms to exclude explanation-reading time, provided it does not exceed the server time. Calling twice returns the same result.
 create or replace function public.submit_answer(
   p_attempt uuid,
   p_question uuid,
@@ -287,7 +287,7 @@ begin
 
   select semester_id into sem from public.subjects where id = q.subject_id;
 
-  -- تدخل الترتيب: اختبار مصنّف + QCM + أول إجابة محسوبة لهذا السؤال عند هذا الطالب
+  -- Counts toward the ranking: ranked quiz + QCM + the first counted answer to this question by this student
   if a.mode = 'ranked' and q.type = 'mcq' then
     counted := not exists (
       select 1 from public.attempt_answers aa
@@ -295,7 +295,7 @@ begin
   end if;
 
   base := public.base_points(q.difficulty);
-  -- النقاط: للـ QCM الصحيح فقط، في التدريب الحر (للعرض) أو الاختبار المصنّف (المحسوب فقط)
+  -- Points: correct QCM only, in free practice (for display) or the ranked quiz (counted answers only)
   if ok and q.type = 'mcq' and (a.mode = 'free' or counted) then
     factor := greatest(0, 1 - (elapsed / 1000.0) / public.reference_seconds(q.difficulty));
     bonus := round(base * 0.5 * factor, 2);
@@ -316,7 +316,7 @@ begin
     where id = a.id
     returning finished_at is not null into fin;
 
-  -- حفظ الأخطاء تلقائياً: الخطأ (في أي نمط) يعيد السؤال إلى بداية المراجعة (بعد يوم)
+  -- Mistakes are saved automatically: a wrong answer (in any mode) sends the question back to the start of review (after one day)
   if not ok then
     insert into public.review_queue (user_id, question_id, stage, due_at, mastered, wrong_count)
     values (uid, q.id, 0, now() + make_interval(days => intervals[1]), false, 1)
@@ -324,7 +324,7 @@ begin
       set stage = 0, due_at = now() + make_interval(days => intervals[1]), mastered = false,
           wrong_count = public.review_queue.wrong_count + 1, updated_at = now();
   elsif a.mode = 'review' then
-    -- إجابة صحيحة في جلسة مراجعة: ينتقل للمرحلة التالية (3 أيام، أسبوع، أسبوعان) ثم يُعتبر متقَناً
+    -- A correct answer in a review session moves it to the next stage (3 days, 1 week, 2 weeks), after which it counts as mastered
     select * into rq from public.review_queue where user_id = uid and question_id = q.id;
     if found and not rq.mastered then
       if rq.stage >= 3 then
@@ -344,8 +344,8 @@ begin
     'elapsed_ms', elapsed, 'finished', fin, 'repeat', false);
 end $$;
 
--- ───────────────────────── مراجعة محاولة منتهية ─────────────────────────
--- تكشف الإجابات الصحيحة والشرح، لكن فقط بعد انتهاء المحاولة (أو لأسئلة أُجيب عنها فعلاً).
+-- ───────────────────────── Review a finished attempt ─────────────────────────
+-- Reveals the correct answers and explanations, but only after the attempt ends (or for questions already answered).
 create or replace function public.attempt_review(p_attempt uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
@@ -369,9 +369,9 @@ begin
   ), '[]'::jsonb);
 end $$;
 
--- ───────────────────────── الترتيب داخل الدفعة ─────────────────────────
--- p_scope: 'week' (يُصفَّر كل اثنين حسب المنطقة الزمنية) أو 'semester' (تراكمي للفصل الحالي).
--- يُحتسب فقط ما هو is_counted. من أخفى نفسه لا يظهر للآخرين، ويرى ترتيبه التقريبي وحده.
+-- ───────────────────────── Ranking within the cohort ─────────────────────────
+-- p_scope: 'week' (resets every Monday in the app time zone) or 'semester' (cumulative for the current semester).
+-- Only is_counted rows count. Anyone who hid themselves is not shown to others and sees only their own approximate rank.
 create or replace function public.leaderboard(p_scope text, p_tz text default 'UTC')
 returns table (
   user_id uuid, full_name text, points numeric, answered integer, correct integer,
@@ -426,7 +426,7 @@ begin
   order by 7, 2;
 end $$;
 
--- ───────────────────────── صلاحيات الدوال ─────────────────────────
+-- ───────────────────────── Function privileges ─────────────────────────
 revoke all on function public.start_attempt(text, uuid, uuid, integer, integer, text, text, integer, integer) from public, anon;
 revoke all on function public.submit_answer(uuid, uuid, integer, boolean, integer) from public, anon;
 revoke all on function public.attempt_review(uuid) from public, anon;

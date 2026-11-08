@@ -14,11 +14,11 @@ import type { FormState } from "./auth";
 
 const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** بلا حروف ملتبسة (0/O، 1/l/I) لتسهيل نقلها للطلاب */
+/** No ambiguous characters (0/O, 1/l/I) so passwords are easy to hand over to students. */
 const PW_ALPHABET = "abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRTUVWXYZ2346789";
 const genPassword = () => Array.from({ length: 10 }, () => PW_ALPHABET[randomInt(PW_ALPHABET.length)]).join("");
 
-/** الفضاء الذي يعمل فيه المدير. بلا فضاء ← لا إنشاء. الفضاء يؤخذ دائماً من ملفه لا من المدخلات. */
+/** The space the admin works in. No space means no creation. The space always comes from the admin's profile, never from the input. */
 function spaceOf(me: Profile): string | null {
   return me.cohort_id && UUID_RE.test(me.cohort_id) ? me.cohort_id : null;
 }
@@ -50,7 +50,7 @@ async function createStudentAccount(cohortId: string, a: { full_name: string; em
   return { ok: true, id: data.user.id };
 }
 
-/** طالب واحد في فضاء المدير. */
+/** A single student in the admin's space. */
 export async function createStudent(_prev: FormState, fd: FormData): Promise<FormState> {
   const me = await requireManager();
   const { t } = await getT();
@@ -73,7 +73,7 @@ export interface BulkOutcome {
   tooMany: boolean;
 }
 
-/** رفع جماعي (صفوف من CSV/Excel). كل الحسابات طلاب في فضاء المدير؛ كلمة السر الفارغة تُولَّد وتُعاد مرة واحدة. */
+/** Bulk upload (rows from CSV/Excel). All accounts are students in the admin's space; an empty password is generated and returned once. */
 export async function bulkCreateStudents(rows: string[][]): Promise<BulkOutcome> {
   const me = await requireManager();
   const cohort = spaceOf(me);
@@ -91,7 +91,7 @@ export async function bulkCreateStudents(rows: string[][]): Promise<BulkOutcome>
   return out;
 }
 
-/** يتحقق أن الهدف طالب في فضاء المدير (قبل أي تعديل بصلاحية service role). */
+/** Verifies the target is a student in the admin's space (before any service-role mutation). */
 async function ownStudent(me: Profile, id: string): Promise<boolean> {
   const cohort = spaceOf(me);
   if (!cohort || !UUID_RE.test(id)) return false;
@@ -119,9 +119,9 @@ export async function deleteStudent(fd: FormData) {
   revalidatePath("/admin/students");
 }
 
-// ───────────── المواد المتبقية من L1 ─────────────
-// الإضافة بعميل المستخدم نفسه: RLS يقصرها على مدير فضاء الطالب، والـ trigger في قاعدة البيانات
-// يرفض أي شيء غير «مادة L1 من نفس تخصص طالب L2».
+// Remaining L1 subjects.
+// Inserts use the user's own client: RLS limits them to the admin of the student's space, and the database trigger
+// rejects anything other than an L1 subject of the same major as the L2 student.
 
 export async function addRemainingSubject(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireManager();

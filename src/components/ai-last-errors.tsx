@@ -10,7 +10,7 @@ interface Row {
   at: string;
 }
 
-/** تلخيص سبب 429: يومي أم بالدقيقة؟ (من نص رسالة Google/Groq) */
+/** Summarizes the cause of a 429: daily or per-minute? (from the Google/Groq message text) */
 function quotaKind(r: Row): DictKey | null {
   if (r.status !== 429) return null;
   const m = `${r.reason ?? ""} ${r.message ?? ""}`.toLowerCase();
@@ -19,7 +19,7 @@ function quotaKind(r: Row): DictKey | null {
   return "lasterr.generic";
 }
 
-/** آخر سبب فشل لكل مزوّد (محفوظ في قاعدة البيانات فيشمل كل نسخ الخادم) */
+/** Latest failure reason per provider (stored in the database, so it covers every server instance). */
 export async function AiLastErrors() {
   const { t, locale } = await getT();
   const supabase = await createClient();

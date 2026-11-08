@@ -12,7 +12,7 @@ const subscribe = (cb: () => void) => {
   return () => { window.removeEventListener("online", cb); window.removeEventListener("offline", cb); };
 };
 
-/** شريط يظهر عند انقطاع الاتصال ويقود إلى المحتوى المحفوظ */
+/** Banner shown when the connection drops, leading to the saved content. */
 export function OfflineBanner() {
   const { t } = useT();
   const online = useSyncExternalStore(subscribe, () => navigator.onLine, () => true);

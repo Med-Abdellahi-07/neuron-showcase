@@ -13,16 +13,16 @@ import type { FormState } from "./auth";
 const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// ───────────── الإعلانات ─────────────
+// Announcements.
 
 export async function createAnnouncement(_prev: FormState, fd: FormData): Promise<FormState> {
   const me = await requireManager();
   const { t } = await getT();
-  // الفضاء يُؤخذ من ملف المنشئ على الخادم لا من النموذج (والـ RLS يتحقق كذلك)
+  // The space comes from the creator's profile on the server, not from the form (RLS checks it too).
   const cohort_id = me.cohort_id ?? "";
   const title = text(fd, "title");
   if (!UUID_RE.test(cohort_id) || !title) return { error: t("common.error") };
-  // تاريخ الانتهاء اختياري: يظل الإعلان ظاهراً حتى نهاية ذلك اليوم (UTC)
+  // Expiry date is optional: the announcement stays visible until the end of that day (UTC).
   const exp = text(fd, "expires_on");
   if (exp && !isValidISO(exp)) return { error: t("common.error") };
   const supabase = await createClient();
@@ -48,7 +48,7 @@ export async function deleteAnnouncement(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-// ───────────── الدفعات والحسابات ─────────────
+// Batches and accounts.
 
 export async function createCohort(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireAdmin();
@@ -103,7 +103,7 @@ export async function createAccount(_prev: FormState, fd: FormData): Promise<For
     await admin.auth.admin.deleteUser(data.user.id);
     return { error: profileError.code === "23505" ? t("acc.exists") : t("common.error") };
   }
-  // أول مشرف فضاء يُنشأ يفعّل فضاءه تلقائياً (يظهر في شاشة الدخول)
+  // The first space admin created activates their space automatically (it then shows on the login screen).
   if (role === "space_admin" && cohort_id) await admin.from("cohorts").update({ is_active: true }).eq("id", cohort_id);
   revalidatePath("/", "layout");
   return { message: t("acc.created") };
@@ -115,7 +115,7 @@ export async function updateAccount(fd: FormData) {
   const role = text(fd, "role");
   const cohort_id = text(fd, "cohort_id");
   if (!UUID_RE.test(id) || !["student", "moderator", "space_admin", "admin"].includes(role)) return;
-  if (id === me.id && role !== "admin") return; // لا يخفّض المدير نفسه
+  if (id === me.id && role !== "admin") return; // An admin cannot demote themselves.
   const admin = createAdminClient();
   await admin
     .from("profiles")
@@ -144,6 +144,6 @@ export async function deleteAccount(fd: FormData) {
   const me = await requireAdmin();
   const id = text(fd, "id");
   if (!UUID_RE.test(id) || id === me.id) return;
-  await createAdminClient().auth.admin.deleteUser(id); // يحذف الملف الشخصي تلقائياً (cascade)
+  await createAdminClient().auth.admin.deleteUser(id); // Deletes the profile automatically (cascade).
   revalidatePath("/", "layout");
 }

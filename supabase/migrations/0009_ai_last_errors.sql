@@ -1,4 +1,4 @@
--- آخر سبب فشل لكل مزوّد ذكاء اصطناعي (يظهر للمدير في صفحة الاختبار؛ ذاكرة Vercel لا تُشارك بين النسخ)
+-- Latest failure reason per AI provider (shown to the admin on the test page; Vercel memory is not shared between instances)
 create table if not exists public.ai_last_error (
   provider text primary key check (provider in ('gemini','groq')),
   status integer not null,

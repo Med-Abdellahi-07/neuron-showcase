@@ -19,7 +19,7 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-/** عناصر التنقل تتكيّف مع ميزات الفضاء: بلا ذكاء اصطناعي ← يختفي «المساعد» */
+/** Navigation items adapt to space features: without AI, "Assistant" disappears. */
 const itemsFor = (ai: boolean) => ITEMS.filter((i) => ai || i.href !== "/assistant");
 
 export function SideNav({ isStaff, ai }: { isStaff: boolean; ai: boolean }) {
@@ -49,7 +49,7 @@ export function SideNav({ isStaff, ai }: { isStaff: boolean; ai: boolean }) {
   );
 }
 
-/* أيقونات الشريط السفلي منسوخة من VHome / VSchedule: نشط = ملوّن بالبنفسجي (الرئيسية والجدول مملوءتان) */
+/* Bottom bar icons copied from VHome / VSchedule: active = violet (Home and Schedule are filled). */
 function NavIcon({ href, active }: { href: string; active: boolean }) {
   const common = { width: 24, height: 24, viewBox: "0 0 24 24", "aria-hidden": true } as const;
   switch (href) {
@@ -78,13 +78,13 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
   }
 }
 
-/** الشريط السفلي: 5 عناصر، ووسطها زر المساعد المرفوع (62px، حدّ 5px بلون الخلفية، margin-top −34px) */
+/** Bottom bar: 5 items, with the raised assistant button in the middle (62px, 5px border in the background color, margin-top -34px). */
 export function BottomNav({ ai }: { ai: boolean }) {
   const { t } = useT();
   const pathname = usePathname();
   const base = ITEMS.filter((i) => i.href !== "/assistant");
-  // الترتيب: الرئيسية، المواد، [المساعد]، تدرّب، الجدول
-  // الصفحة الرئيسية للمساعد تضع شريط السؤال في أسفل الشاشة بدل التنقل (كما في VAssistant)
+  // Order: Home, Subjects, [Assistant], Practice, Schedule.
+  // The assistant home puts the question bar at the bottom instead of the navigation (as in VAssistant).
   if (pathname === "/assistant") return null;
   const items = ai ? [base[0], base[1], ITEMS.find((i) => i.href === "/assistant")!, base[2], base[3]] : base;
   return (

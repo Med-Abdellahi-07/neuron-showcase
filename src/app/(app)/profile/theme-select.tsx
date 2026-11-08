@@ -14,7 +14,7 @@ const OPTIONS = [
 export function ThemeSelect() {
   const { t } = useT();
   const { theme, setTheme } = useTheme();
-  // false أثناء الـ SSR وtrue في المتصفح — يتجنب اختلاف الـ hydration مع next-themes
+  // False during SSR and true in the browser; avoids a hydration mismatch with next-themes.
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,

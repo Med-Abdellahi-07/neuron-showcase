@@ -14,7 +14,7 @@ export interface RecordingRow {
   status?: string;
 }
 
-/** بطاقات تسجيلات مع مشغّل لكل منها (يعمل في صفحة الحصة وصفحة المادة). */
+/** Recording cards with a player for each (works on the lesson page and the subject page). */
 export async function RecordingList({ items, marks = {} }: { items: RecordingRow[]; marks?: Record<string, Mark[]> }) {
   const { t, locale } = await getT();
   if (!items.length) return null;

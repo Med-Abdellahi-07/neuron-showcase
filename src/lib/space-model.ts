@@ -1,12 +1,12 @@
 import type { Locale } from "@/lib/i18n/dictionaries";
 
 /**
- * «الفضاء» = تخصص × مستوى (صف في جدول cohorts). ميزاته (الخطة) علامات منفصلة يغيّرها المشرف العام:
- *   ai          المساعد الذكي والتحليل وكل ما يستدعي الذكاء الاصطناعي
- *   arena       الاختبار المصنّف          ranking  الترتيب          duel  Duel
- *   review      مراجعة الأخطاء            recordings التسجيلات     qcm_pdf تنزيل QCM كملف PDF   chat الدردشة الجماعية
- *   written     التمارين المكتوبة
- * الفرض الحقيقي في قاعدة البيانات (0018)؛ هنا نخفي الواجهة ونرفض في الخادم قبل الوصول إليها.
+ * A "space" = major x level (a row in the cohorts table). Its features (the plan) are separate flags changed by the super admin:
+ *   ai          the smart assistant, analysis and everything that calls AI
+ *   arena       ranked quiz       ranking  leaderboard       duel  Duel
+ *   review      mistake review    recordings  recordings      qcm_pdf  QCM PDF download   chat  space chat
+ *   written     written exercises
+ * The real enforcement lives in the database (0018); here we hide the UI and refuse on the server before reaching it.
  */
 export const FEATURES = ["ai", "arena", "ranking", "duel", "review", "recordings", "qcm_pdf", "written", "chat"] as const;
 export type Feature = (typeof FEATURES)[number];
@@ -21,7 +21,7 @@ export interface LocalizedName {
 
 export interface Space {
   id: string;
-  /** مثل «SDS L1» */
+  /** Like "SDS L1". */
   name: string;
   plan: PlanCode;
   is_active: boolean;
@@ -30,7 +30,7 @@ export interface Space {
   major: { code: string; name: LocalizedName; institution: { code: string; name: LocalizedName } } | null;
 }
 
-/** يُكمل المفاتيح الناقصة بـ false (مفتاح غير موجود = معطّل، كما في قاعدة البيانات) */
+/** Fills in missing keys with false (a missing key means disabled, as in the database). */
 export function normalizeFeatures(raw: unknown): FeatureMap {
   const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return Object.fromEntries(FEATURES.map((f) => [f, src[f] === true])) as FeatureMap;
@@ -78,10 +78,10 @@ export function toSpace(row: SpaceRow): Space {
   };
 }
 
-/** كوكي آخر فضاء اختاره المستخدم في شاشة الدخول (معرّف الفضاء) */
+/** Cookie with the space the user last chose on the login screen (space id). */
 export const SPACE_COOKIE = "neuron-space";
 
-/** شكل دليل الفضاءات العام الذي تعيده public_directory() لشاشة الدخول (بلا أي بيانات خاصة) */
+/** Shape of the public space directory that public_directory() returns for the login screen (no private data). */
 export interface DirectorySpace {
   id: string;
   level: string;

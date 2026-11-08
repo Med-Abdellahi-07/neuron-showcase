@@ -1,10 +1,10 @@
 export type ProviderName = "gemini" | "groq" | "openrouter" | "nvidia" | "github" | "tavily";
 
-/** خطأ من مزوّد خارجي مع رمز HTTP وسبب مفهوم للمدير */
+/** Error from an external provider with an HTTP status and a reason the admin can understand. */
 export class AiError extends Error {
   constructor(
     public provider: ProviderName,
-    public status: number, // 0 = لم يُضبط المفتاح أو فشل الاتصال
+    public status: number, // 0 = key not set or connection failed.
     message: string,
     public reason?: string
   ) {
@@ -25,7 +25,7 @@ export const errorInfo = (e: unknown, provider: ProviderName = "gemini"): ErrorI
     ? { provider: e.provider, status: e.status, message: e.message, reason: e.reason }
     : { provider, status: 0, message: e instanceof Error ? e.message : String(e) };
 
-/** يقرأ جسم خطأ بصيغة Google أو OpenAI ويحوّله إلى AiError */
+/** Reads a Google- or OpenAI-style error body and turns it into an AiError. */
 export async function errorFromResponse(provider: ProviderName, res: Response): Promise<AiError> {
   let text = "";
   try {

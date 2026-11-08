@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-/** أنواع الإشعارات (تطابق أعمدة notification_prefs) */
+/** Notification types (match the notification_prefs columns). */
 export type PushKind = "lesson_tomorrow" | "schedule_change" | "new_content" | "duel" | "review" | "announcement";
 export const PUSH_KINDS: PushKind[] = ["lesson_tomorrow", "schedule_change", "new_content", "duel", "review", "announcement"];
 
@@ -13,9 +13,9 @@ export interface PushMessage {
   ar: PushText;
   fr: PushText;
   en: PushText;
-  /** مسار داخل التطبيق يُفتح عند النقر */
+  /** In-app path opened on click. */
   url?: string;
-  /** إشعارات بنفس الوسم تستبدل بعضها */
+  /** Notifications with the same tag replace each other. */
   tag?: string;
 }
 export interface PushTarget {
@@ -46,8 +46,8 @@ function configure() {
 const EMPTY: PushResult = { sent: 0, failed: 0, removed: 0, recipients: 0 };
 
 /**
- * يرسل إشعاراً لمجموعة مستخدمين مع احترام تفضيلاتهم. لا يرمي أبداً: فشل الإشعار لا يجب أن يُفشل عملية المدير.
- * الأجهزة التي انتهت صلاحية اشتراكها (404/410) تُحذف تلقائياً.
+ * Sends a notification to a group of users while honouring their preferences. Never throws: a notification failure must not fail the admin's operation.
+ * Devices whose subscription has expired (404/410) are deleted automatically.
  */
 export async function sendPush(target: PushTarget, kind: PushKind, msg: PushMessage): Promise<PushResult> {
   try {

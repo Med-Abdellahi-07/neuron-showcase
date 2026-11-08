@@ -2,25 +2,25 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ═════════ نظام التصميم «Neuron Violet» — كل الألوان والأشكال هنا فقط ═════════ */
+/* Design system "Neuron Violet": all colors and shapes live here only. */
 :root {
-  /* الألوان — الوضع الفاتح (README.md) */
+  /* Colors, light mode (README.md). */
   --bg: #f4f2fb;
   --surface: #ffffff;
-  --surface-2: #efe9ff; /* بنفسجي ناعم: شارات، مربّعات أيقونات، مسار التقدّم */
+  --surface-2: #efe9ff;
   --border: #e8e3f7;
   --border-input: #e2ddf2;
   --input-bg: #f8f6fd;
   --fg: #17122b;
   --muted: #6e6a85;
   --faint: #a19db5;
-  --accent: #6d3bf5; /* نص/روابط/تقدّم */
+  --accent: #6d3bf5;
   --accent-fg: #ffffff;
   --accent-soft: #efe9ff;
-  --primary: #6d3bf5; /* خلفية الأزرار والبطاقة المميّزة */
+  --primary: #6d3bf5;
   --primary-fg: #ffffff;
   --featured: #6d3bf5;
-  --deep: #2a0e6e; /* رؤوس وبلاطات داكنة */
+  --deep: #2a0e6e;
   --deep-2: #341583;
   --deep-3: #3a1a8c;
   --celebrate: #24097a;
@@ -40,12 +40,12 @@
   --success-bg: #e3f6ee;
   --warn: #b36b00;
 
-  /* الأشكال */
-  --r-lg: 24px; /* بطاقات كبيرة */
-  --r-md: 20px; /* بطاقات صغيرة */
-  --r-icon: 16px; /* مربّعات الأيقونات */
-  --radius: 14px; /* أزرار وحقول */
-  --r-head: 34px; /* أسفل الرأس الداكن */
+  /* Shapes. */
+  --r-lg: 24px;
+  --r-md: 20px;
+  --r-icon: 16px;
+  --radius: 14px;
+  --r-head: 34px;
   --r-nav: 26px;
   --r-pill: 999px;
   --shadow: none;
@@ -53,11 +53,11 @@
   --shadow-fab: 0 10px 22px rgba(109, 59, 245, 0.4);
   --pad-card: 1rem;
 
-  /* الحركة */
+  /* Motion. */
   --t: 180ms;
 }
 
-/* الوضع الداكن: لا تصميم له في الملفات المرجعية، فنُبقي نفس الهوية بدرجات داكنة */
+/* Dark mode: there is no design for it in the reference files, so we keep the same identity with darker shades. */
 .dark {
   --bg: #120a2e;
   --surface: #1c1242;
@@ -87,7 +87,7 @@
   --shadow-float: none;
 }
 
-/* الوضع المدمج: للصفحات المزدحمة (الجدول، الإدارة، المحادثة، قوائم الأسئلة) */
+/* Compact mode: for dense pages (timetable, admin, chat, question lists). */
 .compact {
   --r-lg: 18px;
   --r-md: 16px;
@@ -154,7 +154,7 @@ body {
     padding: calc(var(--pad-card) * 1.25);
     box-shadow: var(--shadow);
   }
-  /* البطاقة المميّزة: واحدة في الصفحة، زرقاء بنص أبيض */
+  /* Featured card: one per page, blue with white text. */
   .card-featured {
     @apply rounded-[var(--r-lg)] bg-featured text-primary-fg;
     padding: calc(var(--pad-card) * 1.25);
@@ -200,7 +200,7 @@ body {
   }
 }
 
-/* حركة أقل عند طلب المستخدم */
+/* Reduced motion when the user asks for it. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -212,14 +212,14 @@ body {
   }
 }
 
-/* KaTeX داخل النص RTL */
+/* KaTeX inside RTL text. */
 .katex,
 .katex-display {
   direction: ltr;
   unicode-bidi: isolate;
 }
 .katex {
-  display: inline-block; /* كتلة سطرية واحدة: لا تتشظّى عند التفاف السطر في RTL */
+  display: inline-block; /* Single inline block: formulas do not fragment when a line wraps in RTL. */
   white-space: nowrap;
 }
 .rich p {
@@ -265,8 +265,8 @@ body {
   font-weight: 600;
 }
 
-/* ───────── شبكة الجدول الأسبوعي ───────── */
-/* لون كل مادة: درجة --h تُخلط بلون السطح، فتبقى خفيفة ومتناسقة في الوضعين الفاتح والداكن */
+/* Weekly timetable grid. */
+/* Each subject's color: the --h hue is mixed with the surface color, so it stays light and consistent in light and dark modes. */
 .sg-block {
   --h: 214;
   border: 1px solid color-mix(in oklab, hsl(var(--h) 70% 48%) 30%, var(--border));
@@ -284,18 +284,18 @@ body {
 .dark .sg-block:hover {
   background: color-mix(in oklab, hsl(var(--h) 70% 58%) 27%, var(--surface));
 }
-/* حصة ملغاة: أحمر وشطب، بلا لون المادة */
+/* Cancelled session: red with strikethrough, no subject color. */
 .sg-block[data-status="cancelled"] {
   border-color: color-mix(in oklab, var(--danger) 55%, var(--border));
   border-inline-start-color: var(--danger);
   background: color-mix(in oklab, var(--danger) 9%, var(--surface));
 }
-/* الحصة الجارية الآن */
+/* Session happening now. */
 .sg-block[data-now="true"] {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-/* عمود اليوم الحالي */
+/* Current day column. */
 .sg-today {
   background: color-mix(in oklab, var(--accent) 7%, var(--surface));
 }
@@ -322,7 +322,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ───────── صفحة طباعة QCM: A4، أبيض وأسود، بلا تنقل ───────── */
+/* QCM print page: A4, black and white, no navigation. */
 .qcm-root {
   background: #fff;
   color: #000;
@@ -506,12 +506,12 @@ body {
   }
 }
 
-/* ═════════ حركة Neuron Violet — transform/opacity فقط، منسوخة من ملفات التصميم ═════════ */
+/* Neuron Violet motion: transform/opacity only, copied from the design files. */
 .clay { filter: drop-shadow(0 6px 8px rgba(20, 4, 70, 0.35)); }
 .clays { filter: drop-shadow(0 3px 4px rgba(42, 14, 110, 0.22)); }
 .clay-lg { filter: drop-shadow(0 8px 10px rgba(10, 0, 50, 0.45)); }
 
-/* الرئيسية */
+/* Home. */
 @keyframes hFloatA { 0%,100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-9px) rotate(-2deg); } }
 @keyframes hFloatB { 0%,100% { transform: translateY(0) rotate(10deg); } 50% { transform: translateY(-7px) rotate(4deg); } }
 @keyframes hFlick { 0%,100% { transform: scale(1,1); } 30% { transform: scale(1.04,.96); } 60% { transform: scale(.97,1.05); } }
@@ -519,7 +519,7 @@ body {
 .hfb { animation: hFloatB 5.2s ease-in-out infinite; }
 .hflk { transform-origin: 50% 90%; animation: hFlick 1.6s ease-in-out infinite; }
 
-/* تقدّمي */
+/* Progress. */
 @keyframes pFloat { 0%,100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-7px) rotate(2deg); } }
 @keyframes pFloat2 { 0%,100% { transform: translateY(0) rotate(8deg); } 50% { transform: translateY(-6px) rotate(0deg); } }
 @keyframes pHand { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -527,13 +527,13 @@ body {
 .pf2 { animation: pFloat2 4.8s ease-in-out infinite; }
 .phand { transform-origin: 40px 40px; animation: pHand 6s linear infinite; }
 
-/* الجدول */
+/* Timetable. */
 @keyframes sFloat { 0%,100% { transform: translateY(0) rotate(-7deg); } 50% { transform: translateY(-8px) rotate(-1deg); } }
 @keyframes sRing { 0%,86%,100% { transform: rotate(0deg); } 89% { transform: rotate(-12deg); } 92% { transform: rotate(10deg); } 95% { transform: rotate(-6deg); } }
 .sf { animation: sFloat 4.6s ease-in-out infinite; }
 .sring { transform-origin: 50% 60%; animation: sRing 4s ease-in-out infinite; }
 
-/* المساعد */
+/* Assistant. */
 @keyframes aFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 @keyframes aTwinkle { 0%,100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(.82) rotate(20deg); } }
 @keyframes aOrbit { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -541,7 +541,7 @@ body {
 .atw { transform-box: fill-box; transform-origin: center; animation: aTwinkle 2.4s ease-in-out infinite; }
 .aorb { transform-origin: 45px 45px; animation: aOrbit 7s linear infinite; }
 
-/* الدخول */
+/* Login. */
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-12px) rotate(4deg); } }
 @keyframes bobSlow { 0%,100% { transform: translateY(0) rotate(6deg); } 50% { transform: translateY(-9px) rotate(-3deg); } }
 @keyframes nSwingF { 0%,100% { transform: rotateY(-28deg) rotateX(10deg); } 50% { transform: rotateY(28deg) rotateX(-6deg); } }
@@ -551,7 +551,7 @@ body {
 .plx { transition: transform .25s ease-out; }
 .nlogo { animation: nSwingF 5s ease-in-out infinite; }
 
-/* شاشة البداية */
+/* Splash screen. */
 @keyframes vSwing { 0% { transform: rotateY(-32deg) rotateX(12deg); } 50% { transform: rotateY(32deg) rotateX(-8deg); } 100% { transform: rotateY(-32deg) rotateX(12deg); } }
 @keyframes vPulse { 0%,100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.9); opacity: 0; } }
 @keyframes vSignal { 0% { stroke-dashoffset: 140; } 60%,100% { stroke-dashoffset: 0; } }
@@ -568,7 +568,7 @@ body {
 .v-bar { transform-origin: left center; animation: vBar 2.6s ease-in-out infinite; }
 .v-glow { animation: vGlow 3s ease-in-out infinite; }
 
-/* الإنجاز */
+/* Achievement. */
 @keyframes floatT { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-12px) rotate(3deg); } }
 @keyframes drift { 0% { transform: translateY(-30px) rotate(0deg); } 100% { transform: translateY(860px) rotate(420deg); } }
 @keyframes shine { 0%,100% { opacity: .25; } 50% { opacity: .5; } }
@@ -578,7 +578,7 @@ body {
 .halo { animation: shine 2.8s ease-in-out infinite; }
 .med { transform-origin: 50% 0; animation: medSway 3s ease-in-out infinite; filter: drop-shadow(0 8px 8px rgba(8, 0, 40, 0.45)); }
 
-/* ميل البطاقة */
+/* Card tilt. */
 .tilt { transition: transform .18s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -589,7 +589,7 @@ body {
   .plx, .tilt { transition: none; }
 }
 
-/* شريط «لا اتصال» لا يظهر داخل تطبيق /offline المحلي (يُخدَم من الـSW على مسار "/" فلا يكفي فحص المسار) */
+/* The "offline" banner is hidden inside the local /offline app (the service worker serves it at "/", so a path check is not enough). */
 body:has([data-offline-app]) .offline-banner {
   display: none;
 }

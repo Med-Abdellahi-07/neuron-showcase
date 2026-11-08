@@ -1,11 +1,11 @@
 import localFont from "next/font/local";
 
 /**
- * Readex Pro (OFL) — خط واحد للعربية والفرنسية والإنجليزية، مستضاف ذاتيًا.
- * ملف متغيّر (variable) يغطي الأوزان 400/500/600/700، مقسّم إلى ثلاث مجموعات
- * بـ unicode-range كي لا يُحمَّل إلا ما تحتاجه الصفحة.
+ * Readex Pro (OFL): one font for Arabic, French and English, self-hosted.
+ * A variable file covering weights 400/500/600/700, split into three subsets
+ * with unicode-range so only what a page needs is loaded.
  */
-// ملاحظة: next/font يتطلب وسائط حرفية (literal) عند كل استدعاء، لذا لا نغلّفها بدالة.
+// Note: next/font requires literal arguments at every call, so they are not wrapped in a function.
 export const readexArabic = localFont({
   src: [{ path: "./fonts/readex-pro-arabic-wght-normal.woff2", weight: "400 700", style: "normal" }],
   variable: "--f-ar",

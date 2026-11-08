@@ -1,21 +1,21 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- 0017 — الفضاءات (جامعة نواذيبو): المؤسسات ← التخصصات ← المستويات، وكل «تخصص × مستوى» = فضاء مستقل
+-- 0017 - Spaces (University of Nouadhibou): institutions -> majors -> levels, and each "major x level" = an independent space
 --
--- الفكرة: الفضاء = صف في جدول cohorts القائم (نمدّده بالتخصص والمستوى والخطة). لذلك تبقى كل الجداول
--- المرتبطة بـ cohort_id (الجدول، الإعلانات، التسجيلات، Duel، الترتيب…) تعمل كما هي، ويصبح كل منها خاصاً بفضائه.
--- المحتوى الذي كان مشتركاً (semesters/subjects ومنها lessons/questions…) يُربط بالفضاء عبر cohort_id.
+-- Idea: a space = a row in the existing cohorts table (extended with major, level and plan). So all tables
+-- tied to cohort_id (timetable, announcements, recordings, Duel, ranking...) keep working as is, and each becomes private to its space.
+-- Content that used to be shared (semesters/subjects and, through them, lessons/questions...) is tied to the space through cohort_id.
 --
--- هذا الملف «بنية وبيانات» فقط: لا يغيّر سياسات RLS (تأتي في 0018). آمن لإعادة التشغيل (idempotent).
--- الدفعة الموجودة (بكل طلابها ومحتواها) تتحول إلى فضاء «IAA L2» دون نقل أي صف ودون فقدان أي بيانات.
--- يُنفَّذ بعد 0016 وقبل 0018. لا تُعد تشغيل 0002.
+-- This file is "structure and data" only: it does not change RLS policies (those come in 0018). Idempotent.
+-- The existing cohort (with all its students and content) becomes the "IAA L2" space without moving any row or losing any data.
+-- Run after 0016 and before 0018. Never re-run 0002.
 -- ════════════════════════════════════════════════════════════════════════════
 
--- ───────────────────────── 1) المستويات والمؤسسات والتخصصات والخطط ─────────────────────────
--- المستوى صف في جدول (لا قيمة مكتوبة في الكود): إضافة L3 لاحقاً = إدراج صف ثم استدعاء ensure_spaces().
+-- ───────────────────────── 1) Levels, institutions, majors and plans ─────────────────────────
+-- A level is a table row (not a value written in code): adding L3 later = insert a row, then call ensure_spaces().
 create table if not exists public.levels (
   code text primary key check (code ~ '^L[1-9][0-9]*$'),
   sort smallint not null,
-  semesters text[] not null check (cardinality(semesters) >= 1)   -- رموز سداسيات المستوى، الأول هو الحالي افتراضياً
+  semesters text[] not null check (cardinality(semesters) >= 1) -- semester codes of the level; the first one is the current one by default
 );
 insert into public.levels (code, sort, semesters) values
   ('L1', 1, array['S1', 'S2']),
@@ -42,8 +42,8 @@ create table if not exists public.majors (
 );
 create index if not exists majors_institution_idx on public.majors(institution_id, sort);
 
--- الأسماء العربية رسمية؛ الفرنسية والإنجليزية ترجمة مبدئية يعدّلها المشرف العام من لوحته.
--- on conflict do nothing: لا تُستبدل تعديلات المشرف العام عند إعادة التشغيل.
+-- The Arabic names are official; the French and English ones are provisional translations the super admin can edit from their panel.
+-- on conflict do nothing: the super admin's edits are not overwritten when this is re-run.
 insert into public.institutions (code, name_ar, name_fr, name_en, sort) values
   ('FST',  'كلية العلوم والتكنولوجيا',               'Faculté des Sciences et Techniques',               'Faculty of Science and Technology', 1),
   ('ISB',  'المعهد العالي للتكنولوجيا الحيوية',       'Institut Supérieur de Biotechnologie',             'Higher Institute of Biotechnology', 2),
@@ -70,16 +70,16 @@ from (values
 join public.institutions i on i.code = v.inst
 on conflict (code) do nothing;
 
--- قوالب الخطط. الخطة «قالب»؛ ما يُطبَّق فعلاً على الفضاء هو cohorts.features (يعدّله المشرف العام ميزةً ميزة).
---   ai         المساعد الذكي والتحليل وكل ما يستدعي الذكاء الاصطناعي (تصحيح، بحث، فهرسة الدروس، استخراج الجدول)
---   arena      الاختبار المصنّف
---   ranking    الترتيب
+-- Plan templates. A plan is a "template"; what is actually applied to a space is cohorts.features (edited by the super admin feature by feature).
+--   ai         the smart assistant, analysis and everything that calls AI (correction, search, lesson indexing, timetable extraction)
+--   arena      the ranked quiz
+--   ranking    the leaderboard
 --   duel       Duel
---   review     مراجعة الأخطاء والمراجعة المتباعدة
---   recordings التسجيلات
---   qcm_pdf    تنزيل QCM كملف PDF
---   written    التمارين المكتوبة
--- مفتاح غير موجود في features = معطّل.
+--   review     mistake review and spaced review
+--   recordings  recordings
+--   qcm_pdf     QCM download as a PDF file
+--   written    written exercises
+-- A key missing from features = disabled.
 create table if not exists public.plans (
   code text primary key check (code in ('full', 'basic')),
   features jsonb not null
@@ -89,15 +89,15 @@ insert into public.plans (code, features) values
   ('basic', '{"ai":false,"arena":false,"ranking":false,"duel":false,"review":false,"recordings":false,"qcm_pdf":false,"written":false}'::jsonb)
 on conflict (code) do nothing;
 
--- ───────────────────────── 2) توسيع cohorts ليصبح «الفضاء» ─────────────────────────
+-- ───────────────────────── 2) Extend cohorts to become the "space" ─────────────────────────
 alter table public.cohorts add column if not exists major_id uuid references public.majors(id) on delete restrict;
 alter table public.cohorts add column if not exists level_code text references public.levels(code) on delete restrict;
-alter table public.cohorts add column if not exists is_active boolean not null default false;   -- false = «قريباً» (رمادي في شاشة الدخول)
+alter table public.cohorts add column if not exists is_active boolean not null default false; -- false = "coming soon" (greyed out on the login screen)
 alter table public.cohorts add column if not exists plan text not null default 'basic' check (plan in ('full', 'basic', 'custom'));
 alter table public.cohorts add column if not exists features jsonb not null default '{}'::jsonb;
 create unique index if not exists cohorts_major_level_key on public.cohorts(major_id, level_code) where major_id is not null;
 
--- الدفعة الحالية ← فضاء IAA L2 (تحويل في المكان: المعرّف نفسه، فلا يتغير أي صف مرتبط بها)
+-- The current cohort -> the IAA L2 space (converted in place: same id, so no related row changes)
 do $$
 declare
   iaa uuid;
@@ -106,11 +106,11 @@ declare
 begin
   select id into iaa from public.majors where code = 'IAA';
   if exists (select 1 from public.cohorts where major_id = iaa and level_code = 'L2') then
-    return; -- سبق التحويل
+    return; -- already converted
   end if;
 
   select count(*) into n_other from public.cohorts where major_id is null;
-  -- الدفعة الأكثر طلاباً (ثم الأقدم) هي التي تصبح IAA L2
+  -- The cohort with the most students (then the oldest) becomes IAA L2
   select c.id into main_c
   from public.cohorts c
   left join public.profiles p on p.cohort_id = c.id
@@ -133,8 +133,8 @@ begin
   end if;
 end $$;
 
--- ───────────────────────── 3) ربط المحتوى بالفضاء ─────────────────────────
--- 3.1 الفصول: لكل فضاء فصوله (S3/S4 لـ IAA L2؛ S1/S2 لـ L1…) وفصل «حالي» واحد لكل فضاء.
+-- ───────────────────────── 3) Tie content to the space ─────────────────────────
+-- 3.1 Semesters: each space has its own (S3/S4 for IAA L2; S1/S2 for L1...) and exactly one "current" semester per space.
 alter table public.semesters add column if not exists cohort_id uuid references public.cohorts(id) on delete cascade;
 update public.semesters
    set cohort_id = (select c.id from public.cohorts c join public.majors m on m.id = c.major_id
@@ -145,7 +145,7 @@ alter table public.semesters drop constraint if exists semesters_code_key;
 create unique index if not exists semesters_cohort_code_key on public.semesters(cohort_id, code);
 create unique index if not exists semesters_one_current on public.semesters(cohort_id) where is_current;
 
--- 3.2 المواد: cohort_id يُشتق دائماً من الفصل (لا يمكن لمُدخِل أن يخالفه)، والرمز فريد داخل الفضاء لا عالمياً.
+-- 3.2 Subjects: cohort_id is always derived from the semester (an inserter cannot contradict it), and the code is unique within a space, not globally.
 alter table public.subjects add column if not exists cohort_id uuid references public.cohorts(id) on delete cascade;
 update public.subjects s set cohort_id = sem.cohort_id from public.semesters sem where sem.id = s.semester_id and s.cohort_id is null;
 alter table public.subjects alter column cohort_id set not null;
@@ -164,13 +164,13 @@ drop trigger if exists trg_subjects_cohort on public.subjects;
 create trigger trg_subjects_cohort before insert or update of semester_id on public.subjects
   for each row execute function public.subjects_set_cohort();
 
--- 3.3 المشرف العام: يبقى في IAA L2 (فضاؤه «الحالي»؛ يبدّله من لوحته للدخول إلى أي فضاء آخر)
+-- 3.3 Super admin: stays in IAA L2 (their "current" space; they switch from their panel to enter any other space)
 update public.profiles
    set cohort_id = (select c.id from public.cohorts c join public.majors m on m.id = c.major_id
                     where m.code = 'IAA' and c.level_code = 'L2')
  where role = 'admin' and cohort_id is null;
 
--- ───────────────────────── 4) دور «مشرف فضاء» ─────────────────────────
+-- ───────────────────────── 4) The "space admin" role ─────────────────────────
 do $$
 declare r record;
 begin
@@ -188,31 +188,31 @@ end $$;
 alter table public.profiles
   add constraint profiles_role_check check (role in ('student', 'moderator', 'space_admin', 'admin'));
 
--- ───────────────────────── 5) دوال مساعدة للصلاحيات والخطط ─────────────────────────
+-- ───────────────────────── 5) Permission and plan helper functions ─────────────────────────
 create or replace function public.my_role() returns text
 language sql stable security definer set search_path = public as $$
   select role from public.profiles where id = auth.uid()
 $$;
 
--- مشرف الفضاء (يرى فضاءه وحده)
+-- Space admin (sees only their own space)
 create or replace function public.is_space_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((select role = 'space_admin' from public.profiles where id = auth.uid()), false)
 $$;
 
--- «مدير» الفضاء الحالي: المشرف العام (داخل الفضاء الذي دخله) أو مشرف الفضاء. ينشر مباشرة ويدير كل محتوى فضائه.
+-- "Manager" of the current space: the super admin (inside the space they entered) or the space admin. Publishes directly and manages all of the space's content.
 create or replace function public.is_manager() returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((select role in ('admin', 'space_admin') from public.profiles where id = auth.uid()), false)
 $$;
 
--- طاقم الفضاء الحالي: مشرف، مشرف فضاء، مشرف عام. (الحصر بالفضاء يتم في السياسات عبر my_cohort().)
+-- Staff of the current space: moderator, space admin, super admin. (Space scoping is done in the policies via my_cohort().)
 create or replace function public.is_staff() returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((select role in ('moderator', 'space_admin', 'admin') from public.profiles where id = auth.uid()), false)
 $$;
 
--- النشر المباشر: المشرف العام ومشرف الفضاء دائماً؛ المشرف العادي بحسب صلاحيته (نظام الموافقة في IAA L2 كما هو)
+-- Direct publishing: super admin and space admin always; a regular moderator according to their permission (the IAA L2 approval system is unchanged)
 create or replace function public.can_publish_direct() returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((select role in ('admin', 'space_admin') or can_publish_direct from public.profiles where id = auth.uid()), false)
@@ -228,7 +228,7 @@ language sql stable security definer set search_path = public as $$
   select s.cohort_id from public.lessons l join public.subjects s on s.id = l.subject_id where l.id = p_lesson
 $$;
 
--- ميزة الفضاء مفعّلة؟ (غير موجودة = معطّلة)
+-- Is the space feature enabled? (missing = disabled)
 create or replace function public.cohort_feature(p_cohort uuid, p_feature text) returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((select (features ->> p_feature)::boolean from public.cohorts where id = p_cohort), false)
@@ -239,8 +239,8 @@ language sql stable security definer set search_path = public as $$
   select public.cohort_feature(public.my_cohort(), p_feature)
 $$;
 
--- ───────────────────────── 6) إنشاء الفضاءات (تخصص × مستوى) وفصولها ─────────────────────────
--- تُنشئ كل فضاء ناقص (غير مفعّل ← «قريباً»، خطة أساسية) وفصوله. تُستدعى الآن، وعند إضافة مستوى جديد (L3) لاحقاً.
+-- ───────────────────────── 6) Create the spaces (major x level) and their semesters ─────────────────────────
+-- Creates every missing space (inactive -> "coming soon", basic plan) and its semesters. Called now, and again whenever a new level (L3) is added.
 create or replace function public.ensure_spaces() returns integer
 language plpgsql security definer set search_path = public as $$
 declare
@@ -279,8 +279,8 @@ end $$;
 
 select public.ensure_spaces();
 
--- ───────────────────────── 7) دليل الفضاءات لشاشة الدخول (قبل تسجيل الدخول) ─────────────────────────
--- يُظهر الأسماء وحالة الفتح فقط: لا خطط ولا أعداد ولا أي بيانات للطلاب. قابلة للتنفيذ من anon عمداً.
+-- ───────────────────────── 7) Space directory for the login screen (before sign-in) ─────────────────────
+-- Shows names and open/closed status only: no plans, no counts, no student data. Executable by anon on purpose.
 create or replace function public.public_directory() returns jsonb
 language sql stable security definer set search_path = public as $$
   select jsonb_build_object(
@@ -304,7 +304,7 @@ language sql stable security definer set search_path = public as $$
   )
 $$;
 
--- ───────────────────────── 8) RLS والصلاحيات للجداول الجديدة ─────────────────────────
+-- ───────────────────────── 8) RLS and privileges for the new tables ─────────────────────────
 alter table public.levels enable row level security;
 alter table public.institutions enable row level security;
 alter table public.majors enable row level security;
@@ -332,10 +332,10 @@ create policy plans_admin on public.plans for all to authenticated using (public
 
 revoke all on public.levels, public.institutions, public.majors, public.plans from anon, authenticated;
 grant select on public.levels, public.institutions, public.majors, public.plans to authenticated;
-grant insert, update, delete on public.levels, public.institutions, public.majors, public.plans to authenticated; -- RLS تحصرها بالمشرف العام
+grant insert, update, delete on public.levels, public.institutions, public.majors, public.plans to authenticated; -- RLS restricts these to the super admin
 grant all on public.levels, public.institutions, public.majors, public.plans to service_role;
 
--- ───────────────────────── 9) صلاحيات الدوال الجديدة ─────────────────────────
+-- ───────────────────────── 9) Privileges of the new functions ─────────────────────────
 revoke all on function public.my_role() from public, anon;
 revoke all on function public.is_space_admin() from public, anon;
 revoke all on function public.is_manager() from public, anon;

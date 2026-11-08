@@ -50,70 +50,70 @@ await mq(S1, L1, "WRITTEN", { type: "written" });
 const exp = (u, args) => q(u, "select public.qcm_export($1,$2,$3,$4,$5,$6,$7,$8) as r", args).then((r) => r[0].r);
 const stm = (r) => r.questions.map((x) => x.statement);
 
-// ── العمود والصلاحيات
-ok("exam_only افتراضي false", (await db.query("select exam_only from public.questions where statement='L1-1'")).rows[0].exam_only === false);
-ok("الطالب لا يقرأ correct_index", denied(await err(q(A, "select correct_index from public.questions limit 1"))));
-ok("الطالب لا يقرأ explanation", denied(await err(q(A, "select explanation from public.questions limit 1"))));
-ok("الطالب لا يقرأ select *", denied(await err(q(A, "select * from public.questions limit 1"))));
-ok("exam_only قابل للقراءة (غير حسّاس)", !(await err(q(A, "select exam_only from public.questions limit 1"))));
-ok("المدير يعدّل exam_only", (await q(ADM, "update public.questions set exam_only=true where statement='L3-1' returning id")).length === 1);
+// -- Column and privileges
+ok("exam_only defaults to false", (await db.query("select exam_only from public.questions where statement='L1-1'")).rows[0].exam_only === false);
+ok("a student cannot read correct_index", denied(await err(q(A, "select correct_index from public.questions limit 1"))));
+ok("a student cannot read explanation", denied(await err(q(A, "select explanation from public.questions limit 1"))));
+ok("a student cannot select *", denied(await err(q(A, "select * from public.questions limit 1"))));
+ok("exam_only is readable (not sensitive)", !(await err(q(A, "select exam_only from public.questions limit 1"))));
+ok("the admin edits exam_only", (await q(ADM, "update public.questions set exam_only=true where statement='L3-1' returning id")).length === 1);
 await q(ADM, "update public.questions set exam_only=false where statement='L3-1'");
-ok("الطالب لا يعدّل exam_only (RLS)", (await q(A, "update public.questions set exam_only=true where statement='L3-1' returning id")).length === 0);
+ok("a student cannot edit exam_only (RLS)", (await q(A, "update public.questions set exam_only=true where statement='L3-1' returning id")).length === 0);
 
 // ── qcm_export
 let r = await exp(A, [S1, null, null, null, null, 50, false, false]);
-ok("exam_only/مسودة/مكتوب لا تظهر", !stm(r).some((s) => ["EXAM-ONLY", "DRAFT", "WRITTEN"].includes(s)) && r.questions.length === 10, JSON.stringify(stm(r)));
-ok("الترتيب بلا خلط حسب الحصة", stm(r).slice(0, 3).join() === "L1-1,L1-2,L1-3" || stm(r)[0].startsWith("L1"));
-ok("أرقام الأسئلة 1..n", r.questions.every((x, i) => x.n === i + 1));
-ok("الإجابة الصحيحة مُرجَعة", r.questions.every((x) => x.correct === 2));
-ok("الشرح محجوب افتراضياً", r.questions.every((x) => x.explanation === null));
+ok("exam_only/draft/written questions do not show", !stm(r).some((s) => ["EXAM-ONLY", "DRAFT", "WRITTEN"].includes(s)) && r.questions.length === 10, JSON.stringify(stm(r)));
+ok("order by lesson, no mixing", stm(r).slice(0, 3).join() === "L1-1,L1-2,L1-3" || stm(r)[0].startsWith("L1"));
+ok("question numbers 1..n", r.questions.every((x, i) => x.n === i + 1));
+ok("the correct answer is returned", r.questions.every((x) => x.correct === 2));
+ok("the explanation is hidden by default", r.questions.every((x) => x.explanation === null));
 r = await exp(A, [S1, L1, null, null, null, 50, false, true]);
-ok("فلتر الحصة + الشرح عند الطلب", r.questions.length === 6 && r.questions.every((x) => /^expl-/.test(x.explanation)) && r.lesson.number === 1 && r.lesson.kind === "cm");
+ok("lesson filter + explanation on request", r.questions.length === 6 && r.questions.every((x) => /^expl-/.test(x.explanation)) && r.lesson.number === 1 && r.lesson.kind === "cm");
 r = await exp(A, [S1, null, 2, 3, null, 50, false, false]);
-ok("نطاق الحصص 2..3", r.questions.length === 4 && stm(r).every((s) => /^L[23]/.test(s)), JSON.stringify(stm(r)));
+ok("lesson range 2..3", r.questions.length === 4 && stm(r).every((s) => /^L[23]/.test(s)), JSON.stringify(stm(r)));
 r = await exp(A, [S1, null, null, null, "hard", 50, false, false]);
-ok("فلتر الصعوبة", r.questions.length === 3 && stm(r).every((s) => /^L1-[456]/.test(s)));
+ok("difficulty filter", r.questions.length === 3 && stm(r).every((s) => /^L1-[456]/.test(s)));
 r = await exp(A, [S1, null, null, null, null, 4, true, false]);
-ok("العدد 4", r.questions.length === 4);
+ok("count 4", r.questions.length === 4);
 r = await exp(A, [S1, null, null, null, null, 1000, true, false]);
-ok("الحد الأقصى 50 (هنا 10 متاحة)", r.questions.length === 10);
+ok("maximum 50 (only 10 available here)", r.questions.length === 10);
 const seen = new Set(); for (let i = 0; i < 4; i++) seen.add(stm(await exp(B, [S1, null, null, null, null, 10, true, false])).join()); 
-ok("الخلط يغيّر الترتيب", seen.size > 1, [...seen].length);
+ok("shuffling changes the order", seen.size > 1, [...seen].length);
 const e0 = await err(exp(A, [S2, null, null, null, null, 10, true, false]));
-ok("لا أسئلة ← no_questions", /no_questions/.test(e0 ?? ""), e0);
+ok("no questions -> no_questions", /no_questions/.test(e0 ?? ""), e0);
 
-// ── الحد اليومي: 10 لكل طالب (A استهلك 6 ناجحة حتى الآن؟)
+// -- Daily limit: 10 per student (has A used 6 successful so far?)
 const cnt = async (u) => (await db.query("select count(*)::int c from public.qcm_downloads where user_id=$1", [u])).rows[0].c;
-ok("no_questions لا يُحتسب", (await cnt(A)) === 6, await cnt(A));
+ok("no_questions is not counted", (await cnt(A)) === 6, await cnt(A));
 for (let i = (await cnt(A)); i < 10; i++) await exp(A, [S1, L1, null, null, null, 5, true, false]);
-ok("10 تنزيلات مسموحة", (await cnt(A)) === 10);
+ok("10 downloads are allowed", (await cnt(A)) === 10);
 const lim = await err(exp(A, [S1, null, null, null, null, 5, true, false]));
-ok("الحادي عشر مرفوض download_limit", /download_limit/.test(lim ?? ""), lim);
-ok("طالب آخر لا يتأثر", !(await err(exp(B, [S1, null, null, null, null, 5, true, false]))));
+ok("the 11th is rejected: download_limit", /download_limit/.test(lim ?? ""), lim);
+ok("another student is not affected", !(await err(exp(B, [S1, null, null, null, null, 5, true, false]))));
 await db.query("update public.qcm_downloads set created_at = now() - interval '25 hours' where user_id=$1", [A]);
-ok("بعد 24 ساعة يُسمح من جديد", !(await err(exp(A, [S1, null, null, null, null, 5, true, false]))));
+ok("after 24 hours it is allowed again", !(await err(exp(A, [S1, null, null, null, null, 5, true, false]))));
 
-// ── الحماية
-ok("anon لا ينفّذ qcm_export", denied(await err(anon("select public.qcm_export()"))));
-ok("الطالب لا يقرأ qcm_downloads", denied(await err(q(A, "select * from public.qcm_downloads"))));
-ok("الطالب لا يكتب في qcm_downloads", denied(await err(q(A, "insert into public.qcm_downloads (user_id) values ($1)", [A]))));
-ok("الطالب لا يحذف سجل التنزيل", denied(await err(q(A, "delete from public.qcm_downloads"))));
+// -- Protection
+ok("anon cannot run qcm_export", denied(await err(anon("select public.qcm_export()"))));
+ok("a student cannot read qcm_downloads", denied(await err(q(A, "select * from public.qcm_downloads"))));
+ok("a student cannot write to qcm_downloads", denied(await err(q(A, "insert into public.qcm_downloads (user_id) values ($1)", [A]))));
+ok("a student cannot delete the download log", denied(await err(q(A, "delete from public.qcm_downloads"))));
 
-// ── التدريب الحر يستثني exam_only؛ المصنّف يشملها
+// -- Free practice excludes exam_only; the ranked quiz includes it
 for (let i = 1; i <= 5; i++) await mq(S2, null, `EX-${i}`, { exam: true });
 const free = await err(q(A, "select public.start_attempt('free',$1,null,null,null,null,'mcq',10,0)", [S2]));
-ok("التدريب الحر لا يجد exam_only", /no_questions/.test(free ?? ""), free);
+ok("free practice does not find exam_only", /no_questions/.test(free ?? ""), free);
 const rk = await err(q(B, "select public.start_attempt('ranked',$1,null,null,null,null,'mcq',20,20)", [S2]));
-ok("الاختبار المصنّف يشمل exam_only", !rk, rk);
+ok("the ranked quiz includes exam_only", !rk, rk);
 const used = (await db.query("select question_ids from public.attempts where user_id=$1 and mode='ranked' order by started_at desc limit 1", [B])).rows[0].question_ids;
-ok("وتُختار منها فعلاً", used.length === 5);
+ok("and they are actually picked", used.length === 5);
 const fr = await q(A, "select public.start_attempt('free',$1,null,null,null,null,'mcq',50,0) as id", [S1]);
 const ids = (await db.query("select question_ids from public.attempts where id=$1", [fr[0].id])).rows[0].question_ids;
 const flagged = (await db.query("select count(*)::int c from public.questions where id = any($1) and exam_only", [ids])).rows[0].c;
-ok("التدريب الحر على مادة فيها exam_only لا يشملها", ids.length > 0 && flagged === 0);
+ok("free practice on a subject containing exam_only does not include them", ids.length > 0 && flagged === 0);
 
-// ── إعادة تشغيل 0016 آمنة
+// -- Re-running 0016 is safe
 await db.exec(fs.readFileSync(M + "0016_qcm_pdf.sql", "utf8"));
-ok("إعادة تشغيل 0016 آمنة", !(await err(exp(B, [S1, null, null, null, null, 5, true, false]))));
-console.log(`\n${pass} ناجح، ${fail} فاشل`);
+ok("re-running 0016 is safe", !(await err(exp(B, [S1, null, null, null, null, 5, true, false]))));
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

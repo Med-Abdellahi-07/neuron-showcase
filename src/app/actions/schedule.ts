@@ -18,7 +18,7 @@ export async function addSession(_prev: FormState, fd: FormData): Promise<FormSt
   const date = text(fd, "session_date");
   const slot = parseInt(text(fd, "slot"), 10);
   const kind = text(fd, "kind");
-  const cohort_id = me.cohort_id ?? ""; // فضاء المستخدم، لا ما في النموذج
+  const cohort_id = me.cohort_id ?? ""; // The user's space, not what is in the form.
   const subject_id = text(fd, "subject_id");
   if (
     !isValidISO(date) ||
@@ -59,7 +59,7 @@ export async function setSessionStatus(fd: FormData) {
     .eq("id", id)
     .select("cohort_id, subject_id, kind, session_date, group_label, status, note")
     .maybeSingle();
-  // إلغاء أو تغيير حصة قادمة (لا نُشعر بحصص مضت)
+  // Cancelling or changing an upcoming session (past sessions do not notify).
   if (data && (data.status === "cancelled" || data.status === "changed") && data.session_date >= new Date().toISOString().slice(0, 10))
     await notifyScheduleChange(data);
   revalidatePath("/", "layout");
@@ -74,7 +74,7 @@ export async function deleteSession(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** ينسخ حصص الأسبوع السابق إلى الأسبوع المحدد (يتجاوز المكرر، ويعيد الحالة إلى مجدولة). */
+/** Copies the previous week's sessions into the chosen week (skips duplicates and resets status to scheduled). */
 export async function copyPreviousWeek(fd: FormData) {
   const me = await requireStaff();
   const cohort_id = me.cohort_id ?? "";
@@ -108,7 +108,7 @@ export async function copyPreviousWeek(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** المدير فقط: تاريخ بداية السداسي (لترقيم الأسابيع). فارغ = بلا ترقيم. */
+/** Admin only: semester start date (used for week numbering). Empty means no numbering. */
 export async function setSemesterStart(fd: FormData) {
   await requireManager();
   const id = text(fd, "semester_id");

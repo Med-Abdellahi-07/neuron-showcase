@@ -11,13 +11,13 @@ import { indexFile } from "@/lib/ai/indexing";
 import { runDiagnostics, type DiagReport } from "@/lib/ai/diagnostics";
 import { runLessonSearchTest, type LessonSearchReport } from "@/lib/ai/lesson-diag";
 
-/** اختبار المزوّدين: للمدير فقط. لا يُرجع قيم المفاتيح أبداً. */
+/** Provider test: admin only. Never returns key values. */
 export async function runAiDiagnostics(): Promise<DiagReport> {
   await requireAdmin();
   return runDiagnostics();
 }
 
-/** اختبار «بحث في الدروس»: عدد المقاطع ونتائج سؤال تجريبي مع درجات التشابه. */
+/** "Lesson search" test: chunk count and results of a sample question with similarity scores. */
 export async function runLessonSearch(query: string, subjectCode: string): Promise<LessonSearchReport> {
   await requireAdmin();
   const q = query.trim().slice(0, 300) || "apprentissage supervisé";
@@ -33,7 +33,7 @@ export interface ReindexResult {
   error?: string;
 }
 
-/** إعادة فهرسة كل ملفات PDF بالتتابع ضمن حد الدالة (نحو 50 ثانية)، مع تقرير لكل ملف. */
+/** Re-indexes all PDF files sequentially within the function time limit (about 50 seconds), with a per-file report. */
 export async function reindexAll(): Promise<{ results: ReindexResult[]; remaining: number }> {
   await requireAdmin();
   const admin = createAdminClient();
@@ -56,7 +56,7 @@ export async function reindexAll(): Promise<{ results: ReindexResult[]; remainin
 
 const FLAG_KEYS = ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools", "ai_exam"] as const;
 
-/** المشرف العام: تفعيل/تعطيل كل ميزة ذكاء اصطناعي لفضاء (التحقق الفعلي في set_space_ai). لا نقاط ولا حصص للطلاب. */
+/** Super admin: enable/disable each AI feature per space (the real check is in set_space_ai). No points or quotas for students. */
 export async function setSpaceAi(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireAdmin();
   const { t } = await getT();
@@ -73,7 +73,7 @@ export async function setSpaceAi(_prev: FormState, fd: FormData): Promise<FormSt
   return { message: t("common.saved") };
 }
 
-/** سقف الإساءة الخفي (طلبات/يوم و/دقيقة لكل طالب) */
+/** Hidden abuse cap (requests per day and per minute for each student). */
 export async function setAiLimits(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireAdmin();
   const { t } = await getT();

@@ -7,7 +7,7 @@ import { formatDate } from "@/lib/dates";
 interface Top { user_id: string; full_name: string; space_name: string | null; today: number; week: number }
 interface Alert { user_id: string; full_name: string; space_name: string | null; kind: "minute" | "daily"; day: string }
 
-/** سقف الإساءة الخفي + أكثر 10 حسابات استهلاكاً + تنبيهات الإساءة (المشرف العام فقط) */
+/** Hidden abuse cap + top 10 accounts by usage + abuse alerts (super admin only). */
 export async function AiAbuse() {
   const { t, locale } = await getT();
   const supabase = await createClient();

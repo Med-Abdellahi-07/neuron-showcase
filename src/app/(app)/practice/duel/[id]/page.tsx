@@ -38,7 +38,7 @@ export default async function DuelDetail({ params }: { params: Promise<{ id: str
     </div>
   );
 
-  // ───────── انتهى التحدي: المقارنة والإجابات الصحيحة ─────────
+  // Duel finished: comparison and correct answers.
   if ((res.status === "completed" || res.status === "expired") && res.players && res.questions) {
     const me = res.players.find((p) => p.user_id === res.me);
     const other = res.players.find((p) => p.user_id !== res.me);
@@ -122,7 +122,7 @@ export default async function DuelDetail({ params }: { params: Promise<{ id: str
 
   const myTurn = (res.status === "challenger_turn" && res.i_am_challenger) || (res.status === "open" && !res.i_am_challenger && !res.my_finished);
 
-  // ───────── دوري الآن ─────────
+  // Your turn.
   if (myTurn)
     return (
       <div className="space-y-5">
@@ -134,7 +134,7 @@ export default async function DuelDetail({ params }: { params: Promise<{ id: str
       </div>
     );
 
-  // ───────── انتظار ─────────
+  // Waiting.
   return (
     <div className="space-y-5">
       {Head}

@@ -1,7 +1,7 @@
 import { useUid } from "./uid";
 import type { ClayProps } from "./types";
 
-/** tile = أيقونة الجدول (وردية) في الرئيسية، hero = التقويم الكبير في صفحة الجدول */
+/** tile = timetable icon (pink) on the home page, hero = the large calendar on the timetable page. */
 export function ClayCalendar({ variant = "tile", day = "27", width, height, className }: ClayProps & { variant?: "tile" | "hero"; day?: string }) {
   const u = useUid("cal");
   if (variant === "hero") {

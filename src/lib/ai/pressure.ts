@@ -3,9 +3,9 @@ import { configuredProviders } from "./index";
 import { dailyLimit, pressureFor } from "./pressure-model";
 
 /**
- * «وضع الضغط»: إذا اقترب الاستهلاك الكلي اليومي من حدود المزوّدين المجانيين تُخفَّض حصص النقاط لكل الطلاب
- * (المعامل في ai_settings.pressure، تقرؤه ai_spend)، فيرى الطالب «الخدمة مزدحمة» بدل خطأ.
- * الحدود أرقام تقريبية قابلة للضبط بمتغيرات Vercel AI_LIMIT_<PROVIDER>_DAILY (عدد الطلبات يومياً).
+ * "Pressure mode": when total daily usage nears the free providers' limits, point quotas are lowered for every student
+ * (the factor lives in ai_settings.pressure, read by ai_spend), so students see "service busy" instead of an error.
+ * The limits are approximate numbers, tunable through the Vercel variables AI_LIMIT_<PROVIDER>_DAILY (requests per day).
  */
 let lastRun = 0;
 export async function updatePressure(): Promise<void> {
@@ -21,6 +21,6 @@ export async function updatePressure(): Promise<void> {
     const cap = names.reduce((a, n) => a + dailyLimit(n), 0);
     await admin.from("ai_settings").update({ pressure: pressureFor(cap ? used / cap : 0), updated_at: new Date().toISOString() }).eq("id", true);
   } catch {
-    /* لا يوقف العمل */
+    /* must not stop the work */
   }
 }

@@ -22,7 +22,7 @@ export default async function SchedulePage({
   const sp = await searchParams;
   const raw = Array.isArray(sp.w) ? sp.w[0] : sp.w;
   const today = todayISO();
-  // الإثنين–السبت: الأسبوع الحالي؛ الأحد: القادم مباشرة (لا دراسة يوم الأحد)
+  // Mon-Sat: current week; Sunday: jump to next week (no classes on Sunday).
   const defaultMonday = defaultWeekMonday(today);
   const monday = isValidISO(raw) ? mondayOf(raw) : defaultMonday;
 
@@ -39,7 +39,7 @@ export default async function SchedulePage({
   const supabase = await createClient();
   const [current, remaining, sem] = await Promise.all([getCurrentSubjects(), getRemainingSubjects(), getSemesterStart()]);
   const subjects = [...current, ...remaining.filter((r) => !current.some((c) => c.id === r.id))];
-  // حصص فضائي + حصص موادي المتبقية من L1 (RLS يقيّد الاثنتين)
+  // Own-space sessions plus sessions of remaining L1 subjects (RLS restricts both).
   const { data } = await supabase
     .from("schedule_sessions")
     .select("*")
@@ -56,10 +56,10 @@ export default async function SchedulePage({
   const colors = colorMap(current, remaining);
   const gridSessions = week.map((s) => toGridSession(s, byId.get(s.subject_id), colors.get(s.subject_id) ?? 0, s.cohort_id !== profile.cohort_id));
   const initialView = (await cookies()).get(VIEW_COOKIE)?.value === "grid" ? "grid" : "day";
-  // لم يختر مجموعة الإنجليزية: تظهر كل المجموعات، فننبّهه
+  // English group not chosen: all groups are shown, so we nudge the student.
   const showGroupHint = !profile.english_group && week.some((s) => byId.get(s.subject_id)?.code === ENGLISH_CODE && s.group_label);
 
-  // عدّاد الحصص المنجزة (الحصة = 1.5 ساعة)، ما عدا الملغاة
+  // Completed session counter (one session = 1.5 hours), excluding cancelled ones.
   const done = new Map<string, number>();
   for (const s of all) {
     if (s.status === "cancelled" || !hasEnded(s, today)) continue;

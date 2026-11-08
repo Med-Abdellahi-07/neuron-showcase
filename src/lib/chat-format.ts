@@ -1,4 +1,4 @@
-/** لون ثابت لاسم المرسل (من هاش الاسم) من لوحة ألوان مقروءة على الخلفيتين الفاتحة والداكنة */
+/** Stable color for a sender's name (from a name hash) taken from a palette readable on both light and dark backgrounds. */
 const COLORS = ["#6D3BF5", "#C2410C", "#0F766E", "#BE185D", "#1D4ED8", "#7C3AED", "#B45309", "#047857"];
 export function nameColor(key: string): string {
   let h = 0;
@@ -6,14 +6,14 @@ export function nameColor(key: string): string {
   return COLORS[h % COLORS.length];
 }
 
-/** يدمج نافذة «الأحدث» مع الرسائل الأقدم المحمّلة يدويًا بلا تكرار، ويرتّب بالمعرّف */
+/** Merges the "latest" window with older manually loaded messages without duplicates, ordered by id. */
 export function mergeMessages<T extends { id: number }>(older: T[], latest: T[]): T[] {
   const seen = new Set(latest.map((m) => m.id));
   const first = latest.length ? latest[0].id : Infinity;
   return [...older.filter((m) => !seen.has(m.id) && m.id < first), ...latest];
 }
 
-/** مفتاح اليوم المحلي لفاصل التاريخ */
+/** Local day key for the date separator. */
 export const dayKey = (iso: string) => {
   const d = new Date(iso);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;

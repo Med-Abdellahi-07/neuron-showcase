@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { errorInfo } from "./errors";
 import { geminiEmbed } from "./gemini";
 import { searchBoth, type Row } from "./rag";
+import { getAdminT } from "@/lib/i18n/admin-t";
 
 export interface LessonSearchReport {
   serviceKey: boolean;
@@ -33,7 +34,7 @@ const hit = (r: Row): Hit => ({
   snippet: r.content.replace(/\s+/g, " ").slice(0, 200),
 });
 
-/** يفحص سلسلة RAG كاملة: الفهرس المخزَّن، التضمين، البحث الدلالي والنصي بصلاحية المستدعي (RLS). */
+/** Checks the whole RAG chain: stored index, embedding, semantic and text search with the caller's permissions (RLS). */
 export async function runLessonSearchTest(
   supabase: SupabaseClient,
   query: string,
@@ -50,7 +51,7 @@ export async function runLessonSearchTest(
     verdict: "",
   };
 
-  // 1) ما المخزَّن فعلاً (بصلاحية service_role لنرى الحقيقة بغض النظر عن RLS)
+  // 1) What is actually stored (with the service role, to see the truth regardless of RLS).
   if (rep.serviceKey) {
     try {
       const admin = createAdminClient();
@@ -90,7 +91,7 @@ export async function runLessonSearchTest(
     }
   }
 
-  // 2) التضمين ثم البحث بصلاحية المستدعي (كما يفعل الطالب)
+  // 2) Embedding then search with the caller's permissions (as a student would).
   try {
     const [v] = await geminiEmbed([query], "RETRIEVAL_QUERY");
     rep.embedding = { ok: true, dims: v.length };
@@ -101,16 +102,19 @@ export async function runLessonSearchTest(
   rep.vector = { ok: !debug.vectorError, error: debug.vectorError, rows: vector.map(hit) };
   rep.text = { ok: !debug.textError, error: debug.textError, rows: text.map(hit) };
 
-  // 3) الخلاصة
+  // 3) Conclusion.
+  const t = await getAdminT();
   const ix = rep.index;
-  if (!rep.serviceKey) rep.verdict = "SUPABASE_SERVICE_ROLE_KEY غير مضبوط في Vercel: لا فهرسة تلقائية ولا فحص للفهرس.";
-  else if (rep.indexError) rep.verdict = `تعذّر قراءة الفهرس: ${rep.indexError}`;
-  else if (ix && ix.pdfFiles === 0) rep.verdict = "لا ملفات PDF مسجّلة في أي حصة.";
-  else if (ix && ix.chunks === 0) rep.verdict = "الفهرس فارغ (0 مقطع): لم تنجح الفهرسة. اضغط «إعادة فهرسة الكل» وانظر عمود الأخطاء.";
-  else if (ix && ix.withEmbedding === 0) rep.verdict = "المقاطع موجودة بلا متجهات: فشل التضمين وقت الفهرسة؛ أعد الفهرسة. البحث النصي يعمل مع ذلك.";
-  else if (!debug.vectorError && vector.length === 0 && text.length === 0) rep.verdict = "الفهرس سليم لكن البحث لم يُرجع شيئاً: تحقق أن الحصة «منشورة» وأن المادة/الحصة المحددة صحيحة.";
-  else if (debug.vectorError) rep.verdict = `البحث الدلالي فشل (${debug.vectorError}) لكن النصي ${text.length ? "وجد نتائج" : "لم يجد"}.`;
-  else if ((debug.topSimilarity ?? 0) < threshold && text.length === 0) rep.verdict = `أعلى تشابه ${debug.topSimilarity?.toFixed(2)} أقل من العتبة ${threshold}: خفّض RAG_MIN_SIMILARITY.`;
-  else rep.verdict = "السلسلة تعمل: وُجدت مقاطع مرتبطة بالسؤال.";
+  if (!rep.serviceKey) rep.verdict = t("lessondiag.noServiceKey");
+  else if (rep.indexError) rep.verdict = t("lessondiag.indexError", { error: rep.indexError });
+  else if (ix && ix.pdfFiles === 0) rep.verdict = t("lessondiag.noPdf");
+  else if (ix && ix.chunks === 0) rep.verdict = t("lessondiag.emptyIndex");
+  else if (ix && ix.withEmbedding === 0) rep.verdict = t("lessondiag.noVectors");
+  else if (!debug.vectorError && vector.length === 0 && text.length === 0) rep.verdict = t("lessondiag.nothingFound");
+  else if (debug.vectorError)
+    rep.verdict = t(text.length ? "lessondiag.vectorFailedFound" : "lessondiag.vectorFailedNone", { error: debug.vectorError });
+  else if ((debug.topSimilarity ?? 0) < threshold && text.length === 0)
+    rep.verdict = t("lessondiag.lowSimilarity", { sim: debug.topSimilarity?.toFixed(2) ?? "0", threshold });
+  else rep.verdict = t("lessondiag.ok");
   return rep;
 }

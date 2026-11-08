@@ -26,7 +26,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const end = monthEnd(ym);
   const supabase = await createClient();
 
-  // نافذة واسعة بيوم قبل وبعد (فروق المنطقة الزمنية)، ثم نقصّ بتاريخ التطبيق
+  // Window widened by a day on each side (time zone offsets), then trimmed by app date.
   const [rowsRes, prevTotalRes, prevOkRes, subjects] = await Promise.all([
     supabase
       .from("attempt_answers")
@@ -66,7 +66,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const monthOptions = lastMonths(nowYm, 6).map((m) => ({ ym: m, label: monthName(m) }));
   if (!monthOptions.some((o) => o.ym === ym)) monthOptions.push({ ym, label: monthName(ym) });
 
-  // المواد: نسبة الصحيح لكل مادة في الشهر، الأكثر حلاً أولاً
+  // Subjects: share of correct answers per subject this month, most practised first.
   const per = new Map<string, { n: number; ok: number }>();
   for (const r of rows) {
     if (!r.subject_id) continue;

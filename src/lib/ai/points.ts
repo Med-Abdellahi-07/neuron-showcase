@@ -9,8 +9,8 @@ export type SpendResult =
   | { ok: false; reason: "disabled" | "break" | "busy" | "auth" | "unknown" };
 
 /**
- * يسجّل الطلب ضد السقف الخفي (لا نقاط ولا عدّاد للطالب): العلم، وسقف الدقيقة واليوم ووضع الضغط، كلها في قاعدة البيانات.
- * عند أول تجاوز في اليوم يُنبَّه المشرف العام.
+ * Records the request against the hidden cap (no points or counter for the student): the flag, per-minute and daily caps and pressure mode all live in the database.
+ * The super admin is alerted on the first overrun of the day.
  */
 export async function spendPoints(supabase: SupabaseClient, kind: SpendKind): Promise<SpendResult> {
   const { data, error } = await supabase.rpc("ai_spend", { p_kind: kind });
@@ -21,7 +21,7 @@ export async function spendPoints(supabase: SupabaseClient, kind: SpendKind): Pr
   return { ok: false, reason: (r.reason as "disabled" | "break" | "busy" | "auth" | "unknown") ?? "unknown" };
 }
 
-/** إشعار للمشرفين العامين بأن حساباً تجاوز السقف (مرة واحدة لكل حساب/يوم من قاعدة البيانات). لا يرمي. */
+/** Notifies super admins that an account exceeded the cap (once per account/day, enforced by the database). Never throws. */
 function alertAdmins() {
   try {
     after(async () => {
@@ -37,21 +37,21 @@ function alertAdmins() {
           tag: "ai-abuse",
         });
       } catch {
-        /* لا يوقف العمل */
+        /* must not stop the work */
       }
     });
   } catch {
-    /* خارج نطاق الطلب */
+    /* Outside the request scope. */
   }
 }
 
-/** عملية فشلت قبل أن يصل الطالب شيء: نشطب الطلب من السجل (service role فقط). لا يرمي أبداً. */
+/** An operation failed before anything reached the student: remove the request from the ledger (service role only). Never throws. */
 export async function refundPoints(ledgerId: number): Promise<void> {
   if (!ledgerId) return;
   try {
     await createAdminClient().rpc("ai_refund", { p_ledger_id: ledgerId });
   } catch {
-    /* لا يوقف العمل */
+    /* must not stop the work */
   }
 }
 
@@ -65,6 +65,6 @@ export async function getBalance(supabase: SupabaseClient): Promise<AiBalance | 
   return (data as AiBalance | null) ?? null;
 }
 
-/** رمز الخطأ الذي تعرضه الواجهات */
+/** Error code shown by the UIs. */
 export const spendErrorCode = (r: Extract<SpendResult, { ok: false }>): "break" | "busy" | "disabled" | "unavailable" =>
   r.reason === "break" || r.reason === "busy" || r.reason === "disabled" ? r.reason : "unavailable";

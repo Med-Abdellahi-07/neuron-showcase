@@ -1,4 +1,4 @@
-/** حلقة تقدّم SVG خفيفة (بلا مكتبات): تعرض «المنجز/الكل» في الوسط. */
+/** Lightweight SVG progress ring (no libraries): shows "done/total" in the center. */
 export function ProgressRing({
   done,
   total,
@@ -10,7 +10,7 @@ export function ProgressRing({
   total: number;
   size?: number;
   stroke?: number;
-  /** نص بديل لقارئات الشاشة */
+  /** Alt text for screen readers. */
   label?: string;
 }) {
   const r = (size - stroke) / 2;

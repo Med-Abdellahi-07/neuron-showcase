@@ -5,7 +5,7 @@ import { Download, ExternalLink, Loader2 } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import { fetchJoined } from "@/lib/big-file";
 
-/** ملف مجزّأ في Storage يظهر للمستخدم «ملفاً واحداً»: عند الطلب تُجلب الأجزاء وتُضمّ في Blob (مع التحقق من البصمات). */
+/** A multipart file in Storage appears as a single file: on demand the parts are fetched and joined into one Blob (checking hashes). */
 export function BigFileViewer({ name, urls, hashes, size, kind }: { name: string; urls: string[]; hashes: string[] | null; size: number; kind: "pdf" | "other" }) {
   const { t } = useT();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);

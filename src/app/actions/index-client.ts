@@ -5,10 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSpace } from "@/lib/spaces";
 import { chunkText, embedAndStore } from "@/lib/ai/indexing";
+import { getAdminT } from "@/lib/i18n/admin-t";
 
 /**
- * فهرسة PDF الكبير من المتصفح: النص يُستخرج هناك (pdf.js) ويصل إلى هنا دفعات صغيرة،
- * فلا تتجاوز أي استدعاءات مهلة الدالة. كل دالة تتحقق من الصلاحية ومن أن الملف في فضاء المستخدم (RLS).
+ * Large-PDF indexing from the browser: text is extracted there (pdf.js) and arrives here in small batches,
+ * so no call exceeds the function time limit. Each function checks permission and that the file is in the user's space (RLS).
  */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_PAGES_PER_BATCH = 12;
@@ -57,7 +58,7 @@ export async function finishClientIndex(fileId: string, totalChunks: number, emb
   if (!f) return { ok: false };
   const admin = createAdminClient();
   if (totalChunks <= 0) {
-    await admin.from("lesson_files").update({ indexed_at: null, index_error: "لا نص قابل للاستخراج في الملف (قد يكون صورة ممسوحة ضوئياً). أعد رفعه بنسخة نصية." }).eq("id", fileId);
+    await admin.from("lesson_files").update({ indexed_at: null, index_error: (await getAdminT())("indexing.noText") }).eq("id", fileId);
     return { ok: true };
   }
   await admin.from("lesson_files").update({ indexed_at: new Date().toISOString(), index_error: embedError?.slice(0, 400) ?? null }).eq("id", fileId);

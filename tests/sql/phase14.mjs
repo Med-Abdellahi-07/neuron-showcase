@@ -1,4 +1,4 @@
-// مزامنة نتائج QCM بدون إنترنت: record_offline_scores
+// Syncing QCM results completed offline: record_offline_scores
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import fs from "node:fs";
@@ -42,25 +42,25 @@ const U = () => crypto.randomUUID();
 const row = (o = {}) => ({ client_id: U(), lesson_id: lessI, correct: 7, total: 10, taken_at: new Date().toISOString(), ...o });
 const rec = (u, rows) => q(u, "select public.record_offline_scores($1::jsonb) r", [JSON.stringify(rows)]);
 
-ok("anon ممنوع", denied(await err(anon("select public.record_offline_scores('[]'::jsonb)"))));
-ok("الطالب لا يقرأ الجدول مباشرة", denied(await err(q(A, "select * from public.offline_scores"))));
-ok("ولا يكتب فيه مباشرة", denied(await err(q(A, "insert into public.offline_scores (client_id,user_id,correct,total,taken_at) values (gen_random_uuid(), $1, 1, 2, now())", [A]))));
+ok("anon is forbidden", denied(await err(anon("select public.record_offline_scores('[]'::jsonb)"))));
+ok("a student cannot read the table directly", denied(await err(q(A, "select * from public.offline_scores"))));
+ok("nor write to it directly", denied(await err(q(A, "insert into public.offline_scores (client_id,user_id,correct,total,taken_at) values (gen_random_uuid(), $1, 1, 2, now())", [A]))));
 
 const r1 = row();
 const out = (await rec(A, [r1]))[0].r;
-ok("نتيجة صحيحة تُقبل وتُرجَع", out.length === 1 && out[0] === r1.client_id && (await n("select count(*) c from public.offline_scores")) === 1);
-ok("إعادة الإرسال لا تكرر (idempotent)", ((await rec(A, [r1]))[0].r.length === 1) && (await n("select count(*) c from public.offline_scores")) === 1);
-ok("user_id وcohort_id من الجلسة لا من الطلب", (await one("select user_id, cohort_id from public.offline_scores")).user_id === A);
+ok("a correct result is accepted and returned", out.length === 1 && out[0] === r1.client_id && (await n("select count(*) c from public.offline_scores")) === 1);
+ok("resending does not duplicate (idempotent)", ((await rec(A, [r1]))[0].r.length === 1) && (await n("select count(*) c from public.offline_scores")) === 1);
+ok("user_id and cohort_id come from the session, not the request", (await one("select user_id, cohort_id from public.offline_scores")).user_id === A);
 const bad = [row({ correct: 11 }), row({ total: 0 }), row({ total: 51 }), row({ correct: -1 }), row({ taken_at: new Date(Date.now() + 3600e3).toISOString() }), row({ taken_at: new Date(Date.now() - 100 * 86400e3).toISOString() })];
 const outBad = (await rec(A, bad))[0].r;
-ok("القيم غير المعقولة تُعالج ولا تُخزَّن", outBad.length === bad.length && (await n("select count(*) c from public.offline_scores")) === 1);
-ok("صف تالف لا يُسقط الدفعة", (await rec(A, [{ client_id: "x", correct: "a" }, row()]))[0].r.length === 1 && (await n("select count(*) c from public.offline_scores")) === 2);
+ok("implausible values are handled and not stored", outBad.length === bad.length && (await n("select count(*) c from public.offline_scores")) === 1);
+ok("a corrupt row does not drop the batch", (await rec(A, [{ client_id: "x", correct: "a" }, row()]))[0].r.length === 1 && (await n("select count(*) c from public.offline_scores")) === 2);
 const rx = row({ lesson_id: lessS });
 await rec(A, [rx]);
-ok("حصة من فضاء آخر تُسجَّل بلا ربط", (await one("select lesson_id from public.offline_scores where client_id=$1", [rx.client_id])).lesson_id === null);
-ok("حصة من فضاء الطالب تُربط", (await one("select lesson_id from public.offline_scores where client_id=$1", [r1.client_id])).lesson_id === lessI);
-ok("أكثر من 100 مرفوض", (await err(rec(A, Array.from({ length: 101 }, () => row())))) !== null);
-ok("لا خلط بين المستخدمين (نفس client_id لمستخدمين)", (await rec(S, [{ ...r1, lesson_id: null }]))[0].r.length === 1 && (await n("select count(*) c from public.offline_scores where client_id=$1", [r1.client_id])) === 2);
+ok("a lesson from another space is recorded without a link", (await one("select lesson_id from public.offline_scores where client_id=$1", [rx.client_id])).lesson_id === null);
+ok("a lesson from the student's space is linked", (await one("select lesson_id from public.offline_scores where client_id=$1", [r1.client_id])).lesson_id === lessI);
+ok("more than 100 is rejected", (await err(rec(A, Array.from({ length: 101 }, () => row())))) !== null);
+ok("no mixing between users (same client_id for two users)", (await rec(S, [{ ...r1, lesson_id: null }]))[0].r.length === 1 && (await n("select count(*) c from public.offline_scores where client_id=$1", [r1.client_id])) === 2);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

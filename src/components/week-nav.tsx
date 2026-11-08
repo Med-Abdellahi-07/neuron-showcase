@@ -4,7 +4,7 @@ import { addDays } from "@/lib/weeks";
 import { formatWeekRange, weekNumber } from "@/lib/weeks";
 import type { Locale } from "@/lib/i18n/dictionaries";
 
-/** رأس التنقل بين الأسابيع: «الأسبوع 2 · 19–24 أكتوبر» + السابق/التالي + «هذا الأسبوع» (فقط عند الابتعاد). */
+/** Week navigation header: "Week 2 - 19-24 October" + previous/next + "This week" (only when away from it). */
 export function WeekNav({
   monday,
   defaultMonday,
@@ -15,13 +15,13 @@ export function WeekNav({
   compact = false,
 }: {
   monday: string;
-  /** الأسبوع الافتراضي (الحالي، أو القادم يوم الأحد) */
+  /** Default week (the current one, or the next one on Sunday). */
   defaultMonday: string;
   semesterStart: string | null;
   locale: Locale;
   hrefFor: (monday: string | null) => string;
   labels: { week: string; prev: string; next: string; thisWeek: string };
-  /** نسخة صغيرة تحت عنوان الصفحة (رأس الجدول الجديد) */
+  /** Compact version under the page title (the new timetable header). */
   compact?: boolean;
 }) {
   const n = weekNumber(monday, semesterStart);

@@ -1,19 +1,19 @@
 import { AiError, errorFromResponse } from "./errors";
 import type { GenOpts } from "./gemini";
 
-/** Groq (احتياطي) عبر واجهته المتوافقة مع OpenAI. */
-const URL_ = (process.env.GROQ_BASE_URL?.trim() || "https://api.groq.com/openai/v1") + "/chat/completions"; // GROQ_BASE_URL: للاختبارات فقط
+/** Groq (fallback) through its OpenAI-compatible API. */
+const URL_ = (process.env.GROQ_BASE_URL?.trim() || "https://api.groq.com/openai/v1") + "/chat/completions"; // GROQ_BASE_URL: tests only.
 
 export const groqModel = () => process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
 export const groqVisionModel = () => process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b";
 
 function key(): string {
   const k = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
-  if (!k) throw new AiError("groq", 0, "GROQ_API_KEY غير مضبوط");
+  if (!k) throw new AiError("groq", 0, "GROQ_API_KEY is not set");
   return k;
 }
 
-/** نماذج التفكير: تُخفى سلسلة التفكير من الرد، ونزيد حد الرموز لأن التفكير يُحسب منه */
+/** Thinking models: the reasoning chain is hidden from the reply, and the token limit is raised because thinking counts toward it. */
 const isOss = (m: string) => /gpt-oss/i.test(m);
 const isQwen = (m: string) => /qwen/i.test(m);
 
@@ -56,7 +56,7 @@ async function send(b: unknown): Promise<Response> {
     });
   } catch (e) {
     if (e instanceof AiError) throw e;
-    throw new AiError("groq", 0, `تعذّر الاتصال بـ Groq: ${e instanceof Error ? e.message : e}`);
+    throw new AiError("groq", 0, `Could not connect to Groq: ${e instanceof Error ? e.message : e}`);
   }
 }
 
@@ -64,7 +64,7 @@ async function post(o: GenOpts, stream: boolean): Promise<{ res: Response; model
   const b = body(o, stream);
   let res = await send(b);
   if (res.status === 400) {
-    // قد يرفض النموذج حقول التفكير الإضافية: نعيد المحاولة بدونها
+    // The model may reject the extra thinking fields: retry without them.
     const err = await errorFromResponse("groq", res);
     if (!/reason/i.test(err.message)) throw err;
     res = await send(body(o, stream, false));
@@ -73,20 +73,20 @@ async function post(o: GenOpts, stream: boolean): Promise<{ res: Response; model
   return { res, model: b.model };
 }
 
-/** يزيل كتل <think>…</think> إن أرجعها النموذج داخل النص (احتياط) */
+/** Removes <think>...</think> blocks if the model returned them inside the text (safety net). */
 export const stripThink = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^\s*<think>[\s\S]*$/i, "").trim();
 
 export async function groqGenerate(o: GenOpts): Promise<{ text: string; model: string }> {
   const { res, model } = await post(o, false);
   const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const text = stripThink(j.choices?.[0]?.message?.content ?? "");
-  if (!text) throw new AiError("groq", 502, "رد Groq فارغ");
+  if (!text) throw new AiError("groq", 502, "Groq returned an empty reply");
   return { text, model };
 }
 
 export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
   const { res } = await post(o, true);
-  if (!res.body) throw new AiError("groq", 502, "لا يوجد جسم للرد");
+  if (!res.body) throw new AiError("groq", 502, "no response body");
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
@@ -118,7 +118,7 @@ export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
             } else {
               const b = pending.indexOf("<think>");
               if (b < 0) {
-                // نحتفظ بذيل قد يكون بداية وسم
+                // Keep a tail that may be the start of a tag.
                 const keep = pending.lastIndexOf("<");
                 if (keep >= 0 && "<think>".startsWith(pending.slice(keep))) { out += pending.slice(0, keep); pending = pending.slice(keep); } else { out += pending; pending = ""; }
                 break;
@@ -134,9 +134,9 @@ export async function* groqStream(o: GenOpts): AsyncGenerator<string> {
           }
         }
       } catch {
-        /* تجاهل */
+        /* ignore */
       }
     }
   }
-  if (!any) throw new AiError("groq", 502, "رد Groq فارغ");
+  if (!any) throw new AiError("groq", 502, "Groq returned an empty reply");
 }

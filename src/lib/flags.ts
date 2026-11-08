@@ -1,9 +1,9 @@
 /**
- * مفتاح تعدد الفضاءات. الافتراضي false: المنصة لفضاء واحد (IAA L2).
- * عند false: لا اختيار فضاء في الدخول، ولا /admin/spaces، ولا مبدّل فضاءات ولا مواد L1 المتبقية.
- * الشيفرة الخاصة بتعدد الفضاءات تبقى في المستودع (خاملة) لإعادة تفعيلها بـ MULTI_SPACE_ENABLED=true.
+ * Multi-space switch. Default false: the platform runs a single space (IAA L2).
+ * When false: no space choice at login, no /admin/spaces, no space switcher and no remaining L1 subjects.
+ * The multi-space code stays in the repository (dormant) and is re-enabled with MULTI_SPACE_ENABLED=true.
  */
 export const MULTI_SPACE = process.env.MULTI_SPACE_ENABLED === "true";
 
-/** اسم الفضاء الوحيد عند إيقاف التعدد */
+/** The only space's name when multi-space is off. */
 export const SINGLE_SPACE_NAME = "IAA L2";

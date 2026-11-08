@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-/** قراءة رسائل غرفة الفضاء. الصلاحية والعزل في الدالة space_chat_list (my_cohort + ميزة chat). */
+/** Reads space chat room messages. Permission and isolation live in the space_chat_list function (my_cohort + chat feature). */
 export async function GET(req: NextRequest) {
   const num = (k: string) => {
     const v = parseInt(req.nextUrl.searchParams.get(k) ?? "", 10);

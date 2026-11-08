@@ -1,5 +1,5 @@
--- 0025: مزامنة نتائج QCM المنجزة بدون إنترنت (تمرين فقط، لا علاقة لها بالترتيب).
--- آمن لإعادة التشغيل. لا يمس أي جدول موجود.
+-- 0025: sync QCM results completed offline (practice only, unrelated to the ranking).
+-- Safe to re-run. Touches no existing table.
 
 create table if not exists public.offline_scores (
   id         uuid primary key default gen_random_uuid(),
@@ -16,11 +16,11 @@ create table if not exists public.offline_scores (
 );
 create index if not exists offline_scores_user_idx on public.offline_scores (user_id, taken_at desc);
 
--- RLS مغلق: لا قراءة ولا كتابة مباشرة، فقط عبر الدالة
+-- RLS closed: no direct reads or writes, only through the function
 alter table public.offline_scores enable row level security;
 revoke all on public.offline_scores from anon, authenticated;
 
--- تُرجع مصفوفة client_id التي عولجت (قُبلت أو رُفضت نهائيًا) ليحذفها الجهاز من صندوق الإرسال
+-- Returns the array of client_ids that were handled (accepted or permanently rejected) so the device can remove them from its outbox
 create or replace function public.record_offline_scores(p_scores jsonb)
 returns jsonb
 language plpgsql
@@ -47,14 +47,14 @@ begin
       at := (s->>'taken_at')::timestamptz;
       lid := nullif(s->>'lesson_id', '')::uuid;
     exception when others then
-      continue; -- صف تالف: يُتجاهل (لا client_id موثوق لإرجاعه)
+      continue; -- corrupt row: ignored (no trustworthy client_id to return)
     end;
-    -- قيم غير معقولة: تُعدّ معالجة (مرفوضة نهائيًا) كي لا تتكرر
+    -- Implausible values: counted as handled (permanently rejected) so they do not repeat
     if c < 0 or t < 1 or t > 50 or c > t or at > now() + interval '5 minutes' or at < now() - interval '90 days' then
       done := done || to_jsonb(cid::text);
       continue;
     end if;
-    -- الحصة يجب أن تكون ضمن مواد الطالب؛ وإلا تُسجَّل بلا ربط
+    -- The lesson must be among the student's subjects; otherwise it is recorded without a link
     if lid is not null and not exists (
       select 1 from public.lessons l join public.subjects sb on sb.id = l.subject_id join public.semesters sm on sm.id = sb.semester_id
       where l.id = lid and (sm.cohort_id = coh or public.follows_subject(l.subject_id))) then

@@ -5,7 +5,7 @@ import { Rich } from "@/components/rich";
 
 interface Rep { id: string; subject_code: string; statement: string; options: string[]; correct_index: number; explanation: string; page: number | null; note: string | null; status: string }
 
-/** أسئلة QCM المولّدة التي أبلغ الطلاب عن خطئها (لمواد فضاء المشرف فقط، بلا هوية المبلِّغ) */
+/** Generated QCM questions that students reported as wrong (only for the admin's own space subjects, without the reporter's identity). */
 export async function ReportedAiQuestions() {
   const { t } = await getT();
   const supabase = await createClient();

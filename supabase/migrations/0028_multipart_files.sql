@@ -1,11 +1,11 @@
--- 0028: ملفات كبيرة مجزّأة. الملف >45MB يُقسَم في المتصفح إلى أجزاء ≤45MB تحت
--- <lessonId>/<fileId>/part-001 … ويبقى «ملفاً واحداً» في lesson_files (storage_path = <lessonId>/<fileId>).
--- لا حد لحجم الملف الواحد؛ حد الدلو = 50MB (أقصى ما تسمح به خطة Supabase المجانية لكل كائن).
--- آمن لإعادة التشغيل.
+-- 0028: large multipart files. A file over 45MB is split in the browser into parts of at most 45MB under
+-- <lessonId>/<fileId>/part-001 ... and stays "one file" in lesson_files (storage_path = <lessonId>/<fileId>).
+-- No limit on a single file's size; the bucket limit is 50MB (the most the free Supabase plan allows per object).
+-- Safe to re-run.
 
 alter table public.lesson_files add column if not exists part_count smallint not null default 1 check (part_count >= 1);
-alter table public.lesson_files add column if not exists sha256 text;                 -- sha256 لتسلسل بصمات الأجزاء (مجزّأ فقط)
-alter table public.lesson_files add column if not exists part_sha256 text[];          -- بصمة كل جزء (للتحقق عند الضم)
+alter table public.lesson_files add column if not exists sha256 text; -- sha256 over the concatenated part hashes (multipart only)
+alter table public.lesson_files add column if not exists part_sha256 text[]; -- hash of each part (verified when joining)
 alter table public.lesson_files drop constraint if exists lesson_files_parts_chk;
 alter table public.lesson_files add constraint lesson_files_parts_chk
   check (part_count = 1 or (part_sha256 is not null and cardinality(part_sha256) = part_count and sha256 is not null));
@@ -16,7 +16,7 @@ do $$ begin
   end if;
 end $$;
 
--- القراءة: قاعدة 0020 نفسها (فضاء المستخدم + منشور للطالب + متابعو مواد L1) لكن تشمل أجزاء الملف المجزّأ
+-- Read: the same rule as 0020 (user's space + published for students + L1 subject followers), but including the parts of a multipart file
 drop policy if exists lesson_files_storage_read on storage.objects;
 create policy lesson_files_storage_read on storage.objects for select to authenticated
   using (bucket_id = 'lesson-files'

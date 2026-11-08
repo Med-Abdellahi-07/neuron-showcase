@@ -6,7 +6,7 @@ export interface Retrieved {
   chunks: ContextChunk[];
   sources: SourceRef[];
   mode: "vector" | "text" | "none";
-  /** هل وُجد مقطع مرتبط فعلاً بالسؤال؟ */
+  /** Was a chunk actually related to the question found? */
   relevant: boolean;
 }
 
@@ -22,7 +22,7 @@ export interface Row {
   subject_code: string;
 }
 
-/** عتبة التشابه الدلالي (cosine) لاعتبار المقطع مرتبطاً. تُضبط بالتجربة على محتوى حقيقي. */
+/** Semantic similarity threshold (cosine) for treating a chunk as related. Tuned by experiment on real content. */
 const MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY ?? 0.45);
 const K = 5;
 
@@ -36,7 +36,7 @@ export interface RetrieveDebug {
 
 export const rowLabel = (r: Row) => `${r.lesson_kind.toUpperCase()} ${r.lesson_number} — ${r.lesson_title} (p. ${r.page})`;
 
-/** بحث هجين: دلالي + نصي معاً (لا نصي كاحتياط فقط)، ثم دمج بلا تكرار. */
+/** Hybrid search: semantic + text together (not text as a mere fallback), then merge without duplicates. */
 export async function searchBoth(
   supabase: SupabaseClient,
   query: string,
@@ -70,8 +70,8 @@ export async function searchBoth(
 }
 
 /**
- * يسترجع مقاطع الدروس المنشورة (RLS يطبّق صلاحيات الطالب).
- * المقطع مقبول إن بلغ تشابهه الدلالي العتبة، أو طابق نصياً كلمات السؤال المميزة.
+ * Retrieves published lesson chunks (RLS applies the student's permissions).
+ * A chunk is accepted if its semantic similarity reaches the threshold, or it matches the question's distinctive words textually.
  */
 export async function retrieve(
   supabase: SupabaseClient,
@@ -84,7 +84,7 @@ export async function retrieve(
   const debug = found.debug;
   let { vector, text } = found;
   if (multi) {
-    // نطاق عدة حصص: نرشّح نتائج المادة بالحصص المختارة (وإن لم يبقَ شيء نبقي نتائج المادة)
+    // Multi-lesson scope: filter the subject's results by the chosen lessons (if nothing remains, keep the subject's results).
     const inScope = new Set(scope.lessonIds);
     const fv = vector.filter((r) => inScope.has(r.lesson_id));
     const ft = text.filter((r) => inScope.has(r.lesson_id));

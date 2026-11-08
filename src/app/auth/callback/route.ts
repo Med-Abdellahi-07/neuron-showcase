@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
-  // نسمح بمسارات داخلية فقط
+  // Only internal paths are allowed.
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
   if (code) {

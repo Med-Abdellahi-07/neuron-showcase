@@ -1,10 +1,10 @@
 import { AiError, errorFromResponse } from "./errors";
 
 /**
- * Gemini عبر REST الرسمي (generativelanguage.googleapis.com) والمفتاح في الترويسة x-goog-api-key.
- * لا نضع المفتاح في الرابط (?key=) ولا نستعمل نقطة OpenAI-compatible، ولا نفحص بادئة المفتاح.
+ * Gemini through the official REST API (generativelanguage.googleapis.com) with the key in the x-goog-api-key header.
+ * The key is never put in the URL (?key=), the OpenAI-compatible endpoint is not used, and the key prefix is not inspected.
  */
-const BASE = process.env.GEMINI_BASE_URL?.trim() || "https://generativelanguage.googleapis.com/v1beta"; // GEMINI_BASE_URL: للاختبارات فقط
+const BASE = process.env.GEMINI_BASE_URL?.trim() || "https://generativelanguage.googleapis.com/v1beta"; // GEMINI_BASE_URL: tests only.
 
 export const geminiModel = () => process.env.GEMINI_MODEL?.trim() || "gemini-3.6-flash";
 export const geminiEmbeddingModel = () => process.env.GEMINI_EMBEDDING_MODEL?.trim() || "gemini-embedding-001";
@@ -13,7 +13,7 @@ export const EMBEDDING_DIMENSIONS = 768;
 export interface ChatMsg {
   role: "user" | "assistant";
   text: string;
-  images?: { mime: string; data: string }[]; // base64 بلا بادئة data:
+  images?: { mime: string; data: string }[]; // Base64 without the data: prefix.
 }
 
 export interface GenOpts {
@@ -23,17 +23,17 @@ export interface GenOpts {
   maxTokens?: number;
   temperature?: number;
   /**
-   * هل تحتوي الرسائل على بيانات الطالب (أسئلته، دروسه، أخطاؤه)؟ الافتراضي نعم.
-   * false فقط للمحتوى العام (أسئلة Duel من الدروس): ويبدأ مساره بـ Gemini (قرار neuron-ai-plan.md).
+   * Do the messages contain student data (their questions, lessons, mistakes)? Default: yes.
+   * false only for public content (duel questions from lessons): its path starts with Gemini (decision in neuron-ai-plan.md).
    */
   personal?: boolean;
-  /** للاختبار فقط: مفتاح بديل (مثلاً مفتاح خاطئ لمحاكاة الفشل) */
+  /** Tests only: an alternative key (for example a wrong key to simulate failure). */
   apiKeyOverride?: string;
 }
 
 function key(override?: string): string {
   const k = (override ?? process.env.GEMINI_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
-  if (!k) throw new AiError("gemini", 0, "GEMINI_API_KEY غير مضبوط");
+  if (!k) throw new AiError("gemini", 0, "GEMINI_API_KEY is not set");
   return k;
 }
 
@@ -41,7 +41,7 @@ function headers(apiKey: string): Record<string, string> {
   return { "x-goog-api-key": apiKey, "content-type": "application/json" };
 }
 
-/** تفكير خفيف: Gemini 3 يستعمل thinkingLevel، و2.5 يستعمل thinkingBudget */
+/** Light thinking: Gemini 3 uses thinkingLevel, 2.5 uses thinkingBudget. */
 function thinking(on: boolean): { thinkingConfig: Record<string, unknown> } | undefined {
   if (!on) return undefined;
   const m = geminiModel();
@@ -62,7 +62,7 @@ function toBody(o: GenOpts, thinkingOn = true) {
     })),
     generationConfig: {
       temperature: o.temperature ?? 0.4,
-      // نماذج التفكير تحسب «التفكير» ضمن حد المخرجات؛ نمنحها هامشاً كي لا يبقى النص فارغاً
+      // Thinking models count "thinking" toward the output limit; give them headroom so the text is not left empty.
       maxOutputTokens: (o.maxTokens ?? 2048) + (thinking(thinkingOn) ? 1024 : 0),
       ...(thinking(thinkingOn) ?? {}),
       ...(o.json ? { responseMimeType: "application/json" } : {}),
@@ -77,12 +77,12 @@ type GenJson = {
   usageMetadata?: { thoughtsTokenCount?: number; candidatesTokenCount?: number };
 };
 
-/** وصف الرد الفارغ: سبب الإنهاء، الحظر، رموز التفكير، والرد الخام */
+/** Describes an empty reply: finish reason, block reason, thinking tokens and the raw reply. */
 function emptyError(j: GenJson): AiError {
   const finish = j.candidates?.[0]?.finishReason;
   const block = j.promptFeedback?.blockReason;
   const raw = JSON.stringify(j).slice(0, 700);
-  const msg = `رد Gemini فارغ — finishReason=${finish ?? "—"}${block ? ` blockReason=${block}` : ""} thoughtsTokens=${j.usageMetadata?.thoughtsTokenCount ?? "—"} model=${geminiModel()} | raw: ${raw}`;
+  const msg = `Gemini returned an empty reply - finishReason=${finish ?? "—"}${block ? ` blockReason=${block}` : ""} thoughtsTokens=${j.usageMetadata?.thoughtsTokenCount ?? "—"} model=${geminiModel()} | raw: ${raw}`;
   return new AiError("gemini", 502, msg, finish ?? block);
 }
 const textOf = (j: GenJson) =>
@@ -96,13 +96,13 @@ async function post(path: string, body: unknown, apiKey: string, signal?: AbortS
   try {
     res = await fetch(`${BASE}/${path}`, { method: "POST", headers: headers(apiKey), body: JSON.stringify(body), signal });
   } catch (e) {
-    throw new AiError("gemini", 0, `تعذّر الاتصال بـ Gemini: ${e instanceof Error ? e.message : e}`);
+    throw new AiError("gemini", 0, `Could not connect to Gemini: ${e instanceof Error ? e.message : e}`);
   }
   if (!res.ok) throw await errorFromResponse("gemini", res);
   return res;
 }
 
-/** إن رفض النموذج حقل thinkingConfig (400) نعيد المحاولة بدونه */
+/** If the model rejects the thinkingConfig field (400), retry without it. */
 async function postGen(path: string, o: GenOpts, apiKey: string, timeoutMs: number): Promise<Response> {
   try {
     return await post(path, toBody(o, true), apiKey, AbortSignal.timeout(timeoutMs));
@@ -123,11 +123,11 @@ export async function geminiGenerate(o: GenOpts): Promise<{ text: string; model:
   return { text, model };
 }
 
-/** بثّ النص تدريجياً (SSE). يرمي AiError قبل أول جزء إن فشل الطلب. */
+/** Streams text incrementally (SSE). Throws AiError before the first chunk if the request fails. */
 export async function* geminiStream(o: GenOpts): AsyncGenerator<string> {
   const model = geminiModel();
   const res = await postGen(`models/${model}:streamGenerateContent?alt=sse`, o, key(o.apiKeyOverride), 55_000);
-  if (!res.body) throw new AiError("gemini", 502, "لا يوجد جسم للرد");
+  if (!res.body) throw new AiError("gemini", 502, "no response body");
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
@@ -153,7 +153,7 @@ export async function* geminiStream(o: GenOpts): AsyncGenerator<string> {
           yield t;
         }
       } catch {
-        /* جزء غير مكتمل: تجاهل */
+        /* Incomplete chunk: ignore. */
       }
     }
   }
@@ -165,7 +165,7 @@ const l2 = (v: number[]) => {
   return v.map((x) => x / n);
 };
 
-/** تضمينات نصية (768 بعداً، مُطبَّعة يدوياً كما تشترط Google لما دون 3072). */
+/** Text embeddings (768 dimensions, normalized manually as Google requires below 3072). */
 export async function geminiEmbed(
   texts: string[],
   taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY",
@@ -191,9 +191,9 @@ export async function geminiEmbed(
       AbortSignal.timeout(50_000)
     );
     const j = (await res.json()) as { embeddings?: { values: number[] }[] };
-    if (!j.embeddings || j.embeddings.length !== slice.length) throw new AiError("gemini", 502, "رد التضمين غير مكتمل");
+    if (!j.embeddings || j.embeddings.length !== slice.length) throw new AiError("gemini", 502, "incomplete embedding response");
     for (const e of j.embeddings) {
-      if (e.values.length !== EMBEDDING_DIMENSIONS) throw new AiError("gemini", 502, `بُعد التضمين ${e.values.length} بدل ${EMBEDDING_DIMENSIONS}`);
+      if (e.values.length !== EMBEDDING_DIMENSIONS) throw new AiError("gemini", 502, `embedding dimension ${e.values.length} instead of ${EMBEDDING_DIMENSIONS}`);
       out.push(l2(e.values));
     }
   }

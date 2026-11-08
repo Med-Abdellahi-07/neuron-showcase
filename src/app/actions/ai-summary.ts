@@ -28,8 +28,8 @@ const KIND_RULES: Record<Kind, string> = {
 };
 
 /**
- * ملخص شخصي: يُبنى من نص الدروس المفهرس فقط مع ذكر الصفحات، ويُحفظ للطالب وحده.
- * إعادة فتح الملخص مجانية؛ التوليد (والإعادة) يكلّف 5 نقاط ولا يُخصم عند فشل المزوّدين.
+ * Personal summary: built only from indexed lesson text with page references, and stored for that student only.
+ * Reopening a summary is free; generating (and regenerating) costs 5 points, refunded if every provider fails.
  */
 export async function generateSummary(_prev: FormState, fd: FormData): Promise<FormState> {
   const { t } = await getT();
@@ -52,7 +52,7 @@ export async function generateSummary(_prev: FormState, fd: FormData): Promise<F
     if (!mat) { await refundPoints(spent.ledgerId); return { error: t("common.error") }; }
     if (!mat.text) { await refundPoints(spent.ledgerId); return { error: t("ai.err.noMaterial") }; }
 
-    // نقاط ضعفه السابقة في هذه الدروس: عبارات الأسئلة التي أخطأ فيها فقط (بلا أي معلومة تعريفية)
+    // Prior weak points in these lessons: only the wording of questions answered wrongly (no identifying information).
     const { data: qs } = await supabase.from("questions").select("id").in("lesson_id", lessonIds).eq("type", "mcq").limit(400);
     let weak: string[] = [];
     const qIds = (qs ?? []).map((q) => q.id as string);

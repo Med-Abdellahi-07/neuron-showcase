@@ -19,7 +19,7 @@ export default async function ProfilePage() {
   const { t } = await getT();
   const supabase = await createClient();
 
-  // مجموعات الإنجليزية المعروفة من الجدول، كاقتراحات
+  // Known English groups from the table, as suggestions.
   let groupOptions: string[] = [];
   if (profile.cohort_id) {
     const subject = await getSubjectByCode(ENGLISH_CODE);

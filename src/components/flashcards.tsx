@@ -7,7 +7,7 @@ import { Rich } from "@/components/rich";
 
 export interface Card { front: string; back: string; page: number | null }
 
-/** بطاقات حفظ: اضغط لقلب البطاقة، وأسهم للتنقل */
+/** Memorization cards: tap to flip, arrows to navigate. */
 export function Flashcards({ cards }: { cards: Card[] }) {
   const { t } = useT();
   const [i, setI] = useState(0);

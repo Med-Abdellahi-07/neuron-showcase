@@ -1,4 +1,4 @@
-// يولّد أيقونات PWA من SVG بسيط (يعمل مرة واحدة: node scripts/make-icons.mjs)
+// Generates the PWA icons from a simple SVG (run once: node scripts/make-icons.mjs)
 import sharp from "sharp";
 
 const svg = (size) => `

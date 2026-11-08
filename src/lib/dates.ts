@@ -3,15 +3,15 @@ import { INTL_TAG, type Locale } from "@/lib/i18n/dictionaries";
 
 const tz = () => process.env.APP_TIMEZONE || "UTC";
 
-/** المنطقة الزمنية للتطبيق (تُستعمل أيضاً لحدّ الأسبوع في الترتيب) */
+/** The app's time zone (also used for the week boundary in the ranking). */
 export const appTimeZone = tz;
 
-/** تاريخ اليوم بصيغة YYYY-MM-DD في المنطقة الزمنية للتطبيق */
+/** Today's date as YYYY-MM-DD in the app's time zone. */
 export function todayISO(now = new Date()): string {
   return dateInZone(now, tz());
 }
 
-/** الوقت الحالي HH:MM في المنطقة الزمنية للتطبيق */
+/** Current time HH:MM in the app's time zone. */
 export function nowHM(now = new Date()): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: tz(),
@@ -26,7 +26,7 @@ const parse = (iso: string) => {
   return new Date(Date.UTC(y, m - 1, d));
 };
 
-// الدوال الصرفة للأسابيع في weeks.ts (مختبَرة)؛ نعيد تصديرها هنا للتوافق
+// Pure week functions live in weeks.ts (tested); re-exported here for compatibility.
 export { addDays, isoWeekday, mondayOf } from "@/lib/weeks";
 
 export function isValidISO(value: string | undefined | null): value is string {
@@ -41,10 +41,10 @@ export function formatDate(iso: string, locale: Locale): string {
   }).format(parse(iso));
 }
 
-/** الوقت الحالي بالميلي ثانية (دالة منفصلة لاستعمالها داخل صفحات الخادم) */
+/** Current time in milliseconds (a separate function so server pages can use it). */
 export const nowMs = () => Date.now();
 
-/** عدد الأيام الكاملة منذ لحظة معيّنة */
+/** Number of whole days since a given instant. */
 export function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400_000);
 }

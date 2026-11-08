@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-/** نتائج QCM التي أُنجزت بدون إنترنت (تمرين فقط، لا ترتيب). التحقق الحقيقي داخل RPC record_offline_scores (0025). */
+/** QCM results completed offline (practice only, no ranking). The real validation is inside the record_offline_scores RPC (0025). */
 export async function POST(req: Request) {
   if (!(await getUserId())) return Response.json({ error: "auth" }, { status: 401 });
   let body: { scores?: { clientId: string; lessonId: string; at: number; correct: number; total: number }[] };
@@ -20,6 +20,6 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("record_offline_scores", { p_scores: payload });
   if (error) return Response.json({ error: "rpc" }, { status: 502 });
-  // data = مصفوفة client_id التي عولجت (قُبلت أو رُفضت نهائياً) فتُحذف من الصندوق
+  // data = array of client_ids that were handled (accepted or finally rejected), which are removed from the outbox.
   return Response.json({ saved: Array.isArray(data) ? data : list.map((s) => s.clientId) });
 }

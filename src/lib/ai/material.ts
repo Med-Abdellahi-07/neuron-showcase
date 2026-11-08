@@ -1,16 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface Material {
-  /** نص الدروس مقسّماً بوسوم [L1 p.3] ليعتمد عليها النموذج في ذكر الصفحات */
+  /** Lesson text split with [L1 p.3] tags so the model relies on them to cite pages. */
   text: string;
-  /** الصفحات الموجودة فعلاً لكل رقم درس (1-based) — للتحقق من أرقام الصفحات التي يذكرها النموذج */
+  /** Pages that actually exist for each lesson number (1-based), to validate page numbers the model cites. */
   pages: Map<number, Set<number>>;
   lessons: { index: number; id: string; kind: string; number: number; title: string }[];
 }
 
 /**
- * يجمع نص الدروس المفهرس (lesson_chunks) بعميل الطالب: RLS تضمن أنه لا يرى إلا دروس فضائه (أو المواد المتبقية).
- * إن زاد النص عن الحد نأخذ مقاطع موزّعة بالتساوي على كل الدروس كي لا يطغى درس على غيره.
+ * Gathers the indexed lesson text (lesson_chunks) with the student's client: RLS ensures they only see their space's lessons (or remaining subjects).
+ * If the text exceeds the limit we take chunks spread evenly across all lessons so no lesson dominates.
  */
 export async function loadMaterial(supabase: SupabaseClient, lessonIds: string[], maxChars: number): Promise<Material | null> {
   const { data: ls } = await supabase.from("lessons").select("id, kind, number, title").in("id", lessonIds).eq("status", "published");
@@ -33,7 +33,7 @@ export async function loadMaterial(supabase: SupabaseClient, lessonIds: string[]
   for (const l of ordered) {
     const mine = rows.filter((r) => r.lesson_id === l.id);
     const total = mine.reduce((a, r) => a + r.content.length, 0);
-    const step = total > perLesson ? total / perLesson : 1; // نحتفظ بنسبة 1/step من المقاطع
+    const step = total > perLesson ? total / perLesson : 1; // Keep a 1/step share of the chunks.
     let acc = 0;
     let used = 0;
     const set = new Set<number>();

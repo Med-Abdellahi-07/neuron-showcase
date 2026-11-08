@@ -5,8 +5,8 @@ import { updatePressure } from "./pressure";
 const LLM = ["gemini", "groq", "openrouter", "nvidia", "github"];
 
 /**
- * يحفظ في قاعدة البيانات ما جمعته هذه النسخة من الخادم: آخر سبب فشل لكل مزوّد، وعدّادات الاستهلاك اليومية.
- * لا يرمي أبداً. يُستدعى في نهاية كل مسار يستعمل الذكاء الاصطناعي.
+ * Saves to the database what this server instance collected: the latest failure reason per provider and the daily usage counters.
+ * Never throws. Called at the end of every path that uses AI.
  */
 export async function flushAiStats(supabase: SupabaseClient): Promise<void> {
   try {
@@ -30,6 +30,6 @@ export async function flushAiStats(supabase: SupabaseClient): Promise<void> {
     await Promise.all(jobs);
     void updatePressure();
   } catch {
-    /* الإحصاء لا يوقف العمل */
+    /* Statistics must never stop the work. */
   }
 }

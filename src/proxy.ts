@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 import { MULTI_SPACE } from "@/lib/flags";
 
-// /api/cron/notify محمي بسرّ CRON_SECRET داخل المسار نفسه (لا جلسة لـ Vercel Cron)
+// /api/cron/notify is protected by the CRON_SECRET inside the route itself (Vercel Cron has no session).
 const PUBLIC_PATHS = ["/login", "/forgot", "/auth", "/api/cron", "/offline"];
 
 export async function proxy(request: NextRequest) {
@@ -20,14 +20,14 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // getClaims: تحقق محلي من الـ JWT (بلا طلب شبكة مع المفاتيح غير المتماثلة) + تجديد الجلسة قبل انتهائها
+  // getClaims: local JWT verification (no network request with asymmetric keys) + refreshes the session before it expires.
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims?.sub ? data.claims : null;
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
 
-  // فضاء واحد: صفحات تعدد الفضاءات غير موجودة (404 حقيقي بحالة 404، لا صفحة فارغة بحالة 200)
+  // Single space: multi-space pages do not exist (a real 404 status, not an empty page with 200).
   if (!MULTI_SPACE && (path === "/admin/spaces" || path.startsWith("/admin/spaces/"))) {
     return NextResponse.rewrite(new URL("/not-found-multi-space-off", request.url), { status: 404 });
   }

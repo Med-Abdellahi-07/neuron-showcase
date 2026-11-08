@@ -1,4 +1,4 @@
-/** student طالب · moderator مشرف (بموافقة) · space_admin مشرف فضاء (ينشر مباشرة في فضائه) · admin المشرف العام */
+/** student; moderator (needs approval); space_admin (publishes directly in their space); admin = super admin. */
 export type Role = "student" | "moderator" | "space_admin" | "admin";
 export type LessonKind = "cm" | "td" | "tp" | "resume";
 export type SessionKind = "cm" | "td" | "tp";
@@ -51,7 +51,7 @@ export interface LessonFile {
   name: string;
   storage_path: string;
   size_bytes: number | null;
-  /** 1 = كائن واحد؛ >1 = ملف مجزّأ (storage_path هو مجلد الأجزاء part-001…) */
+  /** 1 = a single object; >1 = a multipart file (storage_path is the folder of parts part-001...). */
   part_count: number;
   part_sha256: string[] | null;
 }

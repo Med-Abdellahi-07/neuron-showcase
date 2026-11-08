@@ -4,25 +4,25 @@ import { windowLabel } from "./guided";
 
 export type Verdict = "correct" | "partial" | "wrong";
 
-/** سؤال طُرح فعلاً في جلسة المراجعة، مع مصدره الحقيقي ونتيجته */
+/** A question actually asked in the review session, with its real source and outcome. */
 export interface ReviewEntry {
   k: number;
-  ord: number; // ترتيب المقطع المصدر في النطاق
-  label: string; // مثال: CM 1 — Intro (p. 3)
+  ord: number; // Order of the source chunk within the scope.
+  label: string; // Example: CM 1 - Intro (p. 3)
   lessonId: string;
   page: number;
-  q: string; // نص السؤال (مختصر)
-  verdict: Verdict | null; // null = لم يُجب
+  q: string; // Question text (shortened).
+  verdict: Verdict | null; // null = not answered.
 }
 
 export interface Markers {
   verdict?: Verdict;
-  src?: number; // رقم C# المصرَّح به
+  src?: number; // The C# number the model declared.
 }
 
 const MARKER = /\[\[(V|SRC):\s*([A-Za-z0-9]+)\s*\]\]/g;
 
-/** يلتقط علامات [[V:correct]] و[[SRC:C2]] من نص الرد (وتُحذف من العرض) */
+/** Captures [[V:correct]] and [[SRC:C2]] markers from the reply text (they are removed from the display). */
 export function parseMarkers(text: string): { clean: string; markers: Markers } {
   const markers: Markers = {};
   const clean = text
@@ -40,8 +40,8 @@ export function parseMarkers(text: string): { clean: string; markers: Markers } 
 }
 
 /**
- * مرشّح بثّ: يمرّر النص ويحجز أي ذيل يبدأ بـ "[[" حتى يكتمل "]]" فلا تظهر العلامات للطالب.
- * flush() يُرجع ما بقي (إن لم تكتمل العلامة يُعاد كنص عادي).
+ * Streaming filter: passes text through and holds any tail starting with "[[" until "]]" completes, so markers never show to the student.
+ * flush() returns what is left (an incomplete marker is returned as plain text).
  */
 export class MarkerFilter {
   private held = "";
@@ -52,7 +52,7 @@ export class MarkerFilter {
     for (;;) {
       const open = buf.indexOf("[[");
       if (open < 0) {
-        // ذيل قد يكون بداية "[[" (حرف "[" واحد)
+        // A tail that may be the start of "[[" (a single "[" character).
         if (buf.endsWith("[")) {
           this.held = "[";
           out += buf.slice(0, -1);
@@ -66,7 +66,7 @@ export class MarkerFilter {
         return out;
       }
       const body = buf.slice(open, close + 2);
-      if (!/^\[\[(V|SRC):/.test(body)) out += body; // ليست علامة منا
+      if (!/^\[\[(V|SRC):/.test(body)) out += body; // Not one of our markers.
       buf = buf.slice(close + 2);
     }
   }
@@ -77,7 +77,7 @@ export class MarkerFilter {
   }
 }
 
-/** نص السؤال الجديد: ما بعد آخر عنوان "Question N/5" */
+/** New question text: everything after the last "Question N/5" heading. */
 export function extractQuestion(clean: string, n: number): string {
   const re = new RegExp(`(?:Question|السؤال)\\s*${n}\\s*/\\s*5`, "i");
   const m = re.exec(clean);
@@ -95,7 +95,7 @@ export const entryFromRow = (k: number, row: WindowRow, q: string): ReviewEntry 
   verdict: null,
 });
 
-/** ملاحظة نظام للملخص النهائي: حقائق محسومة من السجل، لا استنتاجات */
+/** System note for the final summary: facts settled from the log, no inferences. */
 export function summaryNote(a: { lang: SessionLang; log: ReviewEntry[]; pending: boolean }): string {
   const lang = LANG_NAME[a.lang];
   const lines = a.log.map((e, i) => {

@@ -9,7 +9,7 @@ export interface SpaceOption {
   label: string;
 }
 
-/** تبديل سريع للمشرف العام بين الفضاءات (يغيّر الفضاء الذي «يدخله» فقط، لا شيء آخر). */
+/** Quick switch for the super admin between spaces (only changes the space they "enter", nothing else). */
 export function SpaceSwitcher({ current, options }: { current: string; options: SpaceOption[] }) {
   const { t } = useT();
   const form = useRef<HTMLFormElement>(null);

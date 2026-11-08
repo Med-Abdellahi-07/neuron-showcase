@@ -16,7 +16,7 @@ export interface SpaceAi {
   usersToday: number;
 }
 
-/** صف تحكم بفضاء واحد: الأعلام ونقاطه اليومية، واستهلاكه اليوم وخلال 7 أيام */
+/** Control row for one space: flags, its daily points, and its usage today and over 7 days. */
 export function AiSpaceRow({ s }: { s: SpaceAi }) {
   const { t } = useT();
   return (

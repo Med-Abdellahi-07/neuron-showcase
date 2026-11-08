@@ -18,14 +18,14 @@ export interface Catalog {
   subjects: Subject[];
 }
 
-/** مدة بقاء الكتالوج في الذاكرة المؤقتة (ثانية). المواد والفصول لا تتغير إلا نادراً. */
+/** How long the catalog stays in the cache (seconds). Subjects and semesters rarely change. */
 const CATALOG_TTL = 3600;
 
 /**
- * نسخة في ذاكرة Next المؤقتة لكل فضاء (cohort) على حدة: المفتاح يتضمن معرّف الفضاء،
- * فلا يمكن أن يرى طالب مواد فضاء آخر. تستعمل service role لأن unstable_cache لا تقرأ cookies،
- * ومعرّف الفضاء يأتي من ملف المستخدم على الخادم (لا من أي مدخل من العميل).
- * cohortId = null ← كل الفضاءات (للمهام الدورية cron فقط).
+ * A copy in Next's cache per space (cohort): the key includes the space id,
+ * so a student can never see another space's subjects. Uses the service role because unstable_cache cannot read cookies,
+ * and the space id comes from the user's profile on the server (never from client input).
+ * cohortId = null -> all spaces (for cron jobs only).
  */
 const fetchSpaceCatalog = unstable_cache(
   async (cohortId: string | null): Promise<Catalog> => {
@@ -37,7 +37,7 @@ const fetchSpaceCatalog = unstable_cache(
       subQ = subQ.eq("cohort_id", cohortId);
     }
     const [sem, sub] = await Promise.all([semQ, subQ]);
-    // الخطأ يُرمى فلا يُخزَّن نتيجة فارغة بالخطأ
+    // Throw the error so an empty result is never cached by mistake.
     if (sem.error) throw new Error(`semesters: ${sem.error.message}`);
     if (sub.error) throw new Error(`subjects: ${sub.error.message}`);
     return { semesters: sem.data as Semester[], subjects: sub.data as Subject[] };
@@ -59,16 +59,16 @@ async function loadCatalog(cohortId: string | null): Promise<Catalog> {
     supabase.from("semesters").select("id, code, name, is_current, cohort_id"),
     supabase.from("subjects").select("*").order("sort"),
   ]);
-  // RLS يحصر النتيجة في فضاء المستخدم أصلاً
+  // RLS already restricts the result to the user's space.
   return { semesters: (sem.data ?? []) as Semester[], subjects: (sub.data ?? []) as Subject[] };
 }
 
-/** كتالوج فضاء المستخدم الحالي (الفصول والمواد). */
+/** Catalog of the current user's space (semesters and subjects). */
 export const getCatalog = cache(async (): Promise<Catalog> => {
   const profile = await getProfile();
   if (!profile?.cohort_id) return { semesters: [], subjects: [] };
   return loadCatalog(profile.cohort_id);
 });
 
-/** كتالوج كل الفضاءات — للمهام الدورية على الخادم فقط (لا يُستعمل في صفحات المستخدم). */
+/** Catalog of all spaces: for periodic server jobs only (never used in user pages). */
 export const getAllSpacesCatalog = cache(async (): Promise<Catalog> => loadCatalog(null));

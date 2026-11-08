@@ -14,7 +14,7 @@ export interface FormLesson {
   lesson_date: string | null;
 }
 
-/** إضافة تسجيل: الرابط (YouTube غير مدرج أو Drive) + ربطه بالمادة والنوع والتاريخ، أو باختيار حصة تملأها تلقائياً. */
+/** Add a recording: the link (unlisted YouTube or Drive) + link it to a subject, kind and date, or pick a lesson to fill those in automatically. */
 export function RecordingForm({
   cohorts,
   subjects,

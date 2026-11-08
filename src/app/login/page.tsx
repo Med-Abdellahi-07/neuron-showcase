@@ -20,7 +20,7 @@ export default async function LoginPage() {
     );
   }
   const supabase = await createClient();
-  // دليل المؤسسات/التخصصات/المستويات عام (بلا بيانات خاصة) ويُقرأ بصلاحية الزائر
+  // The institution/major/level directory is public (no private data) and is read with the visitor's permissions.
   const { data, error } = await supabase.rpc("public_directory");
   if (error) console.error("public_directory failed:", error.code, error.message);
   const directory = !error && data ? (data as unknown as Directory) : null;

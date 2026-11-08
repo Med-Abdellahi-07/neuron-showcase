@@ -53,10 +53,10 @@ export function PackView({ pack, scores, onBack, onScore }: { pack: OfflinePack;
 
 function PdfTab({ pack }: { pack: OfflinePack }) {
   const { t } = useT();
-  // عناوين blob تُنشأ مرة وتُحرَّر عند المغادرة
+  // Blob URLs are created once and released on leave.
   const [urls, setUrls] = useState<string[]>([]);
   useEffect(() => {
-    // blob URLs موارد خارجية: تُنشأ عند الدخول وتُحرَّر عند الخروج
+    // Blob URLs are external resources: created on enter and released on leave.
     const u = pack.pdfs.map((f) => URL.createObjectURL(f.blob));
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setUrls(u);

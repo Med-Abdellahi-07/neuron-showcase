@@ -66,7 +66,7 @@ export function SpaceChat() {
     setLoaded(true);
   }, [fetchRoom, older.length]);
 
-  // تحميل أولي + تحديث دوري (متوقف والصفحة مخفية)
+  // Initial load + periodic refresh (paused while the page is hidden).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
@@ -80,7 +80,7 @@ export function SpaceChat() {
   const all = mergeMessages(older, latest);
   const byId = new Map(all.map((m) => [m.id, m]));
 
-  // التمرير للأسفل عند الوصول رسائل جديدة إن كان المستخدم قرب النهاية
+  // Scroll to the bottom when new messages arrive if the user is near the end.
   useLayoutEffect(() => {
     if (stick.current) window.scrollTo({ top: document.documentElement.scrollHeight });
   }, [all.length, loaded]);
@@ -242,7 +242,7 @@ export function SpaceChat() {
   );
 }
 
-/** نص عادي مع معادلات $...$ فقط عبر KaTeX (بلا HTML خام ولا روابط ولا صور، فمحتوى الزملاء غير موثوق) */
+/** Plain text with $...$ formulas only, via KaTeX (no raw HTML, links or images, since peers' content is untrusted). */
 function ChatText({ text }: { text: string }) {
   const parts = text.split(/(\$\$[^$]+\$\$|\$[^$\n]+\$)/g);
   return (
@@ -251,7 +251,7 @@ function ChatText({ text }: { text: string }) {
         if (i % 2 === 0) return p;
         const display = p.startsWith("$$");
         const tex = p.slice(display ? 2 : 1, display ? -2 : -1);
-        if (!/[\\^_{}=<>+\-*/]/.test(tex) && tex.trim().length > 2) return p; // «$5 و $6» نص عادي لا معادلة
+        if (!/[\\^_{}=<>+\-*/]/.test(tex) && tex.trim().length > 2) return p; // "$5 and $6" is plain text, not a formula.
         try {
           const html = katex.renderToString(tex, { displayMode: display, throwOnError: true, trust: false, strict: "ignore", maxExpand: 200 });
           return <span key={i} dir="ltr" style={{ unicodeBidi: "isolate", display: display ? "block" : "inline-block" }} dangerouslySetInnerHTML={{ __html: html }} />;

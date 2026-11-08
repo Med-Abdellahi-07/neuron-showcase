@@ -13,7 +13,7 @@ import { createChat, listExercises, type Exercise } from "@/app/actions/assistan
 
 export interface PickLesson {
   id: string;
-  subject: string; // رمز المادة
+  subject: string; // Subject code.
   kind: string;
   number: number;
   title: string;
@@ -55,11 +55,11 @@ export function ChatPicker({
   subjects: { code: string; name: string }[];
   lessons: PickLesson[];
   initialLessonId?: string;
-  /** الاسم الأول للترحيب */
+  /** First name, for the greeting. */
   name: string;
   flags: { qcm: boolean; summary: boolean };
   pressured: boolean;
-  /** سجل المحادثات (يُعرض من الخادم تحت البطاقات) */
+  /** Conversation history (rendered by the server under the cards). */
   children?: React.ReactNode;
 }) {
   const { t, locale } = useT();
@@ -124,7 +124,7 @@ export function ChatPicker({
     }
   }
 
-  /** يبدأ محادثة بالسياق الحالي. question: سؤال حر من الشريط السفلي أو الاقتراحات (يُرسل بدل بدء الشرح) */
+  /** Starts a conversation with the current context. question: a free question from the bottom bar or suggestions (sent instead of starting the explanation). */
   function go(opts?: { mode?: Mode; question?: string }) {
     setErr("");
     const m = opts?.mode ?? mode;
@@ -150,7 +150,7 @@ export function ChatPicker({
         if (image && (question || !exerciseId)) sessionStorage.setItem(`neuron-img-${r.id}`, JSON.stringify([{ mime: image.mime, data: image.data }]));
         if (question) sessionStorage.setItem(`neuron-q-${r.id}`, question);
       } catch {
-        /* بلا تخزين مؤقت سيبدأ بلا صورة */
+        /* Without caching it would start with no image. */
       }
       router.push(question ? `/assistant/${r.id}?q=1` : `/assistant/${r.id}?start=1`);
     });

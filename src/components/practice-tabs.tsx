@@ -2,7 +2,7 @@ import { getSpace } from "@/lib/spaces";
 import { PracticeTabsClient } from "@/components/practice-tabs-client";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 
-/** تبويبات التمارين تتكيّف مع ميزات الفضاء: الأساسي يرى «تدرّب» فقط (QCM) */
+/** Practice tabs adapt to space features: the basic plan sees "Practice" only (QCM). */
 export async function PracticeTabs() {
   const f = (await getSpace())?.features;
   const tabs: { href: string; key: DictKey }[] = [{ href: "/practice", key: "arena.tab.train" }];

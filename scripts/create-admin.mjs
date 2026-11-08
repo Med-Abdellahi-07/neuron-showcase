@@ -1,21 +1,21 @@
-// ينشئ أول حساب مدير (مرة واحدة). يقرأ المفاتيح من .env.local.
-// الاستعمال:  node --env-file=.env.local scripts/create-admin.mjs "الاسم الكامل" you@example.com 'كلمة-سر-قوية'
+// Creates the first admin account (run once). Reads the keys from .env.local.
+// Usage:  node --env-file=.env.local scripts/create-admin.mjs "Full Name" you@example.com 'strong-password'
 import { createClient } from "@supabase/supabase-js";
 
 const [, , fullName, email, password] = process.argv;
 if (!fullName || !email || !password) {
-  console.error('الاستعمال: node --env-file=.env.local scripts/create-admin.mjs "الاسم" email password');
+  console.error('Usage: node --env-file=.env.local scripts/create-admin.mjs "Full Name" email password');
   process.exit(1);
 }
 if (password.length < 8) {
-  console.error("كلمة السر يجب ألا تقل عن 8 أحرف");
+  console.error("The password must be at least 8 characters");
   process.exit(1);
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) {
-  console.error("اضبط NEXT_PUBLIC_SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY في .env.local");
+  console.error("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local");
   process.exit(1);
 }
 
@@ -30,7 +30,7 @@ const { data, error } = await admin.auth.admin.createUser({
   user_metadata: { full_name: fullName },
 });
 if (error) {
-  console.error("فشل إنشاء المستخدم:", error.message);
+  console.error("Failed to create the user:", error.message);
   process.exit(1);
 }
 
@@ -43,7 +43,7 @@ const { error: pErr } = await admin.from("profiles").insert({
 });
 if (pErr) {
   await admin.auth.admin.deleteUser(data.user.id);
-  console.error("فشل إنشاء الملف الشخصي:", pErr.message);
+  console.error("Failed to create the profile:", pErr.message);
   process.exit(1);
 }
-console.log(`تم إنشاء المدير ${email} ✓`);
+console.log(`Admin ${email} created ✓`);

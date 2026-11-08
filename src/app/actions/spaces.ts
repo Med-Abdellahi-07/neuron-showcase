@@ -10,7 +10,7 @@ import { FEATURES } from "@/lib/spaces";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 
-/** المشرف العام: «يدخل» فضاءً (يصير فضاؤه الحالي ويملك فيه صلاحيات مشرفه). */
+/** Super admin: "enter" a space (it becomes their current space with that space's admin permissions). */
 export async function switchSpace(fd: FormData) {
   if (!MULTI_SPACE) return;
   const me = await requireAdmin();
@@ -24,7 +24,7 @@ export async function switchSpace(fd: FormData) {
   redirect("/");
 }
 
-/** المشرف العام: تفعيل/تعطيل فضاء */
+/** Super admin: enable/disable a space. */
 export async function setSpaceActive(fd: FormData) {
   if (!MULTI_SPACE) return;
   await requireAdmin();
@@ -34,7 +34,7 @@ export async function setSpaceActive(fd: FormData) {
   revalidatePath("/admin/spaces");
 }
 
-/** المشرف العام: تغيير الخطة (تنسخ علامات القالب) */
+/** Super admin: change the plan (copies the template flags). */
 export async function setSpacePlan(fd: FormData) {
   if (!MULTI_SPACE) return;
   await requireAdmin();
@@ -48,7 +48,7 @@ export async function setSpacePlan(fd: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** المشرف العام: تشغيل/إيقاف ميزة واحدة لفضاء (تصير الخطة «custom») */
+/** Super admin: toggle a single feature for a space (the plan becomes "custom"). */
 export async function setSpaceFeature(fd: FormData) {
   if (!MULTI_SPACE) return;
   await requireAdmin();

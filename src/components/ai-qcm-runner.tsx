@@ -12,15 +12,15 @@ export interface AiQ {
   options: string[];
   page: number | null;
   lesson: string | null;
-  /** إن كان قد أُجيب عنه من قبل (عند إعادة فتح المجموعة) */
+  /** Set if it was already answered (when the set is reopened). */
   selected: number | null;
-  correctIndex: number | null; // يُرسل فقط للأسئلة المُجاب عنها
+  correctIndex: number | null; // Only sent for questions that were already answered.
   explanation: string | null;
   reported: boolean;
 }
 type Res = { selected: number; correctIndex: number; explanation: string };
 
-/** تشغيل أسئلة QCM المولّدة: التصحيح في الخادم (الإجابة الصحيحة لا تصل المتصفح قبل الإجابة) */
+/** Runs generated QCM questions: grading happens on the server (the correct answer never reaches the browser before answering). */
 export function AiQcmRunner({ questions, minutes = 0, setId = "" }: { questions: AiQ[]; minutes?: number; setId?: string }) {
   const { t } = useT();
   const [res, setRes] = useState<Record<string, Res>>(() =>
@@ -34,17 +34,17 @@ export function AiQcmRunner({ questions, minutes = 0, setId = "" }: { questions:
   const r = q ? res[q.id] : undefined;
   const allAnswered = questions.every((x) => res[x.id]);
 
-  // مؤقت اختياري: تُحفظ نهاية الوقت في sessionStorage كي لا يُعاد ضبطه بإعادة تحميل الصفحة
+  // Optional timer: the end time is kept in sessionStorage so a page reload does not reset it.
   const timed = minutes > 0 && !!setId && !questions.every((x) => x.selected !== null);
   const [left, setLeft] = useState<number | null>(null);
   useEffect(() => {
     if (!timed) return;
     const key = `neuron-aiq-end-${setId}`;
     let end = 0;
-    try { end = Number(sessionStorage.getItem(key)) || 0; } catch { /* خاص */ }
+    try { end = Number(sessionStorage.getItem(key)) || 0; } catch { /* private mode */ }
     if (!end) {
       end = Date.now() + minutes * 60_000;
-      try { sessionStorage.setItem(key, String(end)); } catch { /* خاص */ }
+      try { sessionStorage.setItem(key, String(end)); } catch { /* private mode */ }
     }
     const tick = () => setLeft(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
     tick();

@@ -1,6 +1,6 @@
 export const dynamic = "force-static";
 
-/** يعرّف رقم نسخة البناء للـservice worker (importScripts). لا بيانات خاصة، عام بلا جلسة. */
+/** Exposes the build version id to the service worker (importScripts). No private data; public, no session. */
 export function GET() {
   const id = (process.env.NEXT_PUBLIC_BUILD_ID ?? "dev").replace(/[^\w.-]/g, "");
   return new Response(`self.NEURON_BUILD = ${JSON.stringify(id)};\n`, {

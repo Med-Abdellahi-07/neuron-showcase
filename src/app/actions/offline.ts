@@ -9,8 +9,8 @@ import type { OfflineQuestion, OfflineSummary, PackManifest } from "@/lib/offlin
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * يجهّز حصة للتنزيل: روابط PDF موقّعة (ساعة)، أسئلتها مع الأجوبة عبر qcm_export (تحترم ميزة qcm_pdf وحدّ التنزيلات)،
- * وملخصات الطالب الخاصة بالحصة. الأسئلة اختيارية: إن تعذّرت يُحفظ الباقي.
+ * Prepares a lesson for download: signed PDF links (one hour), its questions with answers via qcm_export (honours the qcm_pdf feature and download limit),
+ * and the student's own summaries for the lesson. Questions are optional: if they fail, the rest is still saved.
  */
 export async function prepareOfflinePack(lessonId: string, withQuestions: boolean): Promise<{ ok: true; pack: PackManifest; qNote?: string } | { ok: false; error: string }> {
   if (!UUID_RE.test(lessonId)) return { ok: false, error: "bad_id" };
@@ -28,7 +28,7 @@ export async function prepareOfflinePack(lessonId: string, withQuestions: boolea
   ]);
 
   const list = files ?? [];
-  // الملف المجزّأ: نوقّع كل جزء؛ المتصفح يجلبها ويضمّها في Blob واحد
+  // Multipart file: sign every part; the browser fetches and joins them into one Blob.
   const paths = list.flatMap((f) => ((f.part_count as number) > 1 ? Array.from({ length: f.part_count as number }, (_, i) => partPath(f.storage_path as string, i)) : [f.storage_path as string]));
   const signed = list.length ? await supabase.storage.from("lesson-files").createSignedUrls(paths, 3600) : null;
   let k = 0;

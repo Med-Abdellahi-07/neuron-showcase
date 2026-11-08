@@ -4,8 +4,8 @@ import { useActionState, useEffect, useRef, useTransition, type ReactNode } from
 import type { FormState } from "@/app/actions/auth";
 
 /**
- * نموذج يستدعي Server Action ويعرض رسالة النجاح/الخطأ.
- * نستدعي الإجراء يدوياً داخل transition كي لا يمسح React الحقول عند الخطأ.
+ * Form that calls a Server Action and shows the success/error message.
+ * The action is called manually inside a transition so React does not clear the fields on error.
  */
 export function ActionForm({
   action,

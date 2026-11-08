@@ -1,16 +1,16 @@
 import type { NextConfig } from "next";
 
 /**
- * معرّف نسخة البناء: يتغيّر مع كل نشر. يُحقن في /sw-build.js فيتغيّر بايتات الـservice worker
- * (المتصفح يفحص السكربتات المستوردة أيضاً) فيُعاد تحميل قشرة التطبيق المحلية مع كل نسخة جديدة.
- * على Vercel نستعمل SHA الالتزام (ثابت بين البناء والتشغيل)، وإلا وقت التحميل.
+ * Build id: changes on every deploy. It is injected into /sw-build.js, which changes the service worker bytes
+ * (browsers also check imported scripts), so the local app shell is reloaded with each new version.
+ * On Vercel we use the commit SHA (stable between build and runtime), otherwise the load time.
  */
 const BUILD_ID = (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 12) || `local-${Date.now().toString(36)}`;
 
 const nextConfig: NextConfig = {
   generateBuildId: async () => BUILD_ID,
   env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID },
-  // كل صفحات التطبيق خلف تسجيل الدخول وديناميكية، لذا نعطّل Cache Components.
+  // Every app page is behind login and dynamic, so Cache Components are disabled.
   cacheComponents: false,
   partialPrefetching: false,
   turbopack: {

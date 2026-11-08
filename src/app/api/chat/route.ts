@@ -27,7 +27,7 @@ import { asSessionLang } from "@/lib/ai/lang";
 import { featureEnabled } from "@/lib/spaces";
 import { refundPoints, spendErrorCode, spendPoints } from "@/lib/ai/points";
 
-/** نصوص الأزرار المحلية (ar/fr) → أوامر محايدة، لتفادي انجرار النموذج إلى لغة الأزرار */
+/** Local button labels (ar/fr) mapped to neutral commands, so the model is not pulled into the buttons' language. */
 const LABEL_TO_COMMAND = new Map<string, string>();
 for (const loc of Object.values(dictionaries)) {
   for (const k of Object.keys(NEUTRAL_COMMAND)) {
@@ -38,7 +38,7 @@ for (const loc of Object.values(dictionaries)) {
 
 const GREETING =
   /^(?:(?:hi|hello|hey|salut|bonjour|bonsoir|coucou|merci|thanks?|ok|d'accord|ça va|ca va|مرحبا|مرحباً|السلام عليكم|سلام|أهلا|اهلا|أهلاً|صباح الخير|مساء الخير|شكرا|شكراً|يعطيك العافية|كيف حالك|كيف الحال|شلونك|هلا)(?:[\s,.!؟?،]|وسهلا|بك|ك|you|à tous|tout le monde)*)+$/i;
-/** تحية أو مجاملة قصيرة: لا بحث في الدروس ولا شارة «خارج المنهج» */
+/** Short greeting or pleasantry: no lesson search and no "out of syllabus" badge. */
 function isSmallTalk(t: string): boolean {
   const s = t.trim();
   return s.length <= 40 && GREETING.test(s);
@@ -50,7 +50,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MODES: ChatMode[] = ["explain", "review", "solve"];
 const MAX_TEXT = 4000;
 const MAX_IMAGES = 2;
-const MAX_IMAGE_B64 = 3_000_000; // ≈ 2.2MB بعد التصغير في المتصفح
+const MAX_IMAGE_B64 = 3_000_000; // Roughly 2.2 MB after downscaling in the browser.
 const IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp"];
 
 interface Body {
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
 
   const supabase = await createClient();
 
-  // حدّ استعمال خفي: لا نعرض الأرقام للطالب
+  // Hidden usage cap: the numbers are not shown to the student.
   const { data: allowed } = await supabase.rpc("ai_take", {
     p_kind: "chat",
     p_window_limit: 30,
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
   });
   if (allowed !== true) return json(429, { error: "busy" });
 
-  // علم ai_chat لفضائه + السقف الخفي ضد الإساءة (لا حد ظاهر للطالب)
+  // ai_chat flag for the student's space plus the hidden abuse cap (no visible limit for the student).
   const spent = await spendPoints(supabase, "chat");
   if (!spent.ok) return json(spent.reason === "disabled" ? 403 : 429, { error: spendErrorCode(spent) });
   const ledgerId = spent.ledgerId;
@@ -137,13 +137,13 @@ export async function POST(req: Request) {
     .select("role, content")
     .eq("conversation_id", conv.id)
     .order("created_at", { ascending: false })
-    .limit(conv.guided && mode === "explain" ? 4 : 12); // الشرح الموجَّه: كل جزء له مقاطعه، فلا حاجة لتاريخ طويل (توفير توكنات)
+    .limit(conv.guided && mode === "explain" ? 4 : 12); // Guided explanation: each step carries its own chunks, so a long history is unnecessary (saves tokens).
   const history = (hist ?? []).reverse() as { role: "user" | "assistant"; content: string }[];
 
   if (action === "start" && history.length > 0) return json(409, { error: "already_started" });
   if (action && action !== "start" && !conv.guided) return json(400, { error: "bad_request" });
 
-  // الأزرار السريعة تُحفظ كرسالة طالب نصها الزر؛ بدء الجلسة لا يُحفظ له نص
+  // Quick buttons are stored as a student message whose text is the button label; session start stores no text.
   if (action !== "start") {
     await supabase.from("messages").insert({
       conversation_id: conv.id,
@@ -174,7 +174,7 @@ export async function POST(req: Request) {
         let review: { log: ReviewEntry[]; total: number; rows: WindowRow[]; prevN: number; summaryOnly: boolean } | null = null;
 
         if (conv.guided && mode === "explain" && (action === "start" || action === "continue" || action === "more" || action === "example")) {
-          // ───────── شرح موجَّه: نافذة المقاطع الحالية ─────────
+          // Guided explanation: the current chunk window.
           let cursor = conv.cursor;
           let total = conv.total;
           if (action === "start") {
@@ -206,7 +206,7 @@ export async function POST(req: Request) {
           send({ type: "progress", cursor: Math.min(cursor + (finished ? 0 : partRows.length), total), total, finished });
           userText = action === "start" ? "(start)" : (NEUTRAL_COMMAND[action ?? ""] ?? text);
         } else if (conv.guided && mode === "review" && (action === "start" || action === "finish" || (!action && conv.step >= 1 && conv.step <= REVIEW_QUESTIONS))) {
-          // ───────── مراجعة موجَّهة: أسئلة أصلية من نص الدرس، ومصدر كل سؤال ونتيجته يُسجَّلان ─────────
+          // Guided review: original questions from lesson text; each question's source and outcome are recorded.
           const R = { log: [...(conv.review_log ?? [])], total: conv.total, rows: [] as WindowRow[], prevN: 0, summaryOnly: action === "finish" };
           review = R;
           if (action === "start") {
@@ -233,7 +233,7 @@ export async function POST(req: Request) {
             chunks = ctx.chunks;
             sources = ctx.sources;
             R.rows = ctx.rows;
-            // بنك الأسئلة للإلهام فقط: مقتطفات قصيرة بلا خيارات ولا إجابات
+            // Question bank for inspiration only: short excerpts without options or answers.
             let qb = supabase.from("questions").select("statement").eq("status", "published").limit(6);
             qb = lessonIds.length ? qb.in("lesson_id", lessonIds) : conv.subject_id ? qb.eq("subject_id", conv.subject_id) : qb;
             const { data: qs } = await qb;
@@ -249,7 +249,7 @@ export async function POST(req: Request) {
           send({ type: "step", step: action === "start" ? 1 : conv.step, done: false });
           userText = action === "start" ? "(start)" : text;
         } else if (conv.guided && mode === "solve" && (action === "start" || action === "hint" || action === "solution" || !action)) {
-          // ───────── حل تمرين موجَّه ─────────
+          // Guided exercise solving.
           let exercise: string | null = null;
           let reference: string | null = null;
           if (conv.question_id) {
@@ -268,7 +268,7 @@ export async function POST(req: Request) {
             send({ type: "error", code: "no_exercise" });
             return;
           }
-          // مقاطع الدرس المتعلقة بالتمرين
+          // Lesson chunks related to the exercise.
           const q = scrubPII([exercise ?? "", text].join(" ").trim()).slice(0, 1500);
           if (q) {
             const r = await retrieve(supabase, q, { subjectId: conv.subject_id, lessonId: lessonIds.length === 1 ? lessonIds[0] : null, lessonIds });
@@ -279,7 +279,7 @@ export async function POST(req: Request) {
           modeNote = solveNote({ action: action ?? "answer", lang, exercise, reference, fromImage });
           userText = action === "start" ? (fromImage ? "(exercise in image)" : "(start)") : NEUTRAL_COMMAND[action ?? ""] ?? text;
         } else {
-          // ───────── سؤال حر (أي وضع) ─────────
+          // Free question (any mode).
           smallTalk = isSmallTalk(text) && images.length === 0;
           const lastUser = [...history].reverse().find((m) => m.role === "user");
           const query = scrubPII(text.length < 40 && lastUser ? `${lastUser.content} ${text}` : text);
@@ -314,7 +314,7 @@ export async function POST(req: Request) {
         ];
         send({ type: "sources", sources: allSources, outOfCurriculum: !smallTalk && !conv.guided && !relevant && web.length > 0 });
 
-        // ───────── الطلب إلى النموذج: لا بيانات شخصية، فقط نص السؤال المنقّى ─────────
+        // Request to the model: no personal data, only the sanitized question text.
         const scopeNote = conv.lesson_id || lessonIds.length === 1
           ? "The student opened this chat from a specific lesson; the excerpts come from that lesson."
           : lessonIds.length > 1
@@ -334,7 +334,7 @@ export async function POST(req: Request) {
             scopeNote: [scopeNote, webNote].filter(Boolean).join(" "),
           }) + (extraContext ? `\n\n${extraContext}` : "");
 
-        // المحادثة يجب أن تبدأ بدور المستخدم
+        // The conversation must start with a user turn.
         const prior = history.map((m) => ({
           role: m.role,
           text: m.role === "user" ? (LABEL_TO_COMMAND.get(m.content) ?? scrubPII(m.content)) : scrubPII(m.content),
@@ -345,7 +345,7 @@ export async function POST(req: Request) {
           { role: "user", text: scrubPII(userText), images: images.length ? images : undefined },
         ];
 
-        /** الملخص النهائي: حقائق السجل فقط (الأسئلة المطروحة فعلاً ومصادرها الحقيقية) */
+        /** Final summary: log facts only (questions actually asked and their real sources). */
         async function summarize(log: ReviewEntry[], total: number, msgs: ChatMsg[], pending = false) {
           const sums: ContextChunk[] = [];
           const srcs: SourceRef[] = [];
@@ -377,7 +377,7 @@ export async function POST(req: Request) {
             provider: usedProvider,
           });
 
-        /** يبث رد النموذج؛ في المراجعة تُحجب علامات [[...]] عن الطالب */
+        /** Streams the model reply; in review mode, [[...]] markers are hidden from the student. */
         async function generate(sys: string, msgs: ChatMsg[], hideMarkers: boolean): Promise<string> {
           const filter = hideMarkers ? new MarkerFilter() : null;
           let raw = "";
@@ -401,7 +401,7 @@ export async function POST(req: Request) {
         const raw = await generate(system, messages, !!review && !review.summaryOnly);
 
         if (review && !review.summaryOnly) {
-          // نسجّل نتيجة السؤال السابق ومصدر السؤال الجديد؛ وبعد السؤال الأخير يأتي الملخص مباشرة
+          // Record the previous question's outcome and the new question's source; after the last question the summary follows immediately.
           const { clean, markers } = parseMarkers(raw);
           await save(clean, allSources);
           answer = "";
@@ -443,15 +443,15 @@ export async function POST(req: Request) {
       } catch (e) {
         const info = errorInfo(e);
         console.error("chat failed:", info.provider, info.status, info.message);
-        // إن وصل جزء من الإجابة نحفظه ليبقى السجل متسقاً
+        // If part of the answer arrived, save it so the log stays consistent.
         if (answer) {
           await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: parseMarkers(answer).clean, provider: usedProvider });
         }
         send({ type: "error", code: "unavailable" });
       } finally {
-        // آخر أسباب فشل المزوّدين وعدّادات الاستهلاك تُحفظ لصفحة المدير
+        // The latest provider failure reasons and usage counters are saved for the admin page.
         await flushAiStats(supabase);
-        if (!usedProvider) await refundPoints(ledgerId); // لم يُنتج أي مزوّد ردّاً (فشل أو لا مادة): لا نخصم نقاط الطالب
+        if (!usedProvider) await refundPoints(ledgerId); // No provider produced a reply (failure or no material): do not charge the student's points.
         controller.close();
       }
     },

@@ -14,7 +14,7 @@ export interface RunnerQuestion {
   difficulty: "easy" | "medium" | "hard";
   statement: string;
   options: string[] | null;
-  /** يُرسل فقط في التدريب الحر والمراجعة (المكتوب لا يدخل الترتيب أبداً) */
+  /** Only sent in free practice and review (written questions never enter the ranking). */
   model_answer: string | null;
 }
 
@@ -64,7 +64,7 @@ export function ArenaRunner({
     startTransition(() => router.refresh());
   }
 
-  // العدّاد: الخادم هو المرجع في قبول الإجابات، وهذا للعرض ولإنهاء المحاولة تلقائياً
+  // Timer: the server is the authority on accepting answers; this is for display and auto-finishing the attempt.
   useEffect(() => {
     shownAt.current = Date.now();
     if (remainingSeconds === null) return;
@@ -109,7 +109,7 @@ export function ArenaRunner({
       if (res.error === "expired" || res.error === "finished") return refreshToSummary();
       return setError(t("arena.errorRetry"));
     }
-    // الاختبار المصنّف: لا حل أثناءه، ننتقل مباشرة للسؤال التالي
+    // Ranked quiz: no solution is shown during it; move straight to the next question.
     if (ranked) {
       if (res.result.finished || last) return refreshToSummary();
       setPicked(null);

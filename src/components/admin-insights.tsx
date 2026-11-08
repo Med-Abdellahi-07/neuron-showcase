@@ -29,7 +29,7 @@ function limitFor(p: (typeof PROVIDERS)[number]): number | null {
     const v = Number(process.env.AI_LIMIT_TAVILY_DAILY);
     return Number.isFinite(v) && v > 0 ? v : null;
   }
-  return dailyLimit(p); // تقدير قابل للضبط (AI_LIMIT_<PROVIDER>_DAILY)
+  return dailyLimit(p); // Configurable estimate (AI_LIMIT_<PROVIDER>_DAILY).
 }
 
 function Bar({ pct, tone = "accent" }: { pct: number; tone?: "accent" | "warn" | "danger" }) {
@@ -41,7 +41,7 @@ function Bar({ pct, tone = "accent" }: { pct: number; tone?: "accent" | "warn" |
   );
 }
 
-/** إحصائيات المدير: نشاط الطلاب، متوسط المواد، الحصص الأضعف، استهلاك الذكاء الاصطناعي. إحصاءات مجمّعة فقط. */
+/** Admin insights: student activity, subject averages, weakest lessons, AI usage. Aggregated statistics only. */
 export async function AdminInsights() {
   const { t, locale } = await getT();
   const supabase = await createClient();
@@ -80,7 +80,7 @@ export async function AdminInsights() {
 
   return (
     <div className="space-y-8">
-      {/* ───── نشاط الطلاب ───── */}
+ {/* Student activity. */}
       <section className="space-y-3" aria-labelledby="st-act">
         <h2 id="st-act" className="tech flex items-center gap-2 text-sm font-semibold"><Users size={16} aria-hidden /> {t("stats.activity")}</h2>
         <ul className="grid grid-cols-3 gap-3">
@@ -116,7 +116,7 @@ export async function AdminInsights() {
         <p className="text-xs text-muted">{t("stats.privacyNote")}</p>
       </section>
 
-      {/* ───── متوسط المواد ───── */}
+ {/* Subject averages. */}
       <section className="space-y-3" aria-labelledby="st-sub">
         <h2 id="st-sub" className="tech flex items-center gap-2 text-sm font-semibold"><Activity size={16} aria-hidden /> {t("stats.subjects")}</h2>
         <ul className="card space-y-3">
@@ -134,7 +134,7 @@ export async function AdminInsights() {
         </ul>
       </section>
 
-      {/* ───── الحصص الأضعف ───── */}
+ {/* Weakest lessons. */}
       <section className="space-y-3" aria-labelledby="st-weak">
         <h2 id="st-weak" className="tech flex items-center gap-2 text-sm font-semibold"><BookX size={16} aria-hidden /> {t("stats.weak")}</h2>
         {weakLessons.length === 0 ? (
@@ -160,7 +160,7 @@ export async function AdminInsights() {
         <p className="text-xs text-muted">{t("stats.weakNote")}</p>
       </section>
 
-      {/* ───── استهلاك الذكاء الاصطناعي ───── */}
+ {/* AI usage. */}
       <section className="space-y-3" aria-labelledby="st-ai">
         <h2 id="st-ai" className="tech flex items-center gap-2 text-sm font-semibold"><Bot size={16} aria-hidden /> {t("stats.ai")}</h2>
         <ul className="space-y-3">

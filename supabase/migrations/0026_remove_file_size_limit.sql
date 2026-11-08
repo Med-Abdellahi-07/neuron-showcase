@@ -1,5 +1,5 @@
--- 0026: إلغاء حد 15MB لملفات الحصص (كان من 0020). آمن لإعادة التشغيل.
--- ملاحظة: لا يزال لمشروع Supabase حد عام (50MB في الخطة المجانية) يُضبط من Dashboard ← Storage ← Settings.
+-- 0026: remove the 15MB limit on lesson files (it came from 0020). Safe to re-run.
+-- Note: the Supabase project still has a global limit (50MB on the free plan), set in Dashboard -> Storage -> Settings.
 drop trigger if exists lesson_files_size_guard_trg on public.lesson_files;
 drop function if exists public.lesson_files_size_guard();
 
