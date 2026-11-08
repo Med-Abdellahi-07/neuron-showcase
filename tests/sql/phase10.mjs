@@ -1,4 +1,4 @@
-// الدفعة ج: المواد المتبقية من L1 (القيود والعزل) + حد PDF واستهلاك التخزين
+// Batch C: remaining L1 subjects (constraints and isolation) + PDF limit and storage usage
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import fs from "node:fs";
@@ -47,7 +47,7 @@ const mkLesson = async (sub, n, status, by) => (await one("insert into public.le
 const lessonPub = await mkLesson(subA, 1, "published", SA1), lessonDraft = await mkLesson(subA, 2, "draft", SA1), lessonB = await mkLesson(subB, 1, "published", SA1);
 const mkQ = async (sub, type, status = "published") => (await one(`insert into public.questions (subject_id, type, difficulty, statement, options, correct_index, model_answer, status, created_by) values ($1,$2,'easy','S',$3,0,$4,$5,$6) returning id`, [sub, type, type === "mcq" ? '["a","b"]' : null, type === "written" ? "m" : null, status, SA1])).id;
 for (let i = 0; i < 6; i++) await mkQ(subA, "mcq");
-await db.query(`update public.cohorts set features = features || '{"written":true}' where id=$1`, [SDS1]); // لإدراج سؤال مكتوب ثم إعادة القفل
+await db.query(`update public.cohorts set features = features || '{"written":true}' where id=$1`, [SDS1]); // to insert a written question, then lock the feature again
 const qWritten = await mkQ(subA, "written"), qB = await mkQ(subB, "mcq");
 await db.query(`update public.cohorts set features = features || '{"written":false}' where id=$1`, [SDS1]);
 await db.query("insert into public.schedule_sessions (cohort_id, session_date, slot, subject_id, kind) values ($1,'2026-11-02',1,$2,'cm'), ($1,'2026-11-02',2,$3,'cm')", [SDS1, subA, subB]);
@@ -55,67 +55,67 @@ await db.query("insert into public.lesson_files (lesson_id, kind, name, storage_
 await svc("insert into storage.objects (bucket_id, name) values ('lesson-files', $1)", [`${lessonPub}/a.pdf`]).catch(() => db.query("insert into storage.objects (bucket_id, name) values ('lesson-files', $1)", [`${lessonPub}/a.pdf`]));
 const add = (u, st, sj) => q(u, "insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [st, sj]);
 
-// ══════════ القيود ══════════
-ok("مشرف SDS L2 يضيف مادة SDS L1 لطالب من فضائه", (await err(add(SA2, S2a, subA))) === null);
-ok("رفض: مادة من تخصص آخر (DSI L1)", has(await err(add(SA2, S2b, subD)), "subject_not_same_major_l1"));
-ok("رفض: مادة من L2 نفسه (ليست L1)", has(await err(add(SA2, S2b, sub2)), "subject_not_same_major_l1"));
-ok("رفض: طالب L1 لا يتابع مادة L1 (من L1 إلى L1)", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [S1a, subB])), "student_not_l2"));
-ok("رفض: القيد يسري حتى على service role (طالب L1)", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [S1a, subA])), "student_not_l2"));
-ok("رفض: غير الطالب (مشرف) لا يُضاف له", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [MOD, subA])), "not_a_student"));
-ok("رفض: مشرف L1 لا يضيف (خارج فضاء الطالب)", denied(await err(add(SA1, S2b, subA))));
-ok("رفض: طالب لا يضيف لنفسه", denied(await err(add(S2b, S2b, subA))));
-ok("رفض: مشرف تخصص آخر لا يضيف", denied(await err(add(SAD, S2b, subA))));
-ok("رفض: طالب IAA L2 ← مادة SDS L1 (تخصص آخر)", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [IA, subA])), "subject_not_same_major_l1"));
-ok("تعديل الصف ممنوع (لا update)", denied(await err(q(SA2, "update public.remaining_subjects set subject_id=$2 where student_id=$1", [S2a, subB]))));
+// ══════════ Constraints ══════════
+ok("SDS L2 moderator adds an SDS L1 subject to a student in their space", (await err(add(SA2, S2a, subA))) === null);
+ok("rejected: a subject from another major (DSI L1)", has(await err(add(SA2, S2b, subD)), "subject_not_same_major_l1"));
+ok("rejected: a subject from the same L2 (not L1)", has(await err(add(SA2, S2b, sub2)), "subject_not_same_major_l1"));
+ok("rejected: an L1 student does not follow an L1 subject (L1 to L1)", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [S1a, subB])), "student_not_l2"));
+ok("rejected: the constraint applies even to the service role (L1 student)", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [S1a, subA])), "student_not_l2"));
+ok("rejected: a non-student (moderator) cannot be added", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [MOD, subA])), "not_a_student"));
+ok("rejected: an L1 moderator cannot add (outside the student's space)", denied(await err(add(SA1, S2b, subA))));
+ok("rejected: a student cannot add for themselves", denied(await err(add(S2b, S2b, subA))));
+ok("rejected: a moderator of another major cannot add", denied(await err(add(SAD, S2b, subA))));
+ok("rejected: IAA L2 student -> SDS L1 subject (another major)", has(await err(svc("insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [IA, subA])), "subject_not_same_major_l1"));
+ok("editing the row is forbidden (no update)", denied(await err(q(SA2, "update public.remaining_subjects set subject_id=$2 where student_id=$1", [S2a, subB]))));
 
-// ══════════ ما يراه الطالب ══════════
+// ══════════ What the student sees ══════════
 const subs = (await q(S2a, "select code from public.subjects order by code")).map((r) => r.code);
-ok("الطالب يرى مادته المتبقية فقط (لا STB1 ولا DSA1)", subs.includes("STA1") && !subs.includes("STB1") && !subs.includes("DSA1") && subs.includes("STA2"), subs.join());
+ok("the student sees only their remaining subject (not STB1 or DSA1)", subs.includes("STA1") && !subs.includes("STB1") && !subs.includes("DSA1") && subs.includes("STA2"), subs.join());
 const ls = (await q(S2a, "select id from public.lessons")).map((r) => r.id);
-ok("يرى الدرس المنشور للمادة المتبقية، لا المسودة ولا دروس المواد الأخرى", ls.includes(lessonPub) && !ls.includes(lessonDraft) && !ls.includes(lessonB));
-ok("يرى ملف الدرس المنشور", (await q(S2a, "select id from public.lesson_files where lesson_id=$1", [lessonPub])).length === 1);
-ok("طالب لا يتابع لا يرى شيئاً من L1", (await q(S2b, "select id from public.lessons where subject_id=$1", [subA])).length === 0 && (await q(S2b, "select id from public.subjects where code='STA1'")).length === 0);
+ok("sees the published lesson of the remaining subject, not the draft or other subjects' lessons", ls.includes(lessonPub) && !ls.includes(lessonDraft) && !ls.includes(lessonB));
+ok("sees the published lesson file", (await q(S2a, "select id from public.lesson_files where lesson_id=$1", [lessonPub])).length === 1);
+ok("a student who does not follow sees nothing from L1", (await q(S2b, "select id from public.lessons where subject_id=$1", [subA])).length === 0 && (await q(S2b, "select id from public.subjects where code='STA1'")).length === 0);
 const qs = (await q(S2a, "select id, type from public.questions where subject_id=$1", [subA]));
-ok("الأسئلة: QCM فقط (6) والمكتوب مخفي (خطة L1 أساسية)", qs.length === 6 && qs.every((x) => x.type === "mcq"));
-ok("لا يقرأ correct_index", denied(await err(q(S2a, "select correct_index from public.questions"))));
-ok("الجدول: حصص المادة المتبقية فقط", (await q(S2a, "select subject_id from public.schedule_sessions where cohort_id=$1", [SDS1])).map((r) => r.subject_id).join() === subA);
-ok("الملف في Storage مقروء للمتابع فقط", (await q(S2a, "select name from storage.objects where bucket_id='lesson-files'")).length === 1 && (await q(S2b, "select name from storage.objects where bucket_id='lesson-files'")).length === 0);
-ok("«درستُها» يعمل على درس متبقٍ", (await err(q(S2a, "insert into public.lesson_progress (user_id, lesson_id) values ($1,$2)", [S2a, lessonPub]))) === null);
+ok("questions: QCM only (6) and written hidden (basic L1 plan)", qs.length === 6 && qs.every((x) => x.type === "mcq"));
+ok("cannot read correct_index", denied(await err(q(S2a, "select correct_index from public.questions"))));
+ok("timetable: only the remaining subject's sessions", (await q(S2a, "select subject_id from public.schedule_sessions where cohort_id=$1", [SDS1])).map((r) => r.subject_id).join() === subA);
+ok("the Storage file is readable by the follower only", (await q(S2a, "select name from storage.objects where bucket_id='lesson-files'")).length === 1 && (await q(S2b, "select name from storage.objects where bucket_id='lesson-files'")).length === 0);
+ok("mark as studied works on a remaining lesson", (await err(q(S2a, "insert into public.lesson_progress (user_id, lesson_id) values ($1,$2)", [S2a, lessonPub]))) === null);
 
-// ══════════ التدريب QCM ══════════
+// ══════════ QCM practice ══════════
 const att = (await q(S2a, "select public.start_attempt('free',$1) as id", [subA]))[0].id;
 const aq = (await db.query("select question_ids from public.attempts where id=$1", [att])).rows[0].question_ids;
-ok("تدريب حر على المادة المتبقية يعمل ويضم QCM فقط", aq.length > 0 && !aq.includes(qWritten));
-ok("تدريب على مادة L1 غير متبعة ← no_questions", has(await err(q(S2a, "select public.start_attempt('free',$1)", [subB])), "no_questions"));
-ok("الاختبار المصنّف لا يشمل المتبقية (خطة L2 أساسية → مقفول)", has(await err(q(S2a, "select public.start_attempt('ranked')")), "feature_disabled"));
+ok("free practice on the remaining subject works and includes QCM only", aq.length > 0 && !aq.includes(qWritten));
+ok("practice on an L1 subject that is not followed -> no_questions", has(await err(q(S2a, "select public.start_attempt('free',$1)", [subB])), "no_questions"));
+ok("the ranked quiz does not include remaining subjects (basic L2 plan -> locked)", has(await err(q(S2a, "select public.start_attempt('ranked')")), "feature_disabled"));
 
-// ══════════ مشرف L1 ══════════
+// ══════════ L1 moderator ══════════
 const fol = await q(SA1, "select * from public.l1_followers()");
-ok("مشرف L1 يرى متابعيه: s2a في STA1", fol.length === 1 && fol[0].student_name === "s2a" && fol[0].subject_code === "STA1" && fol[0].student_space === "SDS L2");
-ok("القائمة بلا بريد/هاتف", !/email|phone/.test(Object.keys(fol[0]).join()));
-ok("مشرف L1 لا يقرأ جدول remaining_subjects", (await q(SA1, "select * from public.remaining_subjects")).length === 0);
-ok("مشرف L1 لا يحذف المتابعة", ((await q(SA1, "delete from public.remaining_subjects returning 1")).length) === 0);
-ok("طالب لا يستدعي l1_followers", has(await err(q(S2a, "select * from public.l1_followers()")), "forbidden"));
-ok("مشرف تخصص آخر لا يرى متابعي SDS", (await q(SAD, "select * from public.l1_followers()")).length === 0);
+ok("L1 moderator sees their followers: s2a in STA1", fol.length === 1 && fol[0].student_name === "s2a" && fol[0].subject_code === "STA1" && fol[0].student_space === "SDS L2");
+ok("the list has no email/phone", !/email|phone/.test(Object.keys(fol[0]).join()));
+ok("L1 moderator cannot read the remaining_subjects table", (await q(SA1, "select * from public.remaining_subjects")).length === 0);
+ok("L1 moderator cannot delete the follow", ((await q(SA1, "delete from public.remaining_subjects returning 1")).length) === 0);
+ok("a student cannot call l1_followers", has(await err(q(S2a, "select * from public.l1_followers()")), "forbidden"));
+ok("a moderator of another major does not see SDS followers", (await q(SAD, "select * from public.l1_followers()")).length === 0);
 
-// ══════════ الإزالة والانتقال ══════════
-ok("مشرف L2 يرى مواد طلابه المتبقية", (await q(SA2, "select * from public.remaining_subjects")).length === 1);
+// ══════════ Removal and moving ══════════
+ok("L2 moderator sees their students' remaining subjects", (await q(SA2, "select * from public.remaining_subjects")).length === 1);
 await q(SA2, "delete from public.remaining_subjects where student_id=$1", [S2a]);
-ok("بعد الإزالة: المحتوى يختفي فوراً", (await q(S2a, "select id from public.lessons where id=$1", [lessonPub])).length === 0 && (await q(S2a, "select id from public.subjects where code='STA1'")).length === 0);
+ok("after removal: the content disappears immediately", (await q(S2a, "select id from public.lessons where id=$1", [lessonPub])).length === 0 && (await q(S2a, "select id from public.subjects where code='STA1'")).length === 0);
 await q(SA2, "insert into public.remaining_subjects (student_id, subject_id) values ($1,$2)", [S2a, subA]);
 await db.query("update public.profiles set cohort_id=$1 where id=$2", [IAA, S2a]);
-ok("انتقال الطالب لفضاء آخر يُسقط مواده المتبقية", (await n("select count(*) c from public.remaining_subjects where student_id=$1", [S2a])) === 0);
+ok("moving the student to another space drops their remaining subjects", (await n("select count(*) c from public.remaining_subjects where student_id=$1", [S2a])) === 0);
 
-// ══════════ حد PDF والتخزين ══════════
-ok("لا حد لحجم الملف في الجدول (PDF 200MB مقبول)", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','big.pdf',$2,209715200)", [lessonB, `${lessonB}/big.pdf`]))));
+// ══════════ PDF limit and storage ══════════
+ok("no file size limit in the table (a 200MB PDF is accepted)", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','big.pdf',$2,209715200)", [lessonB, `${lessonB}/big.pdf`]))));
 await db.query("delete from public.lesson_files where name='big.pdf'");
-ok("PDF بحجم 15MB مقبول", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','ok.pdf',$2,15728640)", [lessonB, `${lessonB}/ok.pdf`]))));
-ok("حد الدلو 50MB (أقصى حد للكائن الواحد؛ الملفات الأكبر تُجزَّأ)", Number((await one("select file_size_limit from storage.buckets where id='lesson-files'")).file_size_limit) === 52428800);
+ok("a 15MB PDF is accepted", !(await err(db.query("insert into public.lesson_files (lesson_id, kind, name, storage_path, size_bytes) values ($1,'pdf','ok.pdf',$2,15728640)", [lessonB, `${lessonB}/ok.pdf`]))));
+ok("bucket limit is 50MB (the per-object maximum; larger files are split)", Number((await one("select file_size_limit from storage.buckets where id='lesson-files'")).file_size_limit) === 52428800);
 const su = (await q(ADM, "select public.storage_usage() as d"))[0].d;
 const sds1 = su.by_space.find((s) => s.name === "SDS L1");
-ok("استهلاك التخزين: الإجمالي = مجموع الأحجام", Number(su.total_bytes) === 5000000 + 15728640 && su.files === 2, JSON.stringify(su));
-ok("استهلاك كل فضاء: SDS L1 يحمل كل الملفات", Number(sds1.bytes) === Number(su.total_bytes) && su.by_space.length === 1);
-ok("storage_usage للمشرف العام فقط", has(await err(q(SA1, "select public.storage_usage()")), "forbidden") && has(await err(q(S2b, "select public.storage_usage()")), "forbidden") && denied(await err(anon("select public.storage_usage()"))));
+ok("storage usage: total = sum of sizes", Number(su.total_bytes) === 5000000 + 15728640 && su.files === 2, JSON.stringify(su));
+ok("per-space usage: SDS L1 holds all the files", Number(sds1.bytes) === Number(su.total_bytes) && su.by_space.length === 1);
+ok("storage_usage is for the super admin only", has(await err(q(SA1, "select public.storage_usage()")), "forbidden") && has(await err(q(S2b, "select public.storage_usage()")), "forbidden") && denied(await err(anon("select public.storage_usage()"))));
 
-console.log(`\n${pass} ناجح، ${fail} فاشل`);
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

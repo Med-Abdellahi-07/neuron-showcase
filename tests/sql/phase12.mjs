@@ -1,4 +1,4 @@
-// دردشة الفضاء: عزل بين الفضاءات، حذف الذات/الطاقم، كتم، حدّ الإرسال، ميزة chat
+// Space chat: isolation between spaces, self/staff deletion, mute, send limit, chat feature
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import fs from "node:fs";
@@ -51,57 +51,57 @@ const send = (u, b, r = null) => q(u, "select public.space_chat_send($1, $2) id"
 const list = async (u, a = null, bf = null, l = 40) => (await q(u, "select public.space_chat_list($1,$2,$3) r", [a, bf, l]))[0].r;
 const MOD = await mkP("m", "moderator", IAA);
 
-ok("ميزة chat مفعّلة في IAA L2 (full) ومعطّلة في فضاء basic", (await one("select features->>'chat' c from public.cohorts where id=$1", [IAA])).c === "true");
+ok("chat feature is enabled in IAA L2 (full) and disabled in a basic space", (await one("select features->>'chat' c from public.cohorts where id=$1", [IAA])).c === "true");
 const BASIC = (await one("select c.id from public.cohorts c where c.plan='basic' limit 1"))?.id;
 if (BASIC) { const X = await mkP("x", "student", BASIC); ok("فضاء basic: الدردشة معطّلة", has(await err(send(X, "hi")), "feature_disabled")); }
 
-ok("لا وصول مباشر للجداول من المتصفح", denied(await err(q(A, "select * from public.space_messages"))) && denied(await err(q(A, "insert into public.space_messages (cohort_id,user_id,body) values ($1,$2,'x')", [IAA, A]))) && denied(await err(q(A, "select * from public.space_mutes"))));
-ok("بلا تسجيل دخول مرفوض", denied(await err(anon("select public.space_chat_list()"))) );
+ok("no direct access to the tables from the browser", denied(await err(q(A, "select * from public.space_messages"))) && denied(await err(q(A, "insert into public.space_messages (cohort_id,user_id,body) values ($1,$2,'x')", [IAA, A]))) && denied(await err(q(A, "select * from public.space_mutes"))));
+ok("not signed in is rejected", denied(await err(anon("select public.space_chat_list()"))) );
 
 const m1 = (await send(A, "  مرحبا  "))[0].id, m2 = (await send(B, "رد", m1))[0].id;
 let L = await list(A);
-ok("الطالبان في نفس الفضاء يريان الرسالتين بالترتيب", L.messages.length === 2 && L.messages[0].id === m1 && L.messages[1].id === m2 && L.messages[0].body === "مرحبا");
-ok("mine و name و reply_to صحيحة", L.messages[0].mine === true && L.messages[1].mine === false && L.messages[1].name === "b" && Number(L.messages[1].reply_to) === Number(m1));
-ok("عزل: طالب فضاء آخر لا يرى شيئاً", has(await err(list(S)), "feature_disabled") || (await list(S)).messages.length === 0);
+ok("both students in the same space see the two messages in order", L.messages.length === 2 && L.messages[0].id === m1 && L.messages[1].id === m2 && L.messages[0].body === "مرحبا");
+ok("mine, name and reply_to are correct", L.messages[0].mine === true && L.messages[1].mine === false && L.messages[1].name === "b" && Number(L.messages[1].reply_to) === Number(m1));
+ok("isolation: a student from another space sees nothing", has(await err(list(S)), "feature_disabled") || (await list(S)).messages.length === 0);
 await q(SAS, "select public.space_chat_send('SDS')").catch(() => {});
 const sds = await db.query("select features->>'chat' c from public.cohorts where id=$1", [SDS2]);
 if (sds.rows[0].c === "true") { await send(S, "من SDS"); ok("رسائل SDS لا تظهر في IAA", !(await list(A)).messages.some((x) => x.body === "من SDS")); }
-ok("رد على رسالة من فضاء آخر يُتجاهل (reply_to=null)", await (async () => { if (sds.rows[0].c !== "true") return true; const id = (await send(S, "x", m1))[0].id; return (await one("select reply_to from public.space_messages where id=$1", [id])).reply_to === null; })());
+ok("a reply to a message from another space is ignored (reply_to=null)", await (async () => { if (sds.rows[0].c !== "true") return true; const id = (await send(S, "x", m1))[0].id; return (await one("select reply_to from public.space_messages where id=$1", [id])).reply_to === null; })());
 
-ok("نص فارغ أو أطول من 1000 مرفوض", has(await err(send(A, "   ")), "bad_body") && has(await err(send(A, "x".repeat(1001))), "bad_body"));
+ok("empty text or text longer than 1000 is rejected", has(await err(send(A, "   ")), "bad_body") && has(await err(send(A, "x".repeat(1001))), "bad_body"));
 const after = await list(B, m1);
-ok("p_after يعيد الأحدث فقط", after.messages.length === 1 && Number(after.messages[0].id) === Number(m2));
-ok("p_before يعيد الأقدم", (await list(B, null, m2)).messages.length === 1);
+ok("p_after returns only the newest", after.messages.length === 1 && Number(after.messages[0].id) === Number(m2));
+ok("p_before returns the older ones", (await list(B, null, m2)).messages.length === 1);
 
-ok("الطالب لا يحذف رسالة غيره", (await q(B, "select public.space_chat_delete($1) d", [m1]))[0].d === false && (await n("select count(*) c from public.space_messages where id=$1", [m1])) === 1);
-ok("الطالب يحذف رسالته", (await q(B, "select public.space_chat_delete($1) d", [m2]))[0].d === true);
-ok("المشرف يحذف رسالة أي طالب في فضائه", (await q(MOD, "select public.space_chat_delete($1) d", [m1]))[0].d === true);
+ok("a student cannot delete someone else's message", (await q(B, "select public.space_chat_delete($1) d", [m1]))[0].d === false && (await n("select count(*) c from public.space_messages where id=$1", [m1])) === 1);
+ok("a student deletes their own message", (await q(B, "select public.space_chat_delete($1) d", [m2]))[0].d === true);
+ok("a moderator deletes any student's message in their space", (await q(MOD, "select public.space_chat_delete($1) d", [m1]))[0].d === true);
 const o = (await send(A, "للحذف"))[0].id;
-ok("مشرف فضاء آخر لا يحذف رسائل هذا الفضاء", (await q(SAS, "select public.space_chat_delete($1) d", [o]))[0].d === false);
+ok("a moderator of another space cannot delete this space's messages", (await q(SAS, "select public.space_chat_delete($1) d", [o]))[0].d === false);
 
-// كتم
-ok("الطالب لا يكتم", has(await err(q(A, "select public.space_chat_mute($1, 1)", [B])), "forbidden"));
-ok("لا يُكتم الطاقم", has(await err(q(SAI, "select public.space_chat_mute($1, 1)", [MOD])), "bad_target"));
-ok("لا يُكتم طالب من فضاء آخر", has(await err(q(SAI, "select public.space_chat_mute($1, 1)", [S])), "bad_target"));
+// Mute
+ok("a student cannot mute", has(await err(q(A, "select public.space_chat_mute($1, 1)", [B])), "forbidden"));
+ok("staff cannot be muted", has(await err(q(SAI, "select public.space_chat_mute($1, 1)", [MOD])), "bad_target"));
+ok("a student from another space cannot be muted", has(await err(q(SAI, "select public.space_chat_mute($1, 1)", [S])), "bad_target"));
 await q(SAI, "select public.space_chat_mute($1, 2)", [B]);
-ok("المكتوم لا يرسل", has(await err(send(B, "x")), "muted") && (await list(B)).muted_until !== null);
-ok("المكتوم يقرأ", (await list(B)).messages.length >= 1);
+ok("a muted user cannot send", has(await err(send(B, "x")), "muted") && (await list(B)).muted_until !== null);
+ok("a muted user can read", (await list(B)).messages.length >= 1);
 await q(MOD, "select public.space_chat_mute($1, 0)", [B]);
-ok("رفع الكتم", (await send(B, "عدت"))[0].id > 0 && (await list(B)).muted_until === null);
+ok("unmuting", (await send(B, "عدت"))[0].id > 0 && (await list(B)).muted_until === null);
 
-// حدّ الإرسال: 12 في الدقيقة
+// Send limit: 12 per minute
 const C = await mkP("c", "student", IAA);
 for (let i = 0; i < 12; i++) await send(C, "m" + i);
-ok("الرسالة 13 في الدقيقة: rate_limited", has(await err(send(C, "زائدة")), "rate_limited"));
-ok("A غير متأثر بحدّ C", (await send(A, "ok"))[0].id > 0);
-ok("طاقم يرى staff=true", (await list(MOD)).staff === true && (await list(A)).staff === false);
+ok("message 13 in a minute: rate_limited", has(await err(send(C, "زائدة")), "rate_limited"));
+ok("A is not affected by C's limit", (await send(A, "ok"))[0].id > 0);
+ok("staff sees staff=true", (await list(MOD)).staff === true && (await list(A)).staff === false);
 
-// عزل حقيقي: نفعّل chat في SDS L2 ونتحقق من الفصل في الاتجاهين
+// Real isolation: enable chat in SDS L2 and verify the separation in both directions
 await db.query("update public.cohorts set features = features || '{\"chat\":true}'::jsonb where id=$1", [SDS2]);
 const sm = (await send(S, "رسالة SDS"))[0].id;
-ok("رسائل SDS لا تظهر لطلاب IAA والعكس", !(await list(A)).messages.some((x) => x.body === "رسالة SDS") && !(await list(S)).messages.some((x) => x.user_id === A));
-ok("مشرف IAA لا يحذف رسالة SDS", (await q(SAI, "select public.space_chat_delete($1) d", [sm]))[0].d === false);
-ok("مشرف SDS يحذفها", (await q(SAS, "select public.space_chat_delete($1) d", [sm]))[0].d === true);
+ok("SDS messages do not show to IAA students and vice versa", !(await list(A)).messages.some((x) => x.body === "رسالة SDS") && !(await list(S)).messages.some((x) => x.user_id === A));
+ok("an IAA moderator cannot delete an SDS message", (await q(SAI, "select public.space_chat_delete($1) d", [sm]))[0].d === false);
+ok("an SDS moderator deletes it", (await q(SAS, "select public.space_chat_delete($1) d", [sm]))[0].d === true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

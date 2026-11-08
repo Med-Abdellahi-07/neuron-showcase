@@ -32,26 +32,26 @@ const mk = async (name, role = "student") => { const id = (await db.query("inser
 const A = await mk("A");
 
 // ── profiles.locale
-ok("locale افتراضي ar", (await q(A, "select locale from public.profiles where id=$1", [A]))[0].locale === "ar");
+ok("locale defaults to ar", (await q(A, "select locale from public.profiles where id=$1", [A]))[0].locale === "ar");
 for (const l of ["fr", "en", "ar"]) {
   const e = await err(q(A, "update public.profiles set locale=$2 where id=$1", [A, l]));
   const v = (await q(A, "select locale from public.profiles where id=$1", [A]))[0].locale;
-  ok(`الطالب يغيّر لغته إلى ${l}`, !e && v === l, e);
+  ok(`a student changes their language to ${l}`, !e && v === l, e);
 }
-ok("لغة غير مدعومة (de) مرفوضة", /check constraint/i.test((await err(q(A, "update public.profiles set locale='de' where id=$1", [A]))) ?? ""));
-ok("قيمة فارغة مرفوضة", /check|not-null|null value/i.test((await err(q(A, "update public.profiles set locale='' where id=$1", [A]))) ?? ""));
+ok("an unsupported language (de) is rejected", /check constraint/i.test((await err(q(A, "update public.profiles set locale='de' where id=$1", [A]))) ?? ""));
+ok("an empty value is rejected", /check|not-null|null value/i.test((await err(q(A, "update public.profiles set locale='' where id=$1", [A]))) ?? ""));
 
 // ── conversations.lang
 const conv = (lang) => q(A, "insert into public.conversations (subject_id, mode, guided, lang, title) values ($1,'explain',true,$2,'t') returning lang", [S1, lang]);
 for (const l of ["fr", "ar", "en"]) {
   let r, e = null; try { r = await conv(l); } catch (x) { e = x.message; }
-  ok(`جلسة بلغة ${l}`, !e && r[0].lang === l, e);
+  ok(`session in language ${l}`, !e && r[0].lang === l, e);
 }
-ok("لغة جلسة غير مدعومة (de) مرفوضة", /check constraint/i.test((await err(conv("de"))) ?? ""));
-ok("الافتراضي fr للجلسات", (await q(A, "insert into public.conversations (subject_id, mode, title) values ($1,'explain','t2') returning lang", [S1]))[0].lang === "fr");
+ok("an unsupported session language (de) is rejected", /check constraint/i.test((await err(conv("de"))) ?? ""));
+ok("sessions default to fr", (await q(A, "insert into public.conversations (subject_id, mode, title) values ($1,'explain','t2') returning lang", [S1]))[0].lang === "fr");
 
-// ── القيود موجودة باسم واحد ثابت (لا قيود مكررة بعد التشغيل مرتين)
+// -- Constraints exist under one fixed name (no duplicate constraints after running twice)
 const cons = (await db.query(`select conrelid::regclass::text t, conname from pg_constraint where contype='c' and conrelid in ('public.profiles'::regclass,'public.conversations'::regclass) and (pg_get_constraintdef(oid) ~* '\\mlocale\\M' or pg_get_constraintdef(oid) ~* '\\mlang\\M')`)).rows;
-ok("قيد واحد لكل عمود", cons.length === 2 && cons.some(c => c.conname === "profiles_locale_check") && cons.some(c => c.conname === "conversations_lang_check"), JSON.stringify(cons));
+ok("one constraint per column", cons.length === 2 && cons.some(c => c.conname === "profiles_locale_check") && cons.some(c => c.conname === "conversations_lang_check"), JSON.stringify(cons));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

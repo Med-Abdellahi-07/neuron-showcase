@@ -1,4 +1,4 @@
-// الدفعة أ (ذكاء اصطناعي): نقاط، أعلام لكل فضاء، ملخصات وQCM شخصي، عزل
+// Batch A (AI): points, per-space flags, personal summaries and QCM, isolation
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import fs from "node:fs";
@@ -46,108 +46,108 @@ const mkLesson = async (sub, by) => (await one("insert into public.lessons (subj
 const lessI = await mkLesson(subI, SAI), lessS = await mkLesson(subS, SAS);
 const spend = async (u, k) => (await q(u, "select public.ai_spend($1) as r", [k]))[0].r;
 
-// ══════════ الأعلام (الإطلاق التدريجي) ══════════
+// ══════════ Flags (gradual rollout) ══════════
 const fl = (await one("select ai_features from public.cohorts where id=$1", [IAA]));
-ok("IAA L2 مفعّل افتراضياً بكل الأعلام بما فيها ai_exam", ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools", "ai_exam"].every((k) => fl.ai_features[k] === true), JSON.stringify(fl));
-ok("فضاء آخر (SDS L2) معطّل افتراضياً", (await n("select count(*) c from public.cohorts where id=$1 and ai_features = '{}'::jsonb", [SDS2])) === 1);
-ok("my_ai_flag: طالب IAA نعم، طالب SDS لا", (await q(A, "select public.my_ai_flag('ai_chat') f"))[0].f === true && (await q(S, "select public.my_ai_flag('ai_chat') f"))[0].f === false);
+ok("IAA L2 is enabled by default with all flags including ai_exam", ["ai_chat", "ai_summary", "ai_qcm", "ai_duel", "ai_tools", "ai_exam"].every((k) => fl.ai_features[k] === true), JSON.stringify(fl));
+ok("another space (SDS L2) is disabled by default", (await n("select count(*) c from public.cohorts where id=$1 and ai_features = '{}'::jsonb", [SDS2])) === 1);
+ok("my_ai_flag: IAA student yes, SDS student no", (await q(A, "select public.my_ai_flag('ai_chat') f"))[0].f === true && (await q(S, "select public.my_ai_flag('ai_chat') f"))[0].f === false);
 
-// ══════════ السقف الخفي ضد الإساءة (لا نقاط ولا رصيد ظاهر) ══════════
+// ══════════ Hidden abuse cap (no points, no visible balance) ══════════
 let r = await spend(A, "chat");
-ok("طلب عادي مقبول ولا يُرجع رصيداً للطالب", r.ok && r.remaining === undefined && r.limit === undefined, JSON.stringify(r));
-ok("كل الأنواع تُقبل (ملخص/QCM) بلا تكلفة متفاوتة", (await spend(A, "summary")).ok && (await spend(A, "qcm")).ok && (await n("select sum(points) c from public.ai_ledger where user_id=$1", [A])) === 3);
-ok("ai_balance لا يحوي عدّاداً (أعلام وضغط فقط)", (() => null)() === null && Object.keys((await q(A, "select public.ai_balance() b"))[0].b).sort().join() === "flags,pressure");
+ok("a normal request is accepted and returns no balance to the student", r.ok && r.remaining === undefined && r.limit === undefined, JSON.stringify(r));
+ok("all types are accepted (summary/QCM) with no varying cost", (await spend(A, "summary")).ok && (await spend(A, "qcm")).ok && (await n("select sum(points) c from public.ai_ledger where user_id=$1", [A])) === 3);
+ok("ai_balance has no counter (flags and pressure only)", (() => null)() === null && Object.keys((await q(A, "select public.ai_balance() b"))[0].b).sort().join() === "flags,pressure");
 r = await spend(S, "chat");
-ok("طالب في فضاء معطّل: refused disabled", !r.ok && r.reason === "disabled");
-ok("نوع مجهول مرفوض", (await spend(A, "bogus")).reason === "unknown");
-ok("بلا تسجيل دخول: auth", (await as(null, "authenticated", async () => (await db.query("select public.ai_spend('chat') r")).rows[0].r)).reason === "auth");
-ok("الطالب لا يسترجع بنفسه", denied(await err(q(A, "select public.ai_refund(1)"))));
+ok("student in a disabled space: refused disabled", !r.ok && r.reason === "disabled");
+ok("unknown type is rejected", (await spend(A, "bogus")).reason === "unknown");
+ok("not signed in: auth", (await as(null, "authenticated", async () => (await db.query("select public.ai_spend('chat') r")).rows[0].r)).reason === "auth");
+ok("a student cannot refund themselves", denied(await err(q(A, "select public.ai_refund(1)"))));
 await svc("select public.ai_refund($1)", [(await spend(B, "chat")).ledger_id]);
-ok("service_role يسترجع (يعود العدد)", (await n("select count(*) c from public.ai_ledger where user_id=$1", [B])) === 0);
-// سقف الدقيقة (10 افتراضياً)
-for (let i = 0; i < 7; i++) await spend(A, "chat"); // الإجمالي 10 في الدقيقة
+ok("service_role refunds (the count is returned)", (await n("select count(*) c from public.ai_ledger where user_id=$1", [B])) === 0);
+// Per-minute cap (10 by default)
+for (let i = 0; i < 7; i++) await spend(A, "chat"); // 10 per minute in total
 r = await spend(A, "chat");
-ok("الطلب الحادي عشر في الدقيقة: break مع alert", !r.ok && r.reason === "break" && r.alert === true, JSON.stringify(r));
+ok("the 11th request in a minute: break with alert", !r.ok && r.reason === "break" && r.alert === true, JSON.stringify(r));
 r = await spend(A, "chat");
-ok("التجاوز التالي: break بلا تنبيه مكرر", !r.ok && r.reason === "break" && r.alert === false);
-ok("تنبيه واحد فقط مسجَّل", (await n("select count(*) c from public.ai_alerts where user_id=$1 and kind='minute'", [A])) === 1);
-ok("B لا يتأثر بسقف A", (await spend(B, "chat")).ok);
-// سقف اليوم: نخفّضه لاختبار سريع (الحد الأدنى 10) ونوزّع الطلبات خارج نافذة الدقيقة
+ok("next overrun: break without a duplicate alert", !r.ok && r.reason === "break" && r.alert === false);
+ok("only one alert is recorded", (await n("select count(*) c from public.ai_alerts where user_id=$1 and kind='minute'", [A])) === 1);
+ok("B is not affected by A's cap", (await spend(B, "chat")).ok);
+// Daily cap: lower it for a quick test (minimum 10) and spread the requests outside the one-minute window
 await q(ADM, "select public.ai_set_limits(10, 120)");
-ok("حدّ يومي 10 + دقيقة 120 يُحفظ", JSON.stringify((await q(ADM, "select public.ai_get_limits() l"))[0].l) === '{"daily_cap":10,"minute_cap":120,"pressure":1}' || (await q(ADM, "select public.ai_get_limits() l"))[0].l.daily_cap === 10);
+ok("daily limit 10 + minute 120 is saved", JSON.stringify((await q(ADM, "select public.ai_get_limits() l"))[0].l) === '{"daily_cap":10,"minute_cap":120,"pressure":1}' || (await q(ADM, "select public.ai_get_limits() l"))[0].l.daily_cap === 10);
 r = await spend(A, "chat");
-ok("سقف اليوم: break مع alert يومي", !r.ok && r.reason === "break" && r.alert === true && (await n("select count(*) c from public.ai_alerts where user_id=$1 and kind='daily'", [A])) === 1, JSON.stringify(r));
-ok("الطالب لا يقرأ التنبيهات ولا السقوف", denied(await err(q(A, "select * from public.ai_alerts"))) && has(await err(q(A, "select public.ai_get_limits()")), "forbidden") && has(await err(q(SAI, "select * from public.ai_recent_alerts(7)")), "forbidden") && has(await err(q(A, "select * from public.ai_top_users(10)")), "forbidden"));
-ok("المشرف العام يرى التنبيهات وأكثر الحسابات استهلاكاً", (await q(ADM, "select * from public.ai_recent_alerts(7)")).length === 2 && (await q(ADM, "select * from public.ai_top_users(10)"))[0].full_name === "a");
-ok("قيم سقف غير صالحة مرفوضة", has(await err(q(ADM, "select public.ai_set_limits(5, 10)")), "invalid_limits") && has(await err(q(ADM, "select public.ai_set_limits(200, 0)")), "invalid_limits") && has(await err(q(SAI, "select public.ai_set_limits(200, 10)")), "forbidden"));
+ok("daily cap: break with a daily alert", !r.ok && r.reason === "break" && r.alert === true && (await n("select count(*) c from public.ai_alerts where user_id=$1 and kind='daily'", [A])) === 1, JSON.stringify(r));
+ok("a student cannot read the alerts or the caps", denied(await err(q(A, "select * from public.ai_alerts"))) && has(await err(q(A, "select public.ai_get_limits()")), "forbidden") && has(await err(q(SAI, "select * from public.ai_recent_alerts(7)")), "forbidden") && has(await err(q(A, "select * from public.ai_top_users(10)")), "forbidden"));
+ok("the super admin sees the alerts and the heaviest accounts", (await q(ADM, "select * from public.ai_recent_alerts(7)")).length === 2 && (await q(ADM, "select * from public.ai_top_users(10)"))[0].full_name === "a");
+ok("invalid cap values are rejected", has(await err(q(ADM, "select public.ai_set_limits(5, 10)")), "invalid_limits") && has(await err(q(ADM, "select public.ai_set_limits(200, 0)")), "invalid_limits") && has(await err(q(SAI, "select public.ai_set_limits(200, 10)")), "forbidden"));
 await q(ADM, "select public.ai_set_limits(200, 10)");
-// وضع الضغط: يخفّض سقف اليوم الفعلي إلى 50% ← رسالة «مزدحم» لا «استراحة»
+// Pressure mode: lowers the effective daily cap to 50% -> a "busy" message, not "break"
 await db.query("update public.ai_settings set pressure = 0.5, daily_cap = 20");
 const C = await mkP("c", "student", IAA);
 await db.query("insert into public.ai_ledger (user_id, cohort_id, kind, points, at) select $1, $2, 'chat', 1, now() - interval '5 minutes' from generate_series(1, 12)", [C, IAA]);
 r = await spend(C, "chat");
-ok("وضع الضغط: 12 طلباً ≥ 10 (نصف 20) فتُرفض بـ busy لا break", !r.ok && r.reason === "busy" && r.alert === false, JSON.stringify(r));
-ok("الطالب لا يعدّل وضع الضغط ولا الإعدادات", denied(await err(q(C, "update public.ai_settings set pressure = 1"))));
+ok("pressure mode: 12 requests >= 10 (half of 20), so busy is returned, not break", !r.ok && r.reason === "busy" && r.alert === false, JSON.stringify(r));
+ok("a student cannot change pressure mode or the settings", denied(await err(q(C, "update public.ai_settings set pressure = 1"))));
 await db.query("update public.ai_settings set pressure = 1, daily_cap = 200, minute_cap = 10");
-// أعلام الفضاء بلا نقاط
-ok("غير المشرف العام لا يضبط الأعلام", has(await err(q(SAI, "select public.set_space_ai($1,'{}'::jsonb)", [IAA])), "forbidden") && has(await err(q(A, "select public.set_space_ai($1,'{}'::jsonb)", [IAA])), "forbidden"));
-await db.query(`update public.cohorts set features = features || '{"ai":true}' where id=$1`, [SDS2]); // ميزة الخطة (المفتاح الرئيسي)
+// Space flags without points
+ok("a non-super-admin cannot set the flags", has(await err(q(SAI, "select public.set_space_ai($1,'{}'::jsonb)", [IAA])), "forbidden") && has(await err(q(A, "select public.set_space_ai($1,'{}'::jsonb)", [IAA])), "forbidden"));
+await db.query(`update public.cohorts set features = features || '{"ai":true}' where id=$1`, [SDS2]); // plan feature (the master switch)
 await q(ADM, "select public.set_space_ai($1, '{\"ai_chat\":true,\"ai_summary\":false,\"ai_exam\":true}'::jsonb)", [SDS2]);
 const sf = await one("select ai_features from public.cohorts where id=$1", [SDS2]);
-ok("المشرف العام يفعّل SDS L2: chat وexam فقط", sf.ai_features.ai_chat === true && sf.ai_features.ai_exam === true && sf.ai_features.ai_summary === false && sf.ai_features.ai_qcm === false);
-ok("طالب SDS: الدردشة تعمل", (await spend(S, "chat")).ok);
-ok("طالب SDS: الملخص معطّل بالعلم", (await spend(S, "summary")).reason === "disabled");
+ok("the super admin enables SDS L2: chat and exam only", sf.ai_features.ai_chat === true && sf.ai_features.ai_exam === true && sf.ai_features.ai_summary === false && sf.ai_features.ai_qcm === false);
+ok("SDS student: chat works", (await spend(S, "chat")).ok);
+ok("SDS student: summary is disabled by its flag", (await spend(S, "summary")).reason === "disabled");
 await db.query(`update public.cohorts set features = features || '{"ai":false}' where id=$1`, [SDS2]);
-ok("تعطيل ميزة الخطة ai يعطّل كل الأعلام", (await spend(S, "chat")).reason === "disabled");
+ok("disabling the ai plan feature disables all flags", (await spend(S, "chat")).reason === "disabled");
 const us = await q(ADM, "select * from public.ai_space_usage(7)");
-ok("ai_space_usage للمشرف العام يعرض IAA L2", us.some((x) => x.space_name === "IAA L2" && Number(x.points) > 0));
-ok("ai_space_usage مرفوض لغير المشرف العام", has(await err(q(SAI, "select * from public.ai_space_usage(7)")), "forbidden"));
-ok("عدّاد المزوّدين يقبل openrouter/nvidia/github", (await err(q(A, "select public.ai_note_use('openrouter'), public.ai_note_use('nvidia'), public.ai_note_use('github')"))) === null && (await n("select count(*) c from public.ai_provider_daily where provider in ('openrouter','nvidia','github')")) === 3);
+ok("ai_space_usage shows IAA L2 to the super admin", us.some((x) => x.space_name === "IAA L2" && Number(x.points) > 0));
+ok("ai_space_usage is rejected for a non-super-admin", has(await err(q(SAI, "select * from public.ai_space_usage(7)")), "forbidden"));
+ok("the provider counter accepts openrouter/nvidia/github", (await err(q(A, "select public.ai_note_use('openrouter'), public.ai_note_use('nvidia'), public.ai_note_use('github')"))) === null && (await n("select count(*) c from public.ai_provider_daily where provider in ('openrouter','nvidia','github')")) === 3);
 
-// ══════════ الملخصات الشخصية ══════════
+// ══════════ Personal summaries ══════════
 const sum = (u, coh, lessons, content = "ملخص") => q(u, "insert into public.ai_summaries (user_id, cohort_id, subject_id, lesson_ids, kind, lang, content) values ($1,$2,$3,$4,'short','fr',$5)", [u, coh, subI, lessons, content]);
-ok("A يحفظ ملخصاً لدرس من فضائه", (await err(sum(A, IAA, [lessI], "ملخص A"))) === null);
-ok("رفض: ملخص بدرس من فضاء آخر", (await err(sum(A, IAA, [lessS]))) !== null);
-ok("رفض: ملخص باسم مستخدم آخر", (await err(q(A, "insert into public.ai_summaries (user_id, cohort_id, lesson_ids, kind, lang, content) values ($1,$2,$3,'short','fr','x')", [B, IAA, [lessI]]))) !== null);
-ok("رفض: طالب فضاء بلا علم ai_summary", (await err(q(S, "insert into public.ai_summaries (user_id, cohort_id, lesson_ids, kind, lang, content) values ($1,$2,$3,'short','fr','x')", [S, SDS2, [lessS]]))) !== null);
-ok("B لا يرى ملخص A", (await q(B, "select count(*)::int c from public.ai_summaries"))[0].c === 0);
-ok("A يرى ملخصه", (await q(A, "select count(*)::int c from public.ai_summaries"))[0].c === 1);
-ok("المشرف لا يقرأ ملخصات الطلاب", (await q(SAI, "select count(*)::int c from public.ai_summaries"))[0].c === 0);
-ok("B لا يحذف ملخص A", ((await q(B, "delete from public.ai_summaries returning id")).length) === 0);
+ok("A saves a summary for a lesson in their space", (await err(sum(A, IAA, [lessI], "ملخص A"))) === null);
+ok("rejected: a summary for a lesson from another space", (await err(sum(A, IAA, [lessS]))) !== null);
+ok("rejected: a summary in another user's name", (await err(q(A, "insert into public.ai_summaries (user_id, cohort_id, lesson_ids, kind, lang, content) values ($1,$2,$3,'short','fr','x')", [B, IAA, [lessI]]))) !== null);
+ok("rejected: a student in a space without the ai_summary flag", (await err(q(S, "insert into public.ai_summaries (user_id, cohort_id, lesson_ids, kind, lang, content) values ($1,$2,$3,'short','fr','x')", [S, SDS2, [lessS]]))) !== null);
+ok("B cannot see A's summary", (await q(B, "select count(*)::int c from public.ai_summaries"))[0].c === 0);
+ok("A sees their summary", (await q(A, "select count(*)::int c from public.ai_summaries"))[0].c === 1);
+ok("a moderator cannot read students' summaries", (await q(SAI, "select count(*)::int c from public.ai_summaries"))[0].c === 0);
+ok("B cannot delete A's summary", ((await q(B, "delete from public.ai_summaries returning id")).length) === 0);
 
-// ══════════ QCM الشخصي ══════════
+// ══════════ Personal QCM ══════════
 const mkSet = async (u, coh, sub, lessons) => (await q(u, "insert into public.ai_qcm_sets (user_id, cohort_id, subject_id, kind, lesson_ids, question_count, difficulty) values ($1,$2,$3,'cm',$4,5,'medium') returning id", [u, coh, sub, lessons]))[0].id;
 const setA = await mkSet(A, IAA, subI, [lessI]);
-ok("A ينشئ مجموعة", !!setA);
-ok("رفض: مجموعة بمادة/درس من فضاء آخر", (await err(mkSet(A, IAA, subS, [lessS]))) !== null);
+ok("A creates a set", !!setA);
+ok("rejected: a set with a subject/lesson from another space", (await err(mkSet(A, IAA, subS, [lessS]))) !== null);
 const mkQ = (u, setId, opts = '["a","b","c","d"]', ci = 1) => q(u, "insert into public.ai_questions (set_id, user_id, subject_id, lesson_id, page, statement, options, correct_index, explanation) values ($1,$2,$3,$4,3,'S',$5,$6,'E') returning id", [setId, u, subI, lessI, opts, ci]);
 const qa = (await mkQ(A, setA))[0].id;
-ok("رفض: 3 خيارات فقط", (await err(mkQ(A, setA, '["a","b","c"]'))) !== null);
-ok("رفض: correct_index=4", (await err(mkQ(A, setA, '["a","b","c","d"]', 4))) !== null);
-ok("رفض: إدراج سؤال في مجموعة غيره", (await err(mkQ(B, setA))) !== null);
-ok("B لا يرى سؤال A ولا مجموعته", (await q(B, "select count(*)::int c from public.ai_questions"))[0].c === 0 && (await q(B, "select count(*)::int c from public.ai_qcm_sets"))[0].c === 0);
-ok("لا تحديث مباشر للأسئلة (is_correct)", denied(await err(q(A, "update public.ai_questions set is_correct = true where id=$1", [qa]))));
-ok("B لا يجيب سؤال A", has(await err(q(B, "select public.ai_answer_question($1, 1)", [qa])), "not_found"));
+ok("rejected: only 3 options", (await err(mkQ(A, setA, '["a","b","c"]'))) !== null);
+ok("rejected: correct_index=4", (await err(mkQ(A, setA, '["a","b","c","d"]', 4))) !== null);
+ok("rejected: inserting a question into someone else's set", (await err(mkQ(B, setA))) !== null);
+ok("B cannot see A's question or set", (await q(B, "select count(*)::int c from public.ai_questions"))[0].c === 0 && (await q(B, "select count(*)::int c from public.ai_qcm_sets"))[0].c === 0);
+ok("no direct update of questions (is_correct)", denied(await err(q(A, "update public.ai_questions set is_correct = true where id=$1", [qa]))));
+ok("B cannot answer A's question", has(await err(q(B, "select public.ai_answer_question($1, 1)", [qa])), "not_found"));
 let ans = (await q(A, "select public.ai_answer_question($1, 0) r", [qa]))[0].r;
-ok("إجابة خاطئة: correct=false ومراجعة غداً", ans.correct === false && (await n("select count(*) c from public.ai_questions where id=$1 and due_at between now() + interval '23 hours' and now() + interval '25 hours' and not mastered", [qa])) === 1);
+ok("wrong answer: correct=false and review tomorrow", ans.correct === false && (await n("select count(*) c from public.ai_questions where id=$1 and due_at between now() + interval '23 hours' and now() + interval '25 hours' and not mastered", [qa])) === 1);
 ans = (await q(A, "select public.ai_answer_question($1, 1) r", [qa]))[0].r;
-ok("إجابة صحيحة: streak=1 والمراجعة بعد 3 أيام", ans.correct === true && (await n("select count(*) c from public.ai_questions where id=$1 and streak=1 and not mastered and due_at > now() + interval '2 days'", [qa])) === 1);
+ok("correct answer: streak=1 and review after 3 days", ans.correct === true && (await n("select count(*) c from public.ai_questions where id=$1 and streak=1 and not mastered and due_at > now() + interval '2 days'", [qa])) === 1);
 await q(A, "select public.ai_answer_question($1, 1)", [qa]);
-ok("صحيحتان متتاليتان ← متقنة وبلا موعد", (await n("select count(*) c from public.ai_questions where id=$1 and mastered and due_at is null", [qa])) === 1);
-ok("خيار خارج النطاق مرفوض", has(await err(q(A, "select public.ai_answer_question($1, 9)", [qa])), "invalid_choice"));
-ok("الأسئلة لا تدخل review_queue ولا الترتيب المصنّف", (await n("select count(*) c from public.review_queue")) === 0 && (await n("select count(*) c from public.attempts")) === 0);
+ok("two correct in a row -> mastered with no due date", (await n("select count(*) c from public.ai_questions where id=$1 and mastered and due_at is null", [qa])) === 1);
+ok("an out-of-range option is rejected", has(await err(q(A, "select public.ai_answer_question($1, 9)", [qa])), "invalid_choice"));
+ok("the questions do not enter review_queue or the ranked leaderboard", (await n("select count(*) c from public.review_queue")) === 0 && (await n("select count(*) c from public.attempts")) === 0);
 
-// الإبلاغ
+// Reporting
 await q(A, "select public.ai_report_question($1, 'الإجابة خاطئة')", [qa]);
 const rep = await q(SAI, "select * from public.reported_ai_questions()");
-ok("مشرف IAA يرى البلاغ دون هوية الطالب", rep.length === 1 && rep[0].note === "الإجابة خاطئة" && !("user_id" in rep[0]));
-ok("مشرف فضاء آخر لا يرى البلاغ", (await q(SAS, "select * from public.reported_ai_questions()")).length === 0);
-ok("طالب لا يستدعي قائمة البلاغات", has(await err(q(B, "select * from public.reported_ai_questions()")), "forbidden"));
-ok("B لا يبلّغ عن سؤال A", has(await err(q(B, "select public.ai_report_question($1,'x')", [qa])), "not_found"));
-ok("مشرف فضاء آخر لا يحسم البلاغ", has(await err(q(SAS, "select public.ai_resolve_report($1)", [qa])), "not_found"));
+ok("IAA moderator sees the report without the student's identity", rep.length === 1 && rep[0].note === "الإجابة خاطئة" && !("user_id" in rep[0]));
+ok("a moderator of another space does not see the report", (await q(SAS, "select * from public.reported_ai_questions()")).length === 0);
+ok("a student cannot call the reports list", has(await err(q(B, "select * from public.reported_ai_questions()")), "forbidden"));
+ok("B cannot report A's question", has(await err(q(B, "select public.ai_report_question($1,'x')", [qa])), "not_found"));
+ok("a moderator of another space cannot resolve the report", has(await err(q(SAS, "select public.ai_resolve_report($1)", [qa])), "not_found"));
 await q(SAI, "select public.ai_resolve_report($1)", [qa]);
-ok("المشرف يحسم البلاغ ← reviewed", (await n("select count(*) c from public.ai_questions where id=$1 and report_status='reviewed'", [qa])) === 1);
-ok("anon لا يصل لأي جدول جديد", denied(await err(anon("select * from public.ai_summaries"))) && denied(await err(anon("select * from public.ai_questions"))) && denied(await err(anon("select public.ai_spend('chat')"))));
+ok("the moderator resolves the report -> reviewed", (await n("select count(*) c from public.ai_questions where id=$1 and report_status='reviewed'", [qa])) === 1);
+ok("anon cannot reach any new table", denied(await err(anon("select * from public.ai_summaries"))) && denied(await err(anon("select * from public.ai_questions"))) && denied(await err(anon("select public.ai_spend('chat')"))));
 
-console.log(`\n${pass} ناجح، ${fail} فاشل`);
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

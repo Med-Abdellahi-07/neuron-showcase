@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PART_SIZE, partCountFor, partPath, manifestHash, sha256Hex, fetchJoined, withRetry, Cancelled } from "../src/lib/big-file.ts";
 
-test("حدود التجزئة", () => {
+test("chunking limits", () => {
   assert.equal(PART_SIZE, 45 * 1024 * 1024);
   assert.equal(partCountFor(1), 1);
   assert.equal(partCountFor(PART_SIZE), 1);
@@ -12,19 +12,19 @@ test("حدود التجزئة", () => {
   assert.equal(partPath("l/f", 11), "l/f/part-012");
 });
 
-test("sha256 معروف وبصمة البيان ثابتة", async () => {
+test("known sha256 and a stable manifest fingerprint", async () => {
   assert.equal(await sha256Hex(new TextEncoder().encode("abc").buffer), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   assert.equal(await manifestHash(["a", "b"]), await sha256Hex(new TextEncoder().encode("ab").buffer));
 });
 
-test("إعادة المحاولة تنجح بعد فشل مؤقت وتتوقف عند الإلغاء", async () => {
+test("retry succeeds after a transient failure and stops on cancel", async () => {
   let n = 0;
   assert.equal(await withRetry(async () => { if (++n < 3) throw new Error("x"); return "ok"; }, undefined, 4), "ok");
   const ac = new AbortController(); ac.abort();
   await assert.rejects(() => withRetry(async () => 1, ac.signal), Cancelled);
 });
 
-test("ضمّ الأجزاء بالترتيب مع التحقق من البصمات ورفض جزء تالف", async () => {
+test("parts are joined in order with hash verification and a corrupt part is rejected", async () => {
   const parts = [Buffer.from("AAAA"), Buffer.from("BB"), Buffer.from("C")];
   const hashes = await Promise.all(parts.map((p) => sha256Hex(new Uint8Array(p).buffer)));
   const real = globalThis.fetch;

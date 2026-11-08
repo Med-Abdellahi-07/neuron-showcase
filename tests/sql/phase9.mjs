@@ -1,4 +1,4 @@
-// الدفعة ب: لوحات الإحصاء (الجامعة والفضاء) وحدودها
+// Batch B: statistics dashboards (university and space) and their limits
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import fs from "node:fs";
@@ -51,29 +51,29 @@ await db.query("insert into public.lessons (subject_id, kind, number, title, sta
 await db.query("insert into public.questions (subject_id, type, difficulty, statement, options, correct_index, status, created_by) values ($1,'mcq','easy','q','[\"a\",\"b\"]',0,'published',$2)", [sub1, SA1]);
 
 const d1 = (await q(SA1, "select public.space_dashboard() as d"))[0].d;
-ok("لوحة SDS L1: عدد الطلاب 2 ولا تحسب غيرهم", d1.students === 2, JSON.stringify(d1));
-ok("لوحة SDS L1: نشط اليوم 1، لم يدخل قط 1", d1.active_1d === 1 && d1.never_logged === 1);
-ok("لوحة SDS L1: دروس منشورة 1 ومعلّقة 1، أسئلة 1، مواد 1", d1.lessons_published === 1 && d1.lessons_pending === 1 && d1.questions_published === 1 && d1.subjects === 1);
-ok("لوحة SDS L1: المشرفون = SA1 فقط (لا SA2)", d1.staff.length === 1 && d1.staff[0].id === SA1);
-ok("لوحة SDS L1 لا تحوي طلاب فضاء آخر", !JSON.stringify(d1).includes("s2a") && !JSON.stringify(d1).includes('"ia"'));
+ok("SDS L1 dashboard: 2 students and no one else counted", d1.students === 2, JSON.stringify(d1));
+ok("SDS L1 dashboard: 1 active today, 1 never signed in", d1.active_1d === 1 && d1.never_logged === 1);
+ok("SDS L1 dashboard: 1 published and 1 pending lesson, 1 question, 1 subject", d1.lessons_published === 1 && d1.lessons_pending === 1 && d1.questions_published === 1 && d1.subjects === 1);
+ok("SDS L1 dashboard: moderators = SA1 only (not SA2)", d1.staff.length === 1 && d1.staff[0].id === SA1);
+ok("the SDS L1 dashboard has no students from another space", !JSON.stringify(d1).includes("s2a") && !JSON.stringify(d1).includes('"ia"'));
 const d2 = (await q(SA2, "select public.space_dashboard() as d"))[0].d;
-ok("لوحة SDS L2 مستقلة: طالب واحد وبلا دروس", d2.students === 1 && d2.lessons_published === 0 && d2.active_7d === 1);
-ok("طالب لا يستدعي space_dashboard", has(await err(q(S1a, "select public.space_dashboard()")), "forbidden"));
-ok("المشرف العام داخل فضاء SDS L1 يرى لوحته", (await (async () => { await db.query("update public.profiles set cohort_id=$1 where id=$2", [SDS1, ADM]); return (await q(ADM, "select public.space_dashboard() as d"))[0].d.students; })()) === 2);
+ok("the SDS L2 dashboard is independent: one student and no lessons", d2.students === 1 && d2.lessons_published === 0 && d2.active_7d === 1);
+ok("a student cannot call space_dashboard", has(await err(q(S1a, "select public.space_dashboard()")), "forbidden"));
+ok("the super admin inside the SDS L1 space sees its dashboard", (await (async () => { await db.query("update public.profiles set cohort_id=$1 where id=$2", [SDS1, ADM]); return (await q(ADM, "select public.space_dashboard() as d"))[0].d.students; })()) === 2);
 await db.query("update public.profiles set cohort_id=$1 where id=$2", [IAA, ADM]);
 
-ok("مشرف فضاء لا يستدعي admin_overview", has(await err(q(SA1, "select public.admin_overview()")), "forbidden"));
-ok("طالب لا يستدعي admin_overview", has(await err(q(S1a, "select public.admin_overview()")), "forbidden"));
-ok("anon لا يستدعي أياً من الدالتين", denied(await err(anon("select public.admin_overview()"))) && denied(await err(anon("select public.space_dashboard()"))));
+ok("a space admin cannot call admin_overview", has(await err(q(SA1, "select public.admin_overview()")), "forbidden"));
+ok("a student cannot call admin_overview", has(await err(q(S1a, "select public.admin_overview()")), "forbidden"));
+ok("anon cannot call either function", denied(await err(anon("select public.admin_overview()"))) && denied(await err(anon("select public.space_dashboard()"))));
 const ov = (await q(ADM, "select public.admin_overview() as d"))[0].d;
 const row = (name) => ov.spaces.find((s) => s.name === name);
-ok("نظرة الجامعة: 24 فضاءً على الأقل مع L1+L2 للتخصصات الـ12", ov.spaces.length >= 24, String(ov.spaces.length));
-ok("نظرة الجامعة: SDS L1 = 2 طالب، مشرف 1، دروس 1، أسئلة 1", row("SDS L1").students === 2 && row("SDS L1").supervisors === 1 && row("SDS L1").lessons === 1 && row("SDS L1").questions === 1);
-ok("نظرة الجامعة: IAA L2 = طالب واحد، والمؤسسة FST", row("IAA L2").students === 1 && row("IAA L2").institution === "FST");
-ok("نظرة الجامعة: آخر محتوى للفضاء الذي رُفع فيه فقط", row("SDS L1").last_content_at !== null && row("SDS L2").last_content_at === null);
+ok("university overview: at least 24 spaces with L1+L2 for the 12 majors", ov.spaces.length >= 24, String(ov.spaces.length));
+ok("university overview: SDS L1 = 2 students, 1 moderator, 1 lesson, 1 question", row("SDS L1").students === 2 && row("SDS L1").supervisors === 1 && row("SDS L1").lessons === 1 && row("SDS L1").questions === 1);
+ok("university overview: IAA L2 = one student, and the institution is FST", row("IAA L2").students === 1 && row("IAA L2").institution === "FST");
+ok("university overview: last content only for the space where it was uploaded", row("SDS L1").last_content_at !== null && row("SDS L2").last_content_at === null);
 const sup = ov.supervisors.find((s) => s.id === SA1);
-ok("نشاط المشرفين: SA1 له آخر دخول وآخر رفع، وSA2 بلا نشاط", sup && sup.last_seen_at && sup.last_upload_at && ov.supervisors.find((s) => s.id === SA2).last_upload_at === null);
-ok("نظرة الجامعة لا تحوي بريداً ولا هاتفاً", !/email|phone/.test(JSON.stringify(ov)));
+ok("moderator activity: SA1 has a last sign-in and last upload, and SA2 has no activity", sup && sup.last_seen_at && sup.last_upload_at && ov.supervisors.find((s) => s.id === SA2).last_upload_at === null);
+ok("the university overview has no email or phone", !/email|phone/.test(JSON.stringify(ov)));
 
-console.log(`\n${pass} ناجح، ${fail} فاشل`);
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -1,4 +1,4 @@
-// QCM حر العدد + Duel بأسئلة ذكاء اصطناعي (حالة private، create_ai_duel لـservice_role فقط)
+// Free-count QCM + Duel with AI-generated questions (private status, create_ai_duel for service_role only)
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import fs from "node:fs";
@@ -50,55 +50,55 @@ const spend = async (u, k) => (await q(u, "select public.ai_spend($1) as r", [k]
 const mkQ = (n, extra = {}) => Array.from({ length: n }, (_, i) => ({ statement: `سؤال ${i + 1}`, options: ["a", "b", "c", "d"], correct_index: i % 4, explanation: "لأن", lesson: lessI, ...extra }));
 const mkAi = (u, opp, qs, subj = subI) => svc("select public.create_ai_duel($1,$2,$3,$4,$5::jsonb) id", [u, opp, subj, [lessI], JSON.stringify(qs)]);
 
-// ══════════ عدد حر 1..50 ══════════
+// ══════════ Free count 1..50 ══════════
 const setIns = (cnt) => db.query("insert into public.ai_qcm_sets (user_id, cohort_id, subject_id, lesson_ids, question_count, difficulty) values ($1,$2,$3,$4,$5,'medium')", [A, IAA, subI, [lessI], cnt]);
 const e1 = await err(setIns(1));
-ok("ai_qcm_sets يقبل 1 و7 و50", !e1 && !(await err(setIns(7))) && !(await err(setIns(50))));
-ok("ai_qcm_sets يرفض 0 و51 (قيد question_count)", has(await err(setIns(0)), "question_count_check") && has(await err(setIns(51)), "question_count_check"));
+ok("ai_qcm_sets accepts 1, 7 and 50", !e1 && !(await err(setIns(7))) && !(await err(setIns(50))));
+ok("ai_qcm_sets rejects 0 and 51 (question_count constraint)", has(await err(setIns(0)), "question_count_check") && has(await err(setIns(51)), "question_count_check"));
 
-// ══════════ تكلفة duel وعلمه ══════════
-ok("ai_costs فيه duel→ai_duel", (await one("select flag from public.ai_costs where kind='duel'")).flag === "ai_duel");
-ok("ai_spend('duel') يعمل لـIAA ويُرفض لفضاء معطّل", (await q(A, "select public.ai_spend('duel') r"))[0].r.ok === true && (await q(S, "select public.ai_spend('duel') r"))[0].r.reason === "disabled");
+// ══════════ Duel cost and flag ══════════
+ok("ai_costs has duel->ai_duel", (await one("select flag from public.ai_costs where kind='duel'")).flag === "ai_duel");
+ok("ai_spend('duel') works for IAA and is rejected for a disabled space", (await q(A, "select public.ai_spend('duel') r"))[0].r.ok === true && (await q(S, "select public.ai_spend('duel') r"))[0].r.reason === "disabled");
 
-// ══════════ create_ai_duel: للخادم فقط ══════════
-ok("الطالب لا يستدعي create_ai_duel مباشرة", denied(await err(q(A, "select public.create_ai_duel($1,$2,$3,$4,$5::jsonb)", [A, B, subI, [lessI], JSON.stringify(mkQ(5))]))));
-ok("anon لا يستدعيها", denied(await err(anon("select public.create_ai_duel($1,$2,$3,$4,$5::jsonb)", [A, B, subI, [lessI], JSON.stringify(mkQ(5))]))));
-ok("أقل من 5 أسئلة مرفوع", has(await err(mkAi(A, B, mkQ(4))), "not_enough_questions"));
-ok("أكثر من 15 مرفوض", has(await err(mkAi(A, B, mkQ(16))), "bad_questions"));
-ok("سؤال بثلاثة خيارات مرفوض", has(await err(mkAi(A, B, [...mkQ(4), { statement: "x", options: ["a", "b", "c"], correct_index: 0, explanation: "e" }])), "bad_questions"));
-ok("خصم من فضاء آخر مرفوض", has(await err(mkAi(A, S, mkQ(5))), "bad_opponent"));
-ok("مادة من فضاء آخر مرفوضة", has(await err(mkAi(A, B, mkQ(5), subS)), "bad_subject"));
-ok("فضاء بلا duel/ai_duel مرفوض", has(await err(mkAi(S, S, mkQ(5), subS)), "feature_disabled") || has(await err(mkAi(S, S, mkQ(5), subS)), "bad_opponent"));
-ok("لم تُنشأ أسئلة private من المحاولات الفاشلة", (await n("select count(*) c from public.questions where status='private'")) === 0);
+// ══════════ create_ai_duel: server only ══════════
+ok("a student cannot call create_ai_duel directly", denied(await err(q(A, "select public.create_ai_duel($1,$2,$3,$4,$5::jsonb)", [A, B, subI, [lessI], JSON.stringify(mkQ(5))]))));
+ok("anon cannot call it", denied(await err(anon("select public.create_ai_duel($1,$2,$3,$4,$5::jsonb)", [A, B, subI, [lessI], JSON.stringify(mkQ(5))]))));
+ok("fewer than 5 questions is rejected", has(await err(mkAi(A, B, mkQ(4))), "not_enough_questions"));
+ok("more than 15 is rejected", has(await err(mkAi(A, B, mkQ(16))), "bad_questions"));
+ok("a three-option question is rejected", has(await err(mkAi(A, B, [...mkQ(4), { statement: "x", options: ["a", "b", "c"], correct_index: 0, explanation: "e" }])), "bad_questions"));
+ok("an opponent from another space is rejected", has(await err(mkAi(A, S, mkQ(5))), "bad_opponent"));
+ok("a subject from another space is rejected", has(await err(mkAi(A, B, mkQ(5), subS)), "bad_subject"));
+ok("a space without duel/ai_duel is rejected", has(await err(mkAi(S, S, mkQ(5), subS)), "feature_disabled") || has(await err(mkAi(S, S, mkQ(5), subS)), "bad_opponent"));
+ok("no private questions were created by the failed attempts", (await n("select count(*) c from public.questions where status='private'")) === 0);
 
 const d = (await mkAi(A, B, mkQ(6)))[0].id;
-ok("Duel أُنشئ بـ6 أسئلة private", (await n("select cardinality(question_ids) c from public.duels where id=$1", [d])) === 6 && (await n("select count(*) c from public.questions where status='private'")) === 6);
-ok("duel_exists عند محاولة ثانية مع نفس الزميل", has(await err(mkAi(A, B, mkQ(5))), "duel_exists"));
+ok("Duel created with 6 private questions", (await n("select cardinality(question_ids) c from public.duels where id=$1", [d])) === 6 && (await n("select count(*) c from public.questions where status='private'")) === 6);
+ok("duel_exists on a second attempt with the same classmate", has(await err(mkAi(A, B, mkQ(5))), "duel_exists"));
 
-// ══════════ عزل أسئلة private ══════════
-ok("الطالب لا يقرأ أسئلة private", (await q(A, "select count(*)::int c from public.questions where status='private'"))[0].c === 0);
-ok("المشرف ومشرف الفضاء لا يرونها", (await q(SAI, "select count(*)::int c from public.questions where status='private'"))[0].c === 0 && (await q(ADM, "select count(*)::int c from public.questions where status='private'"))[0].c === 0);
-ok("create_duel العادي لا يلتقطها (لا أسئلة منشورة)", has(await err(q(A, "select public.create_duel($1,$2,'{}',5)", [(await mkP("z", "student", IAA)), subI])), "not_enough_questions"));
+// ══════════ Isolation of private questions ══════════
+ok("a student cannot read private questions", (await q(A, "select count(*)::int c from public.questions where status='private'"))[0].c === 0);
+ok("a moderator and a space admin cannot see them", (await q(SAI, "select count(*)::int c from public.questions where status='private'"))[0].c === 0 && (await q(ADM, "select count(*)::int c from public.questions where status='private'"))[0].c === 0);
+ok("the regular create_duel does not pick them up (no published questions)", has(await err(q(A, "select public.create_duel($1,$2,'{}',5)", [(await mkP("z", "student", IAA)), subI])), "not_enough_questions"));
 
-// ══════════ اللعب: الأسئلة بلا الإجابة، والنتيجة بعد الاكتمال ══════════
+// ══════════ Playing: questions without the answer, result after completion ══════════
 const play = async (u, qs) => { for (const x of qs) await q(u, "select public.duel_answer($1,$2,$3)", [d, x.id, x.pick(x)]); };
 const dq = (await q(A, "select public.duel_questions($1) r", [d]))[0].r;
-ok("duel_questions يعيد 6 أسئلة بلا correct_index", dq.questions.length === 6 && dq.questions.every((x) => x.correct_index === undefined && x.options.length === 4));
+ok("duel_questions returns 6 questions without correct_index", dq.questions.length === 6 && dq.questions.every((x) => x.correct_index === undefined && x.options.length === 4));
 const truth = await db.query("select id, correct_index from public.questions where status='private'");
 const ci = new Map(truth.rows.map((r) => [r.id, r.correct_index]));
 await play(A, dq.questions.map((x) => ({ id: x.id, pick: (y) => ci.get(y.id) })));
-ok("المتحدّي أنهى فصار التحدي open", (await one("select status from public.duels where id=$1", [d])).status === "open");
+ok("the challenger finished, so the duel is open", (await one("select status from public.duels where id=$1", [d])).status === "open");
 const dqB = (await q(B, "select public.duel_questions($1) r", [d]))[0].r;
 await play(B, dqB.questions.map((x) => ({ id: x.id, pick: (y) => (ci.get(y.id) + 1) % 4 })));
 const res = (await q(A, "select public.duel_result($1) r", [d]))[0].r;
-ok("انتهى التحدي والفائز المتحدّي", res.status === "completed" && res.winner_id === A);
-ok("النتيجة تكشف الإجابة الصحيحة والشرح فقط بعد الاكتمال", res.questions.length === 6 && res.questions.every((x) => Number.isInteger(x.correct_index) && x.explanation === "لأن"));
-ok("غير اللاعبين لا يرون النتيجة", has(await err(q(SAI, "select public.duel_result($1)", [d])), "duel_not_found"));
+ok("the duel finished and the challenger won", res.status === "completed" && res.winner_id === A);
+ok("the result reveals the correct answer and explanation only after completion", res.questions.length === 6 && res.questions.every((x) => Number.isInteger(x.correct_index) && x.explanation === "لأن"));
+ok("non-players cannot see the result", has(await err(q(SAI, "select public.duel_result($1)", [d])), "duel_not_found"));
 
-// ══════════ التنظيف ══════════
+// ══════════ Cleanup ══════════
 await db.query("update public.questions set created_at = now() - interval '91 days' where status='private'");
 await svc("select public.duel_sweep()");
-ok("duel_sweep يحذف أسئلة private بعد 90 يومًا", (await n("select count(*) c from public.questions where status='private'")) === 0);
+ok("duel_sweep deletes private questions after 90 days", (await n("select count(*) c from public.questions where status='private'")) === 0);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

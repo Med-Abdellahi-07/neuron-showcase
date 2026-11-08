@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parentPath } from "../src/lib/nav.ts";
 
-test("الصفحة الأم لكل مسار داخلي", () => {
+test("parent page for each internal path", () => {
   assert.equal(parentPath("/subjects"), "/");
   assert.equal(parentPath("/subjects/LIAA311"), "/subjects");
   assert.equal(parentPath("/subjects/LIAA311/cm"), "/subjects/LIAA311");
