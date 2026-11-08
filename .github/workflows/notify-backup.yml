@@ -1,7 +1,7 @@
-# احتياطي: يستدعي مهمة الإشعارات اليومية يدوياً أو بجدول، إن لم تعمل Vercel Cron على خطتك.
-# المهمة آمنة للتكرار (لا ترسل الإشعار نفسه مرتين). أضف في GitHub → Settings → Secrets → Actions:
-#   SITE_URL  (مثل https://neuron-flame.vercel.app)   و   CRON_SECRET (نفس القيمة في Vercel)
-# لتفعيل الجدولة التلقائية بدل اليدوي: أزل علامة # من سطري schedule.
+# Fallback: triggers the daily notification job manually or on a schedule, if Vercel Cron is not available on your plan.
+# The job is idempotent (it never sends the same notification twice). Add in GitHub -> Settings -> Secrets -> Actions:
+#   SITE_URL (e.g. https://neuron-flame.vercel.app) and CRON_SECRET (same value as in Vercel)
+# To enable the schedule instead of manual runs: remove the # from the two schedule lines.
 name: notify-backup
 on:
   workflow_dispatch:

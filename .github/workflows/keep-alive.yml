@@ -1,7 +1,7 @@
-# يستدعي الدالة public.ping() في Supabase كل 3 أيام (استعلام فعلي على قاعدة البيانات)
-# كي لا يتوقف المشروع المجاني في العطل. يتطلب تنفيذ supabase/migrations/0004_ping.sql أولاً.
-# أضف في GitHub → Settings → Secrets and variables → Actions:
-#   SUPABASE_URL  و  SUPABASE_ANON_KEY
+# Calls public.ping() in Supabase every 3 days (a real database query)
+# so the free-tier project is not paused during quiet periods. Requires supabase/migrations/0004_ping.sql to be applied first.
+# Add in GitHub -> Settings -> Secrets and variables -> Actions:
+#   SUPABASE_URL and SUPABASE_ANON_KEY
 name: keep-supabase-alive
 on:
   schedule:
@@ -19,8 +19,8 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY" || { echo "secrets missing"; exit 1; }
           url="${SUPABASE_URL%/}/rest/v1/rpc/ping"
-          # المفاتيح الجديدة (sb_publishable_...) ليست JWT: تُرسل في apikey فقط.
-          # المفاتيح القديمة (eyJ...) تُرسل أيضاً في Authorization.
+          # New-style keys (sb_publishable_...) are not JWTs: send them in apikey only.
+          # Legacy keys (eyJ...) are also sent in Authorization.
           if [[ "$SUPABASE_ANON_KEY" == eyJ* ]]; then
             code=$(curl -s -o body.txt -w "%{http_code}" -X POST "$url" \
               -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
